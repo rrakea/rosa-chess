@@ -45,7 +45,7 @@ pub fn init_magics() {
                 unsafe {
                     ROOK_MOVEMASK[sq][index as usize] = movemask;
                 }
-            } // If not the
+            }
         }
     }
 
@@ -76,13 +76,13 @@ pub fn queen_mask(sq: u8, p: &Pos) -> u64 {
 }
 
 pub fn rook_mask(sq: u8, p: &Pos) -> u64 {
-    let full = p.full;
-    let premask = unsafe { mv::constants::ROOK_MASKS[sq as usize] };
-    let magic = ROOK_MAGIC[sq as usize];
-    let shift = ROOK_SHIFT[sq as usize];
-    let blocker = premask & full;
+    let sq = sq as usize;
+    let premask = unsafe { mv::constants::ROOK_MASKS[sq] };
+    let magic = ROOK_MAGIC[sq];
+    let shift = ROOK_SHIFT[sq];
+    let blocker = premask & p.full;
     let index = (blocker * magic) >> shift;
-    let movemask = unsafe { ROOK_MOVEMASK[sq as usize][index as usize] };
+    let movemask = unsafe { ROOK_MOVEMASK[sq][index as usize] };
     movemask
 }
 
