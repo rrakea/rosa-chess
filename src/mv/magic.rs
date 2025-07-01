@@ -9,7 +9,8 @@ const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
 
 pub fn init_magics() {
     // Rook movemasks
-    for sq in 0..64 {
+    // for sq in 0..64 {
+
         let magic = ROOK_MAGIC[sq];
         let shift = ROOK_SHIFT[sq];
         let premask = unsafe { mv::constants::ROOK_MASKS[sq as usize] };
@@ -22,7 +23,7 @@ pub fn init_magics() {
             let mut pos_mv = Vec::new();
             for offset in ROOK_OFFSETS {
                 for (i, sq) in (1..8).enumerate() {
-                    let new_pos = sq as i8 + offset * i as i8;
+                let new_pos = sq as i8 + offset * i as i8;
                     if new_pos >= 0
                         || new_pos < 64
                         || util::util::no_wrap(

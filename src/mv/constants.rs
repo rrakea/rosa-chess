@@ -32,7 +32,10 @@ fn mask_from_offset(offset: &Vec<i8>, iterator: i8) -> [u64; 64] {
         for o in offset {
             for i in 1..=iterator {
                 let new_pos = (sq as i8) + (o * i);
-                if new_pos >= 0 && new_pos < 64 && util::util::no_wrap(((sq as i8) + (o * (i -1))) as u8, new_pos as u8) {
+                if new_pos >= 0
+                    && new_pos < 64
+                    && util::util::no_wrap(((sq as i8) + (o * (i - 1))) as u8, new_pos as u8)
+                {
                     pos_sq.push(new_pos as u8);
                 } else {
                     break;
@@ -51,12 +54,12 @@ fn print_masks() {
         util::prittify::pritify_bitboard(*bb);
     }
     println!("BISHOP MASKS: \n");
-    for (sq, bb) in unsafe { BISHOP_MASKS}.iter().enumerate() {
+    for (sq, bb) in unsafe { BISHOP_MASKS }.iter().enumerate() {
         println!("{}", sq);
         util::prittify::pritify_bitboard(*bb);
     }
     println!("ROOK MASKS: \n");
-    for (sq, bb) in unsafe { ROOK_MASKS}.iter().enumerate() {
+    for (sq, bb) in unsafe { ROOK_MASKS }.iter().enumerate() {
         println!("{}", sq);
         util::prittify::pritify_bitboard(*bb);
     }
