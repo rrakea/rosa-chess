@@ -89,7 +89,7 @@ fn queen(p: &Pos) -> Vec<u16> {
 }
 
 fn rook(p: &Pos) -> Vec<u16> {
-    let bb = if p.active == 1 { p.wn } else { p.bn };
+    let bb = if p.active == 1 { p.wr } else { p.br };
     let squares = bboard::get(bb);
     let mut mv = Vec::new();
     for sq in squares {
@@ -111,7 +111,7 @@ fn bishop(p: &Pos) -> Vec<u16> {
 }
 
 fn knight(p: &Pos) -> Vec<u16> {
-    let bb = if p.active == 1 { p.wk } else { p.bk };
+    let bb = if p.active == 1 { p.wn } else { p.bn };
     // There can only be one king
     let sq = bboard::get_single(bb);
     let mut mv = Vec::new();
@@ -121,7 +121,7 @@ fn knight(p: &Pos) -> Vec<u16> {
 }
 
 fn king(p: &Pos) -> Vec<u16> {
-    let bb = if p.active == 1 { p.wn } else { p.bn };
+    let bb = if p.active == 1 { p.wk } else { p.bk };
     let squares = bboard::get(bb);
     let mut mv = Vec::new();
     for sq in squares {

@@ -1,72 +1,3 @@
-use crate::util;
-/*
-    This is a file for tracking and generating different constants.
-    Such as different masks for pieces on each square,
-    magic bitboard numbers and masks for the different pieces
-*/
-
-pub static mut BISHOP_MASKS: [u64; 64] = [0; 64];
-pub static mut ROOK_MASKS: [u64; 64] = [0; 64];
-pub static mut KNIGHT_MASKS: [u64; 64] = [0; 64];
-pub static mut KING_MASKS: [u64; 64] = [0; 64];
-
-pub fn init_piecemask() {
-    let bishop_offsets = vec![7, 9, -7, -9];
-    let rook_offsets = vec![1, -1, 8, -8];
-    let king_offsets = vec![1, -1, 8, -8, 7, -7, 9, -9];
-    let knight_offsets = vec![-10, 6, 15, 17, 10, -6, -15, -17];
-
-    unsafe {
-        KING_MASKS = mask_from_offset(&king_offsets, 1);
-        BISHOP_MASKS = mask_from_offset(&bishop_offsets, 8);
-        ROOK_MASKS = mask_from_offset(&rook_offsets, 8);
-        KNIGHT_MASKS = mask_from_offset(&knight_offsets, 1);
-    }
-}
-
-fn mask_from_offset(offset: &Vec<i8>, iterator: i8) -> [u64; 64] {
-    let mut mask = [0; 64];
-
-    for sq in 0..64 {
-        let mut pos_sq = Vec::new();
-        for o in offset {
-            for i in 1..=iterator {
-                let new_pos = (sq as i8) + (o * i);
-                if new_pos >= 0 && new_pos < 64 && util::util::no_wrap(((sq as i8) + (o * (i -1))) as u8, new_pos as u8) {
-                    pos_sq.push(new_pos as u8);
-                } else {
-                    break;
-                }
-            }
-        }
-        mask[sq as usize] = util::mask::one_at(pos_sq);
-    }
-    mask
-}
-
-fn print_masks() {
-    println!("KING MASKS: \n");
-    for (sq, bb) in unsafe { KING_MASKS }.iter().enumerate() {
-        println!("{}", sq);
-        util::prittify::pritify_bitboard(*bb);
-    }
-    println!("BISHOP MASKS: \n");
-    for (sq, bb) in unsafe { BISHOP_MASKS}.iter().enumerate() {
-        println!("{}", sq);
-        util::prittify::pritify_bitboard(*bb);
-    }
-    println!("ROOK MASKS: \n");
-    for (sq, bb) in unsafe { ROOK_MASKS}.iter().enumerate() {
-        println!("{}", sq);
-        util::prittify::pritify_bitboard(*bb);
-    }
-    println!("KNIGHT MASKS: \n");
-    for (sq, bb) in unsafe { KNIGHT_MASKS }.iter().enumerate() {
-        println!("{}", sq);
-        util::prittify::pritify_bitboard(*bb);
-    }
-}
-
 // Masks when we want to check for specific file/ rank
 // e.g. When cheching if a pawn can queen on the next turn
 // RANK[0] corresponds to RANK 1 (not like they are displayed here)
@@ -91,3 +22,98 @@ pub const FILE_MASKS: [u64; 8] = [
     0x4040404040404040,
     0x8080808080808080,
 ];
+
+pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
+pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
+pub const KING_OFFSETS: [i8; 8] = [1, -1, 8, -8, 7, -7, 9, -9];
+pub const KNIGHT_OFFSETS: [i8; 8] = [-10, 6, 15, 17, 10, -6, -15, -17];
+
+// premask = moves on an empty board
+pub static mut BISHOP_PREMASKS: [u64; 64] = [0; 64];
+pub static mut ROOK_PREMASKS: [u64; 64] = [0; 64];
+pub static mut KNIGHT_PREMASKS: [u64; 64] = [0; 64];
+pub static mut KING_PREMASKS: [u64; 64] = [0; 64];
+
+pub static mut ROOK_PREMASKS_TRUNC: [u64; 64] = [0; 64];
+pub static mut BISHOP_PREMASKS_TRUNC: [u64; 64] = [0; 64];
+
+// what we actually index into when we calculate our index with the magics
+pub static mut ROOK_LOOKUP: [Vec<u64>; 64] = [const { Vec::new() }; 64];
+pub static mut BISHOP_LOOKUP: [Vec<u64>; 64] = [const { Vec::new() }; 64];
+
+// Precalculated
+pub const ROOK_MAGIC: [u64; 64] = [
+    0x0680008140001261,
+    0x0040200440001000,
+    0x820008208010c201,
+    0xc100042050000900,
+    0x0200200470080600,
+    0x3200042a00481003,
+    0x0200081405820005,
+    0xe700058150210002,
+    0x00408000c0028024,
+    0x0020400550002001,
+    0x0002006011820040,
+    0x0008801001580084,
+    0xa00b000508010050,
+    0x2049000822040100,
+    0x2401001200050004,
+    0x6004800080084300,
+    0x00002080028a4000,
+    0x0820008020884000,
+    0x0430a20040811200,
+    0x0002020008204010,
+    0x10410100500c0800,
+    0x42010100020400d8,
+    0x440004003008032a,
+    0x2000820000610484,
+    0x5014400080018030,
+    0xe220002040100044,
+    0x0880200880100080,
+    0x0a00080080801000,
+    0x8222900500080100,
+    0x1c10440080800200,
+    0x0002004200080104,
+    0x00010005000080c2,
+    0x0001614000800880,
+    0x0108e20502004080,
+    0x0002801003802000,
+    0x0500402112002a00,
+    0x0006820c00801800,
+    0x0000800c00802a00,
+    0x0102100a04000829,
+    0x000e40850a0011c4,
+    0x0062a14001818008,
+    0x00012000d000c000,
+    0x0002e00100410018,
+    0x0520080010008080,
+    0x0844008008008024,
+    0x40420084483a0010,
+    0x0002003801420004,
+    0x02001c2080420001,
+    0x8801002052008200,
+    0x2120022080400080,
+    0x0a00402001001100,
+    0x3000380250008080,
+    0x0101080104008080,
+    0x0000801400160080,
+    0x0200020110182400,
+    0x00600080c1040a00,
+    0x5080022040110281,
+    0x0000820511012046,
+    0x0088410020004811,
+    0x000b000810002005,
+    0x0a2a130003080051,
+    0x100100080c001a01,
+    0x244606500b008804,
+    0x0026004400310082,
+];
+
+pub const ROOK_SHIFT: [u8; 64] = [
+    12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
+];
+
+pub const BISHOP_MAGIC: [u64; 64] = [0; 64];
+pub const BISHOP_SHIFT: [u8; 64] = [0; 64];
