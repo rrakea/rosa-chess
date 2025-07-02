@@ -23,7 +23,6 @@ pub const FILE_MASKS: [u64; 8] = [
     0x8080808080808080,
 ];
 
-
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
 pub const KING_OFFSETS: [i8; 8] = [1, -1, 8, -8, 7, -7, 9, -9];
@@ -39,8 +38,8 @@ pub static mut ROOK_PREMASKS_TRUNC: [u64; 64] = [0; 64];
 pub static mut BISHOP_PREMASKS_TRUNC: [u64; 64] = [0; 64];
 
 // what we actually index into when we calculate our index with the magics
-pub static mut ROOK_LOOKUP: [Vec<u64>; 64] = [const {Vec::new()}; 64];
-pub static mut BISHOP_LOOKUP: [Vec<u64>; 64] = [const {Vec::new()}; 64];
+pub static mut ROOK_LOOKUP: [Vec<u64>; 64] = [const { Vec::new() }; 64];
+pub static mut BISHOP_LOOKUP: [Vec<u64>; 64] = [const { Vec::new() }; 64];
 
 // Precalculated
 pub const ROOK_MAGIC: [u64; 64] = [
