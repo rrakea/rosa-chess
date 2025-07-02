@@ -10,7 +10,7 @@ const BOTTOM_RIGHT_SQ: usize = 7;
 const TOP_LEFT_SQ: usize = 56;
 const TOP_RIGHT_SQ: usize = 63;
 
-pub fn apply(p: &Pos, mv: Mv) -> Option<Pos> {
+pub fn apply(p: &Pos, mv: &Mv) -> Option<Pos> {
     let mut npos = p.clone();
 
     // This is the new zobrist key

@@ -1,7 +1,7 @@
 use crate::mv::mv;
 use crate::pos::pos;
 
-pub fn draw(p: &pos::Pos, eval: f64, time_used: u64, search_depth: u8, top_move: mv::Mv) {
+pub fn draw(p: &pos::Pos, eval: f64, time_used: u64, search_depth: u8, top_move: &mv::Mv) {
     let mut line: Vec<&str> = Vec::new();
     let mut board: Vec<String> = Vec::new();
 
@@ -54,7 +54,7 @@ pub fn square_name(sq: u8) -> String {
     format!("{}{}", filestr, rankstr)
 }
 
-pub fn prittify_move(p: &pos::Pos, mv: mv::Mv) -> String {
+pub fn prittify_move(p: &pos::Pos, mv: &mv::Mv) -> String {
     let mv = mv.squares();
     let sq = square_name(mv.1);
     let code = p.sq[mv.1 as usize] * p.active;

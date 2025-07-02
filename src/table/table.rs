@@ -1,5 +1,6 @@
 use crate::pos::pos;
 use rand::RngCore;
+use crate::mv::mv::Mv;
 
 pub struct TT {
     t: Vec<Entry>,
@@ -8,8 +9,8 @@ pub struct TT {
 #[derive(Clone, Default)]
 pub struct Entry {
     pub key: u64,
-    pub best: u16,
-    pub second: u16,
+    pub best: Mv,
+    pub second: Mv,
     pub score: i8,
     pub depth: u8,
     pub node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound

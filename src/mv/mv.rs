@@ -24,6 +24,7 @@ pub enum MvFlag {
     QPromCap = 15,
 }
 
+#[derive(Clone,Default)]
 pub struct Mv(u16);
 
 impl Mv {
