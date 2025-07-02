@@ -1,6 +1,6 @@
-use crate::mv::mv;
-use crate::pos::pos;
+use crate::mv::mv::{Mv, MvFlag};
 use crate::pos::bboard;
+use crate::pos::pos;
 use crate::pos::pos::Pos;
 use crate::table::table;
 use crate::util;
@@ -10,7 +10,7 @@ const BOTTOM_RIGHT_SQ: usize = 7;
 const TOP_LEFT_SQ: usize = 56;
 const TOP_RIGHT_SQ: usize = 63;
 
-pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
+pub fn apply(p: &Pos, mv: Mv) -> Option<Pos> {
     let mut npos = p.clone();
 
     // This is the new zobrist key
@@ -27,7 +27,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
     let new_act = -npos.active;
     npos.active = new_act;
     key ^= table::color_hash();
-    let sq = mv::full_move(mv);
+    let sq = mv.squares();
     let start = sq.0 as usize;
     let end = sq.1 as usize;
 
@@ -60,15 +60,15 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
     set_bboard(&mut npos, piece, start, 0);
     set_bboard(&mut npos, piece, end, 1);
 
-    match mv::mv_code(mv) {
+    match mv.flag() {
         // The capture is set bellow together with promotion captures
-        mv::QUIET | mv::CAP | mv::EN_PASSANT => {}
-        mv::DOUBLE_PAWN => {
+        MvFlag::Quiet | MvFlag::Cap | MvFlag::Ep => (),
+        MvFlag::DoubleP => {
             ep_file = util::util::file(end as u8);
             key ^= table::ep_hash(ep_file);
         }
 
-        mv::B_PROM | mv::B_PROM_CAP => {
+        MvFlag::BProm | MvFlag::BPromCap => {
             let piece = if old_act == 1 {
                 pos::WBISHOP
             } else {
@@ -77,7 +77,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
             npos.sq[end] = piece;
             key ^= table::piece_hash(end, piece);
         }
-        mv::N_PROM | mv::N_PROM_CAP => {
+        MvFlag::NProm | MvFlag::NPromCap => {
             let piece = if old_act == 1 {
                 pos::WKNIGHT
             } else {
@@ -86,12 +86,12 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
             npos.sq[end] = piece;
             key ^= table::piece_hash(end, piece);
         }
-        mv::R_PROM | mv::R_PROM_CAP => {
+        MvFlag::RProm | MvFlag::RPromCap => {
             let piece = if old_act == 1 { pos::WROOK } else { pos::BROOK };
             npos.sq[end] = piece;
             key ^= table::piece_hash(end, piece);
         }
-        mv::Q_PROM | mv::Q_PROM_CAP => {
+        MvFlag::QProm | MvFlag::QPromCap => {
             let piece = if old_act == 1 {
                 pos::WQUEEN
             } else {
@@ -101,7 +101,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
             key ^= table::piece_hash(end, piece);
         }
 
-        mv::W_K_CASTLE => {
+        MvFlag::WKCastle => {
             set_bboard(&mut npos, pos::WROOK, BOTTOM_RIGHT_SQ, 0);
             npos.sq[BOTTOM_RIGHT_SQ] = 0;
             key ^= table::piece_hash(BOTTOM_RIGHT_SQ, pos::WROOK);
@@ -112,7 +112,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
 
             w_castle = (false, false);
         }
-        mv::W_Q_CASTLE => {
+        MvFlag::WQCastle => {
             set_bboard(&mut npos, pos::WROOK, BOTTOM_LEFT_SQ, 1);
             npos.sq[BOTTOM_LEFT_SQ] = 0;
             key ^= table::piece_hash(BOTTOM_LEFT_SQ, pos::WROOK);
@@ -123,8 +123,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
 
             w_castle = (false, false);
         }
-        mv::B_K_CASTLE => {
-            set_bboard(&mut npos, pos::BROOK, TOP_RIGHT_SQ, 1);
+        MvFlag::BKCastle => {
             npos.sq[TOP_RIGHT_SQ] = 0;
             key ^= table::piece_hash(TOP_RIGHT_SQ, pos::BROOK);
 
@@ -134,7 +133,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
 
             b_castle = (false, false);
         }
-        mv::B_Q_CASTLE => {
+        MvFlag::BQCastle => {
             set_bboard(&mut npos, pos::BROOK, TOP_LEFT_SQ, 1);
             npos.sq[TOP_LEFT_SQ] = 0;
             key ^= table::piece_hash(TOP_LEFT_SQ, pos::BROOK);
@@ -145,21 +144,11 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
 
             b_castle = (false, false);
         }
-
-        _ => panic!("Invalid mv code: {}", mv::mv_code(mv)),
-    };
+    }
 
     // This sets the of the captured piece in the bitboard to 0
-    match mv::mv_code(mv) {
-        mv::CAP
-        | mv::EN_PASSANT
-        | mv::N_PROM_CAP
-        | mv::B_PROM_CAP
-        | mv::R_PROM_CAP
-        | mv::Q_PROM_CAP => {
-            set_bboard(&mut npos, op_piece, end, 0);
-        }
-        _ => (),
+    if mv.is_cap() {
+        set_bboard(&mut npos, op_piece, end, 0);
     }
 
     // This is active player agnostic
@@ -201,7 +190,6 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
     npos.data = pos::gen_data(ep_file, w_castle, b_castle);
     npos.key = key;
 
-
     if legal_pos(&npos) {
         return Some(npos);
     } else {
@@ -223,7 +211,7 @@ fn set_bboard(p: &mut Pos, piece: i8, sq: usize, val: i8) {
         pos::BROOK => p.br,
         pos::BQUEEN => p.bq,
         pos::BKING => p.bk,
-        _ => panic!("Invalid pices code: {}", piece),
+        _ => panic!("Invalid piece code: {}", piece),
     };
 
     if val == 0 {
@@ -241,11 +229,7 @@ fn set_bboard(p: &mut Pos, piece: i8, sq: usize, val: i8) {
         pos::WKING => p.wk = bb,
         pos::BPAWN => p.bp = bb,
         pos::BBISHOP => p.bb = bb,
-        pos::BKNIGHT => p.bn = bb,
-        pos::BROOK => p.br = bb,
-        pos::BQUEEN => p.bq = bb,
-        pos::BKING => p.bk = bb,
-        _ => panic!("Invalid pices code: {}", piece),
+        _ => panic!("Invalid piece code: {}", piece)
     }
 }
 
