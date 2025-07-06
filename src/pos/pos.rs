@@ -34,11 +34,11 @@ pub struct Pos {
     pub bk: u64,
 
     // Full board bitboard
-    pub full: u64
+    pub full: u64,
     
     // Attack Tables
-    pub wattack: u64,
-    pub battack: u64,
+    pub wattack: [u8; 64],
+    pub battack: [u8; 64],
 
     // Square centric representation
     // Using the consts defined
@@ -76,3 +76,4 @@ impl Pos {
 pub fn start_pos() -> Pos {}
 
 pub fn gen_data(ep_rank: u8, w_castle: (bool, bool), b_castle: (bool, bool)) -> u8 {}
+

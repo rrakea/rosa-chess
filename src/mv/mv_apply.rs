@@ -1,6 +1,6 @@
 use crate::mv::mv;
-use crate::pos::pos;
 use crate::pos::bboard;
+use crate::pos::pos;
 use crate::pos::pos::Pos;
 use crate::table::table;
 use crate::util;
@@ -10,16 +10,20 @@ const BOTTOM_RIGHT_SQ: usize = 7;
 const TOP_LEFT_SQ: usize = 56;
 const TOP_RIGHT_SQ: usize = 63;
 
-pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
-    let mut npos = p.clone();
+// This function takes a position and a move
+// and returns the position after the move
+// It update the zobrist key, the bitboards,
+// the square based board and the attack boards.
+pub fn apply(old_p: &Pos, mv: u16) -> Option<Pos> {
+    let mut npos = old_p.clone();
 
     // This is the new zobrist key
     // It will be update through this functions through calls to table::xxx_hash()
-    let mut key = p.key;
+    let mut key = old_p.key;
 
-    let mut w_castle = p.castling(1);
-    let mut b_castle = p.castling(-1);
-    let mut ep_file = p.en_passant_file();
+    let mut w_castle = old_p.castling(1);
+    let mut b_castle = old_p.castling(-1);
+    let mut ep_file = old_p.en_passant_file();
     // Remove the old ep file from the hash
     key ^= table::ep_hash(ep_file);
 
@@ -46,7 +50,7 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
         key ^= table::castel_hash(old_act, false)
     }
 
-    // Set the values in the square base represantation
+    // Set the values in the square based represantation
     let piece = npos.sq[start as usize];
     let op_piece = npos.sq[end as usize];
     npos.sq[start] = 0;
@@ -197,10 +201,9 @@ pub fn apply(p: &Pos, mv: u16) -> Option<Pos> {
         }
     }
 
-    npos.full = bboard::bb_all(p);
+    npos.full = bboard::bb_all(old_p);
     npos.data = pos::gen_data(ep_file, w_castle, b_castle);
     npos.key = key;
-
 
     if legal_pos(&npos) {
         return Some(npos);
