@@ -24,10 +24,10 @@ fn reserve_lookup() {
 fn init_premasks() {
     unsafe {
         for sq in 0..64 {
-            KING_PREMASKS[sq] = gen_move_mask(sq, &KING_OFFSETS, 1, 0, false);
+            KING_MASKS[sq] = gen_move_mask(sq, &KING_OFFSETS, 1, 0, false);
             BISHOP_PREMASKS[sq] = gen_move_mask(sq, &BISHOP_OFFSETS, 8, 0, false);
             ROOK_PREMASKS[sq] = gen_move_mask(sq, &ROOK_OFFSETS, 8, 0, false);
-            KNIGHT_PREMASKS[sq] = gen_move_mask(sq, &KNIGHT_OFFSETS, 1, 0, false);
+            KNIGHT_MASKS[sq] = gen_move_mask(sq, &KNIGHT_OFFSETS, 1, 0, false);
 
             BISHOP_PREMASKS_TRUNC[sq] = gen_move_mask(sq, &BISHOP_OFFSETS, 8, 0, true);
             ROOK_PREMASKS_TRUNC[sq] = gen_move_mask(sq, &ROOK_OFFSETS, 8, 0, true);
@@ -71,7 +71,7 @@ fn init_lookups() {
                 last_iteration = true
             }
             let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
-            unsafe {                       
+            unsafe {
                 BISHOP_LOOKUP[sq][blocker_index as usize] = bishop_movemask;
             }
             blocker_index += 1;

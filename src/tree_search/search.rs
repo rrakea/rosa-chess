@@ -1,4 +1,5 @@
 use crate::eval::eval;
+use crate::mv::mv::Mv;
 use crate::mv;
 use crate::pos::pos;
 use crate::table::table;
@@ -15,7 +16,7 @@ static TT: Lazy<RwLock<table::TT>> = Lazy::new(|| RwLock::new(table::init_transp
 
 // State, time -> eval, best move, search depth, time taken
 // Time in milliseconds!!!!!
-pub fn search(p: &pos::Pos, time: u64) -> (f64, u16, u8, u64) {
+pub fn search(p: &pos::Pos, time: u64) -> (f64, Mv, u8, u64) {
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
     unsafe {
@@ -50,7 +51,7 @@ pub fn search(p: &pos::Pos, time: u64) -> (f64, u16, u8, u64) {
     )
 }
 
-// state, depth, alpha, beta, ply from root, prev zobrist key -> eval, best move
+// state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &pos::Pos, depth: u8, mut a: f64, b: f64, ply: u8) -> f64 {
     // Search is done
     if depth == 0 {
@@ -72,16 +73,16 @@ fn negascout(p: &pos::Pos, depth: u8, mut a: f64, b: f64, ply: u8) -> f64 {
     }
 
     let mut best_score = f64::MIN;
-    let mut best_move = 0;
+    let mut best_move = Mv::new_null(); 
 
     let mut second_score = f64::MIN;
-    let mut second_move = 0;
+    let mut second_move = Mv::new_null();
 
     // Iterator
-    let move_gen = mv::mv_gen::mv_gen(p, &entry.best, &entry.second);
+    let move_gen = mv::mv_gen::mv_gen(p, entry.best, entry.second);
 
     for (i, m) in move_gen.enumerate() {
-        let outcome = mv::mv_apply::apply(p, m);
+        let outcome = mv::mv_apply::apply(p, &m);
         let outcome = match outcome {
             Some(o) => o,
             None => continue,

@@ -1,6 +1,6 @@
 use crate::mv::constants;
 use crate::mv::magic;
-use crate::mv::mv;
+use crate::mv::mv::{Mv, MvFlag};
 use crate::pos::pos::Pos;
 use crate::pos::{bboard, pos};
 use crate::util::mask;
@@ -16,8 +16,8 @@ use std::iter;
 // -> When a cutoff is reached the rest of the moves dont get generated at all
 // The moves are order such that the most likely good moves are at the top
 // e.g. Promotions
-pub fn mv_gen(p: &Pos, best: &u16, second: &u16) -> impl Iterator<Item = u16> {
-    iter::once_with(|| wrapper(*best, *second))
+pub fn mv_gen(p: &Pos, best: Mv, second: Mv) -> impl Iterator<Item = Mv> {
+    iter::once_with(|| wrapper(best, second))
         .chain(iter::once_with(|| promotions(p)))
         .chain(iter::once_with(|| queen(p)))
         .chain(iter::once_with(|| rook(p)))
@@ -32,11 +32,11 @@ pub fn mv_gen(p: &Pos, best: &u16, second: &u16) -> impl Iterator<Item = u16> {
         .flat_map(|v| v.into_iter())
 }
 
-fn wrapper(best: u16, second: u16) -> Vec<u16> {
+fn wrapper(best: Mv, second: Mv) -> Vec<Mv> {
     vec![best, second]
 }
 
-fn promotions(p: &Pos) -> Vec<u16> {
+fn promotions(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
     let rank = if p.active == 1 { 6 } else { 2 };
     let bb = if p.active == 1 { p.wp } else { p.bp };
@@ -49,35 +49,35 @@ fn promotions(p: &Pos) -> Vec<u16> {
             // Multiply with active since black would be -8 offser
             let second_pos: u8 = (pawn as i8 + 8 * p.active) as u8;
             if p.sq[(second_pos) as usize] == 0 {
-                mv.push(mv::gen_mv(pawn, second_pos, mv::N_PROM));
-                mv.push(mv::gen_mv(pawn, second_pos, mv::B_PROM));
-                mv.push(mv::gen_mv(pawn, second_pos, mv::R_PROM));
-                mv.push(mv::gen_mv(pawn, second_pos, mv::Q_PROM));
+                mv.push(Mv::new(pawn, second_pos, MvFlag::NProm));
+                mv.push(Mv::new(pawn, second_pos, MvFlag::BProm));
+                mv.push(Mv::new(pawn, second_pos, MvFlag::RProm));
+                mv.push(Mv::new(pawn, second_pos, MvFlag::QProm));
             }
             let cap_left: u8 = (pawn as i8 + 7 * p.active) as u8;
             if util::no_wrap(pawn, cap_left)
                 && util::dif_colors(p.sq[cap_left as usize], p.sq[pawn as usize])
             {
-                mv.push(mv::gen_mv(pawn, cap_left, mv::N_PROM_CAP));
-                mv.push(mv::gen_mv(pawn, cap_left, mv::B_PROM_CAP));
-                mv.push(mv::gen_mv(pawn, cap_left, mv::R_PROM_CAP));
-                mv.push(mv::gen_mv(pawn, cap_left, mv::Q_PROM_CAP));
+                mv.push(Mv::new(pawn, cap_left, MvFlag::NPromCap));
+                mv.push(Mv::new(pawn, cap_left, MvFlag::BPromCap));
+                mv.push(Mv::new(pawn, cap_left, MvFlag::RPromCap));
+                mv.push(Mv::new(pawn, cap_left, MvFlag::QPromCap));
             }
             let cap_right = (pawn as i8 + 9 * p.active) as u8;
             if util::no_wrap(pawn, cap_right)
                 && util::dif_colors(p.sq[cap_right as usize], p.sq[pawn as usize])
             {
-                mv.push(mv::gen_mv(pawn, cap_right, mv::N_PROM_CAP));
-                mv.push(mv::gen_mv(pawn, cap_right, mv::B_PROM_CAP));
-                mv.push(mv::gen_mv(pawn, cap_right, mv::R_PROM_CAP));
-                mv.push(mv::gen_mv(pawn, cap_right, mv::Q_PROM_CAP));
+                mv.push(Mv::new(pawn, cap_right, MvFlag::NPromCap));
+                mv.push(Mv::new(pawn, cap_right, MvFlag::BPromCap));
+                mv.push(Mv::new(pawn, cap_right, MvFlag::RPromCap));
+                mv.push(Mv::new(pawn, cap_right, MvFlag::QPromCap));
             }
         }
     }
     mv
 }
 
-fn queen(p: &Pos) -> Vec<u16> {
+fn queen(p: &Pos) -> Vec<Mv> {
     let bb = if p.active == 1 { p.wq } else { p.bq };
     let squares = bboard::get(bb);
     let mut mv = Vec::new();
@@ -88,7 +88,7 @@ fn queen(p: &Pos) -> Vec<u16> {
     mv
 }
 
-fn rook(p: &Pos) -> Vec<u16> {
+fn rook(p: &Pos) -> Vec<Mv> {
     let bb = if p.active == 1 { p.wr } else { p.br };
     let squares = bboard::get(bb);
     let mut mv = Vec::new();
@@ -99,7 +99,7 @@ fn rook(p: &Pos) -> Vec<u16> {
     mv
 }
 
-fn bishop(p: &Pos) -> Vec<u16> {
+fn bishop(p: &Pos) -> Vec<Mv> {
     let bb = if p.active == 1 { p.wb } else { p.bb };
     let squares = bboard::get(bb);
     let mut mv = Vec::new();
@@ -110,7 +110,7 @@ fn bishop(p: &Pos) -> Vec<u16> {
     mv
 }
 
-fn knight(p: &Pos) -> Vec<u16> {
+fn knight(p: &Pos) -> Vec<Mv> {
     let bb = if p.active == 1 { p.wn } else { p.bn };
     // There can only be one king
     let sq = bboard::get_single(bb);
@@ -120,7 +120,7 @@ fn knight(p: &Pos) -> Vec<u16> {
     mv
 }
 
-fn king(p: &Pos) -> Vec<u16> {
+fn king(p: &Pos) -> Vec<Mv> {
     let bb = if p.active == 1 { p.wk } else { p.bk };
     let squares = bboard::get(bb);
     let mut mv = Vec::new();
@@ -134,21 +134,21 @@ fn king(p: &Pos) -> Vec<u16> {
 // Gets a mask of all the possible moves a piece can move from
 // its current square -> checks wether the squares are occupied by
 // enemy/ owner pieces and generates the proper u16 representation
-fn mv_from_movemask(p: &Pos, move_mask: u64, start: u8) -> Vec<u16> {
+fn mv_from_movemask(p: &Pos, move_mask: u64, start: u8) -> Vec<Mv> {
     let pos_moves = bboard::get(move_mask);
     let mut mv = Vec::new();
     for pos_mv in pos_moves {
         let end_sq_val = p.sq[pos_mv as usize];
         if end_sq_val == 0 {
-            mv.push(mv::gen_mv(start, pos_mv, mv::QUIET));
+            mv.push(Mv::new(start, pos_mv, MvFlag::Quiet));
         } else if util::dif_colors(end_sq_val, p.active) {
-            mv.push(mv::gen_mv(start, pos_mv, mv::CAP));
+            mv.push(Mv::new(start, pos_mv, MvFlag::Cap));
         } // You dont do anything if the piece is the same color as you
     }
     mv
 }
 
-fn pawn_ep(p: &Pos) -> Vec<u16> {
+fn pawn_ep(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
     if p.is_en_passant() {
         let ep_file = p.en_passant_file() as i8;
@@ -161,18 +161,18 @@ fn pawn_ep(p: &Pos) -> Vec<u16> {
             -pos::WPAWN
         };
         if left != -1 && p.sq[(rank * 8 + left) as usize] == pawn_code {
-            mv.push(mv::gen_mv(
+            mv.push(Mv::new(
                 (rank * 8 + left) as u8,
                 (rank * 8 + ep_file) as u8,
-                mv::EN_PASSANT,
+                MvFlag::Ep,
             ));
         }
 
         if right != 8 && p.sq[(rank * 8 + right) as usize] == pawn_code {
-            mv.push(mv::gen_mv(
+            mv.push(Mv::new(
                 (rank * 8 + right) as u8,
                 (rank * 8 + ep_file) as u8,
-                mv::EN_PASSANT,
+                MvFlag::Ep,
             ));
         }
     }
@@ -180,7 +180,7 @@ fn pawn_ep(p: &Pos) -> Vec<u16> {
     mv
 }
 
-fn castle(p: &Pos) -> Vec<u16> {
+fn castle(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
     let can_castle = p.castling(p.active);
@@ -196,11 +196,11 @@ fn castle(p: &Pos) -> Vec<u16> {
         && king_cant_be_attacked & op_attack == 0
     {
         let code = if p.active == 1 {
-            mv::W_K_CASTLE
+            MvFlag::WKCastle
         } else {
-            mv::B_K_CASTLE
+            MvFlag::BKCastle
         };
-        mv.push(mv::gen_mv(king_pos, king_pos + 2, code))
+        mv.push(Mv::new(king_pos, king_pos + 2, code))
     }
 
     // Queen side
@@ -212,16 +212,16 @@ fn castle(p: &Pos) -> Vec<u16> {
         && queen_cant_be_attacked & op_attack == 0
     {
         let code = if p.active == 1 {
-            mv::W_Q_CASTLE
+            MvFlag::WQCastle
         } else {
-            mv::B_Q_CASTLE
+            MvFlag::BQCastle
         };
-        mv.push(mv::gen_mv(king_pos, king_pos - 2, code));
+        mv.push(Mv::new(king_pos, king_pos - 2, code));
     }
     mv
 }
 
-fn pawn_quiet(p: &Pos) -> Vec<u16> {
+fn pawn_quiet(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
     let possible_positions: u64;
     if p.active == 1 {
@@ -245,13 +245,13 @@ fn pawn_quiet(p: &Pos) -> Vec<u16> {
     for pawn in pawns {
         let second_pos = (pawn as i8 + offset) as u8;
         if p.sq[second_pos as usize] == 0 {
-            mv.push(mv::gen_mv(pawn, second_pos, mv::QUIET));
+            mv.push(Mv::new(pawn, second_pos, MvFlag::Quiet));
         }
     }
     mv
 }
 
-fn pawn_double(p: &Pos) -> Vec<u16> {
+fn pawn_double(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
     let bb = if p.active == 1 { p.wp } else { p.bp };
@@ -264,7 +264,7 @@ fn pawn_double(p: &Pos) -> Vec<u16> {
             let two_move = pawn as i8 + 16 * p.active;
 
             if p.sq[one_move as usize] == 0 && p.sq[two_move as usize] == 0 {
-                mv.push(mv::gen_mv(pawn, two_move as u8, mv::DOUBLE_PAWN));
+                mv.push(Mv::new(pawn, two_move as u8, MvFlag::DoubleP));
             }
         }
     }
@@ -272,6 +272,6 @@ fn pawn_double(p: &Pos) -> Vec<u16> {
     mv
 }
 
-fn pawn_cap(p: &Pos) -> Vec<u16> {
+fn pawn_cap(p: &Pos) -> Vec<Mv> {
     Vec::new()
 }

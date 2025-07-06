@@ -4,61 +4,88 @@ These encodings are purely usefull for manipulating the bitboards after words
 
 Encoding inspired by Chess Programming Wiki:
 */
-
-pub const QUIET: u8 = 0;
-pub const CAP: u8 = 1;
-pub const W_K_CASTLE: u8 = 2;
-pub const W_Q_CASTLE: u8 = 3;
-pub const B_K_CASTLE: u8 = 4;
-pub const B_Q_CASTLE: u8 = 5;
-pub const DOUBLE_PAWN: u8 = 6;
-pub const EN_PASSANT: u8 = 7;
-pub const N_PROM: u8 = 8;
-pub const B_PROM: u8 = 9;
-pub const R_PROM: u8 = 10;
-pub const Q_PROM: u8 = 11;
-pub const N_PROM_CAP: u8 = 12;
-pub const B_PROM_CAP: u8 = 13;
-pub const R_PROM_CAP: u8 = 14;
-pub const Q_PROM_CAP: u8 = 15;
-
-pub fn gen_mv(start: u8, end: u8, code: u8) -> u16 {
-    start as u16 | (end as u16) << 6 | (code as u16) << 12
+#[repr(u16)]
+pub enum MvFlag {
+    Quiet = 0,
+    Cap = 1,
+    WKCastle = 2,
+    WQCastle = 3,
+    BKCastle = 4,
+    BQCastle = 5,
+    DoubleP = 6,
+    Ep = 7,
+    NProm = 8,
+    BProm = 9,
+    RProm = 10,
+    QProm = 11,
+    NPromCap = 12,
+    BPromCap = 13,
+    RPromCap = 14,
+    QPromCap = 15,
 }
 
-pub fn mv_code(mv: u16) -> u8 {
-    (mv >> 12) as u8
-}
+#[derive(Clone,Default)]
+pub struct Mv(u16);
 
-pub fn is_cap(mv: u16) -> bool {
-    match mv_code(mv) {
-        1 | 7 | 12 | 13 | 14 | 15 => true,
-        _ => false,
+impl Mv {
+    pub fn new(start: u8, end: u8, flag: MvFlag) -> Mv {
+        Mv(start as u16 | (end as u16) << 6 | (flag as u16) << 12)
     }
-}
 
-pub fn is_castle(mv: u16) -> bool {
-    match mv_code(mv) {
-        2 | 3 | 4 | 5 => true,
-        _ => false,
+    pub fn new_null() -> Mv {
+        Mv(0)
     }
-}
 
-pub fn is_prom(mv: u16) -> bool {
-    if mv_code(mv) > 7 {
-        return true;
+    pub fn squares(&self) -> (u8, u8) {
+        (self.start(), self.end())
     }
-    false
-}
 
-pub fn end_sq(m: u16) -> u8 {
-    (m & 0b0000_111111_000000 >> 6) as u8
-}
+    pub fn start(&self) -> u8 {
+        (self.0 & 0b0000_0000_0011_1111) as u8
+    }
 
-pub fn start_sq(m: u16) -> u8 {
-    (m & 0b0000_000000_111111) as u8
-}
+    pub fn end(&self) -> u8 {
+        ((self.0 & 0b0000_1111_1100_0000) >> 6) as u8
+    }
 
-pub fn full_move(m: u16) -> (u8, u8) {
-    (start_sq(m), end_sq(m))
+    pub fn flag(&self) -> MvFlag {
+        unsafe { std::mem::transmute(self.0 >> 12) }
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.start() == self.end()
+    }
+
+    pub fn is_cap(&self) -> bool {
+        match self.flag() {
+            MvFlag::Cap
+            | MvFlag::Ep
+            | MvFlag::NPromCap
+            | MvFlag::BPromCap
+            | MvFlag::RPromCap
+            | MvFlag::QPromCap => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_prom(&self) -> bool {
+        match self.flag() {
+            MvFlag::NProm
+            | MvFlag::BProm
+            | MvFlag::RProm
+            | MvFlag::QProm
+            | MvFlag::NPromCap
+            | MvFlag::BPromCap
+            | MvFlag::RPromCap
+            | MvFlag::QPromCap => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_castle(&self) -> bool {
+        match self.flag() {
+            MvFlag::WKCastle | MvFlag::WQCastle | MvFlag::BKCastle | MvFlag::BQCastle => true,
+            _ => false,
+        }
+    }
 }

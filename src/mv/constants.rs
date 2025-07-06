@@ -31,8 +31,8 @@ pub const KNIGHT_OFFSETS: [i8; 8] = [-10, 6, 15, 17, 10, -6, -15, -17];
 // premask = moves on an empty board
 pub static mut BISHOP_PREMASKS: [u64; 64] = [0; 64];
 pub static mut ROOK_PREMASKS: [u64; 64] = [0; 64];
-pub static mut KNIGHT_PREMASKS: [u64; 64] = [0; 64];
-pub static mut KING_PREMASKS: [u64; 64] = [0; 64];
+pub static mut KNIGHT_MASKS: [u64; 64] = [0; 64];
+pub static mut KING_MASKS: [u64; 64] = [0; 64];
 
 pub static mut ROOK_PREMASKS_TRUNC: [u64; 64] = [0; 64];
 pub static mut BISHOP_PREMASKS_TRUNC: [u64; 64] = [0; 64];
