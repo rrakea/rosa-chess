@@ -1,4 +1,4 @@
-# Feroxyhyte
+# Rosa Chess
 Chess engine written in rust
 
 ### Board Representation:
