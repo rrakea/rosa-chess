@@ -45,3 +45,10 @@ pub fn material_eval(p: &pos::Pos) -> i8 {
     }
     eval
 }
+
+pub fn eval(p: &pos::Pos) {
+    let eval = 0;
+    
+
+    eval * p.active
+}
