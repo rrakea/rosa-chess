@@ -197,39 +197,27 @@ pub fn apply(p: &Pos, mv: &Mv) -> Option<Pos> {
     }
 }
 
-fn set_bboard(p: &mut Pos, piece: i8, sq: usize, val: i8) {
-    let mut bb = match piece {
-        pos::WPAWN => p.wp,
-        pos::WBISHOP => p.wb,
-        pos::WKNIGHT => p.wn,
-        pos::WROOK => p.wr,
-        pos::WQUEEN => p.wq,
-        pos::WKING => p.wk,
-        pos::BPAWN => p.bp,
-        pos::BBISHOP => p.bb,
-        pos::BKNIGHT => p.bn,
-        pos::BROOK => p.br,
-        pos::BQUEEN => p.bq,
-        pos::BKING => p.bk,
+fn set_bboard(p: &mut Pos, piece: i8, sq: u8, val: i8) {
+    let bb = match piece {
+        pos::WPAWN => &mut p.wp,
+        pos::WBISHOP => &mut p.wb,
+        pos::WKNIGHT => &mut p.wn,
+        pos::WROOK => &mut p.wr,
+        pos::WQUEEN => &mut p.wq,
+        pos::WKING => &mut p.wk,
+        pos::BPAWN => &mut p.bp,
+        pos::BBISHOP => &mut p.bb,
+        pos::BKNIGHT => &mut p.bn,
+        pos::BROOK => &mut p.br,
+        pos::BQUEEN => &mut p.bq,
+        pos::BKING => &mut p.bk,
         _ => panic!("Invalid piece code: {}", piece),
     };
 
     if val == 0 {
-        bb &= !(1 << sq);
+        bb.unset(sq);
     } else {
-        bb &= 1 << sq;
-    }
-
-    match piece {
-        pos::WPAWN => p.wp = bb,
-        pos::WBISHOP => p.wb = bb,
-        pos::WKNIGHT => p.wn = bb,
-        pos::WROOK => p.wr = bb,
-        pos::WQUEEN => p.wq = bb,
-        pos::WKING => p.wk = bb,
-        pos::BPAWN => p.bp = bb,
-        pos::BBISHOP => p.bb = bb,
-        _ => panic!("Invalid piece code: {}", piece)
+        bb.set(sq);
     }
 }
 

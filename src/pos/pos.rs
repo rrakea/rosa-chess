@@ -1,3 +1,4 @@
+use crate::board::Board;
 // Iternal representation of the current position.
 // Using a hybrid approach of both bitboards and square centric
 
@@ -19,26 +20,22 @@ pub const BKING: i8 = -6;
 #[derive(Clone, Debug)]
 pub struct Pos {
     // Bitboards
-    pub wp: u64,
-    pub wn: u64,
-    pub wb: u64,
-    pub wr: u64,
-    pub wq: u64,
-    pub wk: u64,
+    pub wp: Board,
+    pub wn: Board,
+    pub wb: Board,
+    pub wr: Board,
+    pub wq: Board,
+    pub wk: Board,
 
-    pub bp: u64,
-    pub bn: u64,
-    pub bb: u64,
-    pub br: u64,
-    pub bq: u64,
-    pub bk: u64,
+    pub bp: Board,
+    pub bn: Board,
+    pub bb: Board,
+    pub br: Board,
+    pub bq: Board,
+    pub bk: Board,
 
     // Full board bitboard
-    pub full: u64,
-    
-    // Attack Tables
-    pub wattack: u64,
-    pub battack: u64,
+    pub full: Board,
 
     // Square centric representation
     // Using the consts defined

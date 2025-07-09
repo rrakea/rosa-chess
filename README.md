@@ -24,3 +24,10 @@ Lazy SMP parallelisation
 Aspiration windows  
 Killer Move Heuristic  
 UCI Integration  
+
+
+## Runtime:
+main() -> run();
+run(): init(); loop {search(); apply(); draw();};
+search() -> negascout();
+negascout() -> eval(); negascout();

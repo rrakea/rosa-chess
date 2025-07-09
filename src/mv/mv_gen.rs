@@ -39,9 +39,9 @@ fn wrapper(best: Mv, second: Mv) -> Vec<Mv> {
 fn promotions(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
     let rank = if p.active == 1 { 6 } else { 2 };
-    let bb = if p.active == 1 { p.wp } else { p.bp };
+    let bb = if p.active == 1 { &p.wp } else { &p.bp };
     // Only pawns that are on the last rank
-    let second_rank = bb & constants::RANK_MASKS[rank];
+    let second_rank = bb.get() & constants::RANK_MASKS[rank];
     if second_rank != 0 {
         let potentials = bboard::get(second_rank);
         for pawn in potentials {
@@ -78,8 +78,8 @@ fn promotions(p: &Pos) -> Vec<Mv> {
 }
 
 fn queen(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { p.wq } else { p.bq };
-    let squares = bboard::get(bb);
+    let bb = if p.active == 1 { &p.wq } else { &p.bq };
+    let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
         let movemask = magic::queen_mask(sq, p);
@@ -89,8 +89,8 @@ fn queen(p: &Pos) -> Vec<Mv> {
 }
 
 fn rook(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { p.wr } else { p.br };
-    let squares = bboard::get(bb);
+    let bb = if p.active == 1 { &p.wr } else { &p.br };
+    let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
         let movemask = magic::rook_mask(sq, p);
@@ -100,8 +100,8 @@ fn rook(p: &Pos) -> Vec<Mv> {
 }
 
 fn bishop(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { p.wb } else { p.bb };
-    let squares = bboard::get(bb);
+    let bb = if p.active == 1 { &p.wb } else { &p.bb };
+    let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
             let movemask = magic::bishop_mask(sq, p);
@@ -110,19 +110,19 @@ fn bishop(p: &Pos) -> Vec<Mv> {
     mv
 }
 
-fn knight(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { p.wn } else { p.bn };
+fn king(p: &Pos) -> Vec<Mv> {
+    let bb = if p.active == 1 { &p.wk } else { &p.bk };
     // There can only be one king
-    let sq = bboard::get_single(bb);
+    let sq = bb.get_ones_single();
     let mut mv = Vec::new();
-    let movemask = unsafe { constants::KNIGHT_MASKS[sq as usize] };
+    let movemask = unsafe { constants::KING_MASKS[sq as usize] };
     mv.append(&mut mv_from_movemask(p, movemask, sq));
     mv
 }
 
-fn king(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { p.wk } else { p.bk };
-    let squares = bboard::get(bb);
+fn knight(p: &Pos) -> Vec<Mv> {
+    let bb = if p.active == 1 { &p.wn } else { &p.bn };
+    let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
         let movemask = unsafe { constants::KING_MASKS[sq as usize] };
@@ -132,7 +132,7 @@ fn king(p: &Pos) -> Vec<Mv> {
 }
 
 // Gets a mask of all the possible moves a piece can move from
-// its current square -> checks wether the squares are occupied by
+// its current square -> checks whether the squares are occupied by
 // enemy/ owner pieces and generates the proper u16 representation
 fn mv_from_movemask(p: &Pos, move_mask: u64, start: u8) -> Vec<Mv> {
     let pos_moves = bboard::get(move_mask);

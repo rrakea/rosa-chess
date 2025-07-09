@@ -32,7 +32,7 @@ impl Mv {
         Mv(start as u16 | (end as u16) << 6 | (flag as u16) << 12)
     }
 
-    pub fn new_null() -> Mv {
+    pub fn null() -> Mv {
         Mv(0)
     }
 

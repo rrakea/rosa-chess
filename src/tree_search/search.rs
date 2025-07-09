@@ -73,10 +73,10 @@ fn negascout(p: &pos::Pos, depth: u8, mut a: f64, b: f64, ply: u8) -> f64 {
     }
 
     let mut best_score = f64::MIN;
-    let mut best_move = Mv::new_null(); 
+    let mut best_move = Mv::null(); 
 
     let mut second_score = f64::MIN;
-    let mut second_move = Mv::new_null();
+    let mut second_move = Mv::null();
 
     // Iterator
     let move_gen = mv::mv_gen::mv_gen(p, entry.best, entry.second);

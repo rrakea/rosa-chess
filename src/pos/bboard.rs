@@ -19,18 +19,3 @@ pub fn bb_b(p: &pos::Pos) -> u64 {
 pub fn none(p: &pos::Pos) -> u64 {
     bb_all(p) ^ FULL
 }
-
-pub fn get(mut bb: u64) -> Vec<u8> {
-    let mut mv: Vec<u8> = Vec::new();
-    let mut lsb;
-    while bb != 0 {
-        lsb = bb.trailing_zeros();
-        mv.push(lsb as u8);
-        bb &= bb - 1;
-    }
-    mv
-}
-
-pub fn get_single(bb: u64) -> u8 {
-    bb.trailing_zeros() as u8
-}
