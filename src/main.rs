@@ -2,6 +2,7 @@ pub mod cli;
 pub mod eval;
 pub mod mv;
 pub mod pos;
+pub mod uci;
 pub mod run;
 pub mod table;
 pub mod tree_search;

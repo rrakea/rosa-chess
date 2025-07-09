@@ -20,3 +20,4 @@ pub fn run() {
         cli::draw::draw(&pos, eval, time_taken, depth, &top_move);
     }
 }
+

@@ -72,4 +72,6 @@ impl Pos {
 
 pub fn start_pos() -> Pos {}
 
+pub fn pos_from_fen() -> Pos {}
+
 pub fn gen_data(ep_rank: u8, w_castle: (bool, bool), b_castle: (bool, bool)) -> u8 {}

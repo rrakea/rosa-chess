@@ -24,7 +24,7 @@ pub enum MvFlag {
     QPromCap = 15,
 }
 
-#[derive(Clone,Default)]
+#[derive(Clone, Default)]
 pub struct Mv(u16);
 
 impl Mv {
@@ -88,4 +88,6 @@ impl Mv {
             _ => false,
         }
     }
+
+    pub fn notation(&self) -> String() {}
 }
