@@ -1,12 +1,10 @@
 use crate::mv;
 use crate::pos;
 use crate::table;
-use crate::tree_search;
 use std::io::{self, BufRead};
 
 /*
     This implements the Universal Chess Interface (UCI)
-
 */
 
 const NAME: &str = "rosa-chess";

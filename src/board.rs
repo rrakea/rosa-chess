@@ -1,17 +1,17 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Board(u64);
 
 impl Board {
-    pub fn new() -> Board {
-        Board(0)
+    pub fn new(val: u64) -> Board {
+        Board(val)
     }
 
-    pub fn get(&self) -> u64 {
+    pub fn get_val(&self) -> u64 {
         self.0
     }
 
     pub fn get_ones(&self) -> Vec<u8> {
-        let mut bb = self.get();
+        let mut bb = self.get_val();
         let mut ones: Vec<u8> = Vec::new();
         let mut lsb;
 
