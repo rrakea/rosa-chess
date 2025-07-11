@@ -105,7 +105,10 @@ pub struct BoardArray {
 
 impl BoardArray {
     pub fn new(sq: [i8; 64]) -> BoardArray {
-        let mut board_array = BoardArray {boards: [Board::new(0); 12], full: Board::new(0)};
+        let mut board_array = BoardArray {
+            boards: [Board::new(0); 12],
+            full: Board::new(0),
+        };
         for (sq, piece) in sq.into_iter().enumerate() {
             if piece != 0 {
                 let mut current_board = board_array.get(piece);

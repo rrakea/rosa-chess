@@ -1,8 +1,10 @@
+use crate::board;
 use crate::mv::constants;
 use crate::mv::magic;
 use crate::mv::mv::{Mv, MvFlag};
-use crate::pos::pos::Pos;
-use crate::pos::{bboard, pos};
+use crate::pos;
+use crate::pos::Pos;
+use crate::pos::WKING;
 use crate::util::mask;
 use crate::util::util;
 use std::iter;
@@ -78,7 +80,7 @@ fn promotions(p: &Pos) -> Vec<Mv> {
 }
 
 fn queen(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { &p.wq } else { &p.bq };
+    let bb = p.boards.get(pos::WQUEEN * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -89,7 +91,7 @@ fn queen(p: &Pos) -> Vec<Mv> {
 }
 
 fn rook(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { &p.wr } else { &p.br };
+    let bb = p.boards.get(pos::WROOK * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -100,18 +102,18 @@ fn rook(p: &Pos) -> Vec<Mv> {
 }
 
 fn bishop(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { &p.wb } else { &p.bb };
+    let bb = p.boards.get(pos::WBISHOP * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
-            let movemask = magic::bishop_mask(sq, p);
+        let movemask = magic::bishop_mask(sq, p);
         mv.append(&mut mv_from_movemask(p, movemask, sq));
     }
     mv
 }
 
 fn king(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { &p.wk } else { &p.bk };
+    let bb = p.boards.get(WKING * p.active);
     // There can only be one king
     let sq = bb.get_ones_single();
     let mut mv = Vec::new();
@@ -121,7 +123,7 @@ fn king(p: &Pos) -> Vec<Mv> {
 }
 
 fn knight(p: &Pos) -> Vec<Mv> {
-    let bb = if p.active == 1 { &p.wn } else { &p.bn };
+    let bb = p.boards.get(WKING * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {

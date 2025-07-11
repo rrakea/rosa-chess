@@ -1,6 +1,7 @@
 use crate::mv;
 use crate::pos;
 use crate::table;
+use crate::fen;
 use std::io::{self, BufRead};
 
 /*
@@ -12,7 +13,7 @@ const AUTHOR: &str = "rrakea";
 const VERSION: &str = "0.1";
 
 pub fn uci_start() {
-    let mut pos = pos::pos::start_pos();
+    let mut pos = fen::starting_pos();
 
     let mut time = 15;
     let mut stop = false;
@@ -34,7 +35,7 @@ pub fn uci_start() {
             }
             "setoption" => {}
             "position" => {
-                pos = pos::pos::pos_from_fen();
+                pos = fen::fen(cmd_parts[1].to_string());
             }
             "go" => {
                 let (eval, top_move, depth, time_taken) = tree_search::search::search(&pos, time);
@@ -52,6 +53,6 @@ pub fn uci_start() {
 }
 
 fn init() {
-    table::table::init_zobrist_keys();
+    table::init_zobrist_keys();
     mv::magic_init::init_magics();
 }
