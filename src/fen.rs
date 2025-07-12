@@ -21,12 +21,12 @@ pub fn fen(fen: String) -> pos::Pos {
                 current_sq += piece.to_digit(10).unwrap() as usize;
             } else {
                 let code = match piece {
-                    'P' => pos::WPAWN,
-                    'B' => pos::WBISHOP,
-                    'N' => pos::WKNIGHT,
-                    'R' => pos::WROOK,
-                    'Q' => pos::WQUEEN,
-                    'K' => pos::WKING,
+                    'P' => pos::PAWN,
+                    'B' => pos::BISHOP,
+                    'N' => pos::KNIGHT,
+                    'R' => pos::ROOK,
+                    'Q' => pos::QUEEN,
+                    'K' => pos::KING,
 
                     'p' => pos::BPAWN,
                     'b' => pos::BBISHOP,

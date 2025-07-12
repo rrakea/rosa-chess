@@ -3,12 +3,12 @@ use crate::board::Board;
 // Using a hybrid approach of both bitboards and square centric
 
 // w/b for color & p/n/b/r/q/k for the pieces using the common abbreviations
-pub const WPAWN: i8 = 1;
-pub const WBISHOP: i8 = 2;
-pub const WKNIGHT: i8 = 3;
-pub const WROOK: i8 = 4;
-pub const WQUEEN: i8 = 5;
-pub const WKING: i8 = 6;
+pub const PAWN: i8 = 1;
+pub const BISHOP: i8 = 2;
+pub const KNIGHT: i8 = 3;
+pub const ROOK: i8 = 4;
+pub const QUEEN: i8 = 5;
+pub const KING: i8 = 6;
 
 pub const BPAWN: i8 = -1;
 pub const BBISHOP: i8 = -2;
@@ -69,9 +69,13 @@ impl Pos {
             (self.data & 0b0100_0000 > 0, self.data & 0b1000_0000 > 0)
         }
     }
+
+    pub fn piece_board(&mut self, piece: i8) -> &mut Board {
+        self.boards.get(piece * self.active)
+    }
 }
 
-fn gen_data(is_ep: bool, ep_file: u8, w_castle: (bool, bool), b_castle: (bool, bool)) -> u8 {
+pub fn gen_data(is_ep: bool, ep_file: u8, w_castle: (bool, bool), b_castle: (bool, bool)) -> u8 {
     let mut data: u8 = 0;
     if is_ep {
         data |= 0b0000_1000;
@@ -104,36 +108,31 @@ pub struct BoardArray {
 }
 
 impl BoardArray {
-    pub fn new(sq: [i8; 64]) -> BoardArray {
+    fn new(sq: [i8; 64]) -> BoardArray {
         let mut board_array = BoardArray {
             boards: [Board::new(0); 12],
             full: Board::new(0),
         };
         for (sq, piece) in sq.into_iter().enumerate() {
             if piece != 0 {
-                let mut current_board = board_array.get(piece);
-                current_board.set(sq as u8);
-                board_array.set(piece, current_board);
+                board_array.get(piece).set(sq as u8);
             }
         }
-
-        let mut full = 0;
-        for board in &board_array.boards {
-            full |= board.get_val();
-        }
-        board_array.full = Board::new(full);
-
+        board_array.gen_full();
         board_array
     }
 
-    pub fn get(&self, piece: i8) -> Board {
+    fn get(&mut self, piece: i8) -> &mut Board {
         let index = calc_index(piece);
-        self.boards[index]
+        &mut self.boards[index]
     }
 
-    pub fn set(&mut self, piece: i8, val: Board) {
-        let index = calc_index(piece);
-        self.boards[index] = val;
+    pub fn gen_full(&mut self) {
+        let mut full = 0;
+        for board in &self.boards {
+            full |= board.get_val();
+        }
+        self.full = Board::new(full);
     }
 }
 

@@ -1,5 +1,4 @@
 pub mod board;
-pub mod cli;
 pub mod eval;
 pub mod mask;
 pub mod mv;

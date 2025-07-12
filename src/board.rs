@@ -27,12 +27,12 @@ impl Board {
         self.0.trailing_zeros() as u8
     }
 
-    pub fn set<T: Into<u64>>(&mut self, bit: T) {
-        self.0 |= 1 << bit.into();
+    pub fn set(&mut self, bit: u8) {
+        self.0 |= 1 << bit;
     }
 
-    pub fn unset<T: Into<u64>>(&mut self, bit: T) {
-        self.0 &= !(1 << bit.into());
+    pub fn unset(&mut self, bit: u8) {
+        self.0 &= !1 << bit;
     }
 
     pub fn set_all<T: Into<u64>>(&mut self, bits: Vec<T>) {
@@ -45,5 +45,10 @@ impl Board {
         for b in bits {
             self.0 &= !(1 << b.into());
         }
+    }
+
+    // Yes i known this is unclean
+    pub fn xor(&mut self, mask: u64) {
+        self.0 ^= mask;
     }
 }

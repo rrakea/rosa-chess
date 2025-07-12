@@ -1,11 +1,9 @@
-use crate::board;
+use crate::board::Board;
 use crate::mv::constants;
 use crate::mv::magic;
 use crate::mv::mv::{Mv, MvFlag};
 use crate::pos;
 use crate::pos::Pos;
-use crate::pos::WKING;
-use crate::util::mask;
 use crate::util::util;
 use std::iter;
 
@@ -41,11 +39,11 @@ fn wrapper(best: Mv, second: Mv) -> Vec<Mv> {
 fn promotions(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
     let rank = if p.active == 1 { 6 } else { 2 };
-    let bb = if p.active == 1 { &p.wp } else { &p.bp };
+    let pawn_bb = p.piece_board(pos::PAWN);
     // Only pawns that are on the last rank
-    let second_rank = bb.get() & constants::RANK_MASKS[rank];
+    let second_rank = pawn_bb.get_val() & constants::RANK_MASKS[rank];
     if second_rank != 0 {
-        let potentials = bboard::get(second_rank);
+        let potentials = Board::new(second_rank).get_ones();
         for pawn in potentials {
             // The square is empty
             // Multiply with active since black would be -8 offser
@@ -80,7 +78,7 @@ fn promotions(p: &Pos) -> Vec<Mv> {
 }
 
 fn queen(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(pos::WQUEEN * p.active);
+    let bb = p.boards.get(pos::QUEEN * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -91,7 +89,7 @@ fn queen(p: &Pos) -> Vec<Mv> {
 }
 
 fn rook(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(pos::WROOK * p.active);
+    let bb = p.boards.get(pos::ROOK * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -102,7 +100,7 @@ fn rook(p: &Pos) -> Vec<Mv> {
 }
 
 fn bishop(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(pos::WBISHOP * p.active);
+    let bb = p.boards.get(pos::BISHOP * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -112,8 +110,8 @@ fn bishop(p: &Pos) -> Vec<Mv> {
     mv
 }
 
-fn king(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(WKING * p.active);
+fn king(p: &mut Pos) -> Vec<Mv> {
+    let bb = p.piece_board(pos::KING);
     // There can only be one king
     let sq = bb.get_ones_single();
     let mut mv = Vec::new();
@@ -122,8 +120,8 @@ fn king(p: &Pos) -> Vec<Mv> {
     mv
 }
 
-fn knight(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(WKING * p.active);
+fn knight(p: &mut Pos) -> Vec<Mv> {
+    let bb = p.piece_board(pos::KNIGHT);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -137,7 +135,7 @@ fn knight(p: &Pos) -> Vec<Mv> {
 // its current square -> checks whether the squares are occupied by
 // enemy/ owner pieces and generates the proper u16 representation
 fn mv_from_movemask(p: &Pos, move_mask: u64, start: u8) -> Vec<Mv> {
-    let pos_moves = bboard::get(move_mask);
+    let pos_moves = Board::new(move_mask).get_ones();
     let mut mv = Vec::new();
     for pos_mv in pos_moves {
         let end_sq_val = p.sq[pos_mv as usize];
@@ -157,11 +155,7 @@ fn pawn_ep(p: &Pos) -> Vec<Mv> {
         let left: i8 = ep_file - 1;
         let right: i8 = ep_file + 1;
         let rank = if p.active == 1 { 5 } else { 4 };
-        let pawn_code = if p.active == 1 {
-            pos::WPAWN
-        } else {
-            -pos::WPAWN
-        };
+        let pawn_code = if p.active == 1 { pos::PAWN } else { -pos::PAWN };
         if left != -1 && p.sq[(rank * 8 + left) as usize] == pawn_code {
             mv.push(Mv::new(
                 (rank * 8 + left) as u8,
@@ -186,16 +180,16 @@ fn castle(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
     let can_castle = p.castling(p.active);
-    let king_bb = if p.active == 1 { p.wk } else { p.bk };
-    let king_pos = bboard::get_single(king_bb);
-    let op_attack = if p.active == 1 { p.battack } else { p.wattack };
+    let king_bb = p.piece_board(pos::KING);
+    let king_pos = king_bb.get_ones_single();
 
     // King side
-    let king_cant_be_attacked = mask::one_at(vec![king_pos, king_pos + 1, king_pos + 2]);
     if can_castle.0
         && p.sq[king_pos as usize + 1] == 0
         && p.sq[king_pos as usize + 2] == 0
-        && king_cant_be_attacked & op_attack == 0
+        && square_attacked(p, king_pos)
+        && square_attacked(p, king_pos + 1)
+        && square_attacked(p, king_pos + 2)
     {
         let code = if p.active == 1 {
             MvFlag::WKCastle
@@ -206,12 +200,13 @@ fn castle(p: &Pos) -> Vec<Mv> {
     }
 
     // Queen side
-    let queen_cant_be_attacked = mask::one_at(vec![king_pos, king_pos - 1, king_pos - 2]);
     if can_castle.1
         && p.sq[king_pos as usize - 1] == 0
         && p.sq[king_pos as usize - 2] == 0
         && p.sq[king_pos as usize - 3] == 0
-        && queen_cant_be_attacked & op_attack == 0
+        && square_attacked(p, king_pos)
+        && square_attacked(p, king_pos - 1)
+        && square_attacked(p, king_pos - 2)
     {
         let code = if p.active == 1 {
             MvFlag::WQCastle
@@ -223,51 +218,39 @@ fn castle(p: &Pos) -> Vec<Mv> {
     mv
 }
 
-fn pawn_quiet(p: &Pos) -> Vec<Mv> {
+fn pawn_quiet(p: &mut Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
-    let possible_positions: u64;
-    if p.active == 1 {
-        // The pawns cant stand on the last or first rank (0/7)
-        // Rank 6 is covered by the promotion function
-        possible_positions = constants::RANK_MASKS[1]
-            | constants::RANK_MASKS[2]
-            | constants::RANK_MASKS[3]
-            | constants::RANK_MASKS[4]
-            | constants::RANK_MASKS[5];
-    } else {
-        possible_positions = constants::RANK_MASKS[6]
-            | constants::RANK_MASKS[5]
-            | constants::RANK_MASKS[4]
-            | constants::RANK_MASKS[3]
-            | constants::RANK_MASKS[2];
-    }
-    let bb = if p.active == 1 { p.wp } else { p.bp };
-    let pawns = bboard::get(possible_positions ^ bb);
+
+    let bb = p.piece_board(pos::PAWN);
     let offset = if p.active == 1 { 8 } else { -8 };
-    for pawn in pawns {
+    for pawn in bb.get_ones() {
         let second_pos = (pawn as i8 + offset) as u8;
-        if p.sq[second_pos as usize] == 0 {
+        // Pawns not on promotion squares
+        if second_pos > 8 && second_pos < (7 * 8) && p.sq[second_pos as usize] == 0 {
             mv.push(Mv::new(pawn, second_pos, MvFlag::Quiet));
         }
     }
     mv
 }
 
-fn pawn_double(p: &Pos) -> Vec<Mv> {
+fn pawn_double(p: &mut Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
-    let bb = if p.active == 1 { p.wp } else { p.bp };
+    let mut bb = p.piece_board(pos::PAWN);
     let rank = if p.active == 1 { 2 } else { 6 };
-    let second_rank = bb ^ constants::RANK_MASKS[rank];
 
-    if second_rank != 0 {
-        for pawn in bboard::get(second_rank) {
-            let one_move = pawn as i8 + 8 * p.active;
-            let two_move = pawn as i8 + 16 * p.active;
+    bb.xor(constants::RANK_MASKS[rank]);
 
-            if p.sq[one_move as usize] == 0 && p.sq[two_move as usize] == 0 {
-                mv.push(Mv::new(pawn, two_move as u8, MvFlag::DoubleP));
-            }
+    if bb.get_val() != 0 {
+        return mv;
+    }
+
+    for pawn in bb.get_ones() {
+        let one_move = pawn as i8 + 8 * p.active;
+        let two_move = pawn as i8 + 16 * p.active;
+
+        if p.sq[one_move as usize] == 0 && p.sq[two_move as usize] == 0 {
+            mv.push(Mv::new(pawn, two_move as u8, MvFlag::DoubleP));
         }
     }
 
@@ -276,4 +259,9 @@ fn pawn_double(p: &Pos) -> Vec<Mv> {
 
 fn pawn_cap(p: &Pos) -> Vec<Mv> {
     Vec::new()
+}
+
+pub fn square_attacked(p: &Pos, sq: u8) -> bool {
+    //TODO
+    false
 }
