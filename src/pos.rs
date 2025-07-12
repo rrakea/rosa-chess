@@ -20,7 +20,12 @@ pub const BKING: i8 = -6;
 #[derive(Clone, Debug)]
 pub struct Pos {
     // Bitboard centric layout
-    pub boards: BoardArray,
+    // The boardarray is build like this:
+    // 0 -> wpawn, 1 -> wbishop..
+    // 6 -> bpawn, 7 -> bbishop..
+    pub boards: [Board; 12],
+
+    pub full: Board,
 
     // Square centric representation
     // Using the consts defined above
@@ -43,14 +48,22 @@ impl Pos {
         w_castle: (bool, bool),
         b_castle: (bool, bool),
     ) -> Pos {
-        let boards = BoardArray::new(sq);
+        let mut boards = [Board::new(0); 12];
+        for (sq, piece) in sq.into_iter().enumerate() {
+            if piece != 0 {
+                boards[calc_index(piece)].set(sq as u8);
+            }
+        }
         let data = gen_data(is_ep, ep_file, w_castle, b_castle);
-        Pos {
+        let mut newp = Pos {
             boards,
             sq,
             data,
             active,
-        }
+            full: Board::new(0),
+        };
+        gen_full(&mut newp);
+        newp
     }
 
     pub fn is_en_passant(&self) -> bool {
@@ -70,9 +83,23 @@ impl Pos {
         }
     }
 
-    pub fn piece_board(&mut self, piece: i8) -> &mut Board {
-        self.boards.get(piece * self.active)
+    pub fn piece_mut(&mut self, piece: i8) -> &mut Board {
+        let index = calc_index(piece);
+        &mut self.boards[index]
     }
+
+    pub fn piece(&self, piece: i8) -> &Board {
+        let index = calc_index(piece);
+        &self.boards[index]
+    }
+}
+
+pub fn gen_full(p: &mut Pos) {
+    let mut full = 0;
+    for board in p.boards {
+        full |= board.get_val();
+    }
+    p.full = Board::new(full);
 }
 
 pub fn gen_data(is_ep: bool, ep_file: u8, w_castle: (bool, bool), b_castle: (bool, bool)) -> u8 {
@@ -94,46 +121,6 @@ pub fn gen_data(is_ep: bool, ep_file: u8, w_castle: (bool, bool), b_castle: (boo
         data |= 0b1000_0000;
     }
     data
-}
-
-#[derive(Clone, Debug)]
-pub struct BoardArray {
-    // The boardarray is build like this:
-    // 0 -> wpawn, 1 -> wbishop..
-    // 6 -> bpawn, 7 -> bbishop..
-    boards: [Board; 12],
-
-    // Full board bitboard
-    pub full: Board,
-}
-
-impl BoardArray {
-    fn new(sq: [i8; 64]) -> BoardArray {
-        let mut board_array = BoardArray {
-            boards: [Board::new(0); 12],
-            full: Board::new(0),
-        };
-        for (sq, piece) in sq.into_iter().enumerate() {
-            if piece != 0 {
-                board_array.get(piece).set(sq as u8);
-            }
-        }
-        board_array.gen_full();
-        board_array
-    }
-
-    fn get(&mut self, piece: i8) -> &mut Board {
-        let index = calc_index(piece);
-        &mut self.boards[index]
-    }
-
-    pub fn gen_full(&mut self) {
-        let mut full = 0;
-        for board in &self.boards {
-            full |= board.get_val();
-        }
-        self.full = Board::new(full);
-    }
 }
 
 fn calc_index(piece: i8) -> usize {

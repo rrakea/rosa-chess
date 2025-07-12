@@ -47,8 +47,7 @@ impl Board {
         }
     }
 
-    // Yes i known this is unclean
-    pub fn xor(&mut self, mask: u64) {
-        self.0 ^= mask;
+    pub fn empty(&self) -> bool {
+        self.0 != 0
     }
 }

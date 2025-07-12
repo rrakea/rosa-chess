@@ -1,5 +1,5 @@
 use crate::mv::mv::Mv;
-use crate::pos::pos;
+use crate::pos;
 use rand::RngCore;
 
 pub struct TT {
@@ -9,13 +9,13 @@ pub struct TT {
 
 #[derive(Clone, Default)]
 pub struct Entry {
-    key: Key,
-    best: Mv,
-    second: Mv,
-    score: i8,
-    depth: u8,
-    node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound
-    age: u8,
+    pub key: Key,
+    pub best: Mv,
+    pub second: Mv,
+    pub score: i8,
+    pub depth: u8,
+    pub node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound
+    pub age: u8,
 }
 
 #[derive(Clone, PartialEq, Default)]
@@ -27,10 +27,10 @@ impl TT {
         TT { t: table, size }
     }
 
-    pub fn get(&self, key: Key) -> Option<&Entry> {
+    pub fn get(&self, key: &Key) -> Option<&Entry> {
         let index = key.get() % self.size;
         let entry = &self.t[index as usize];
-        if entry.key == key {
+        if entry.key == *key {
             Some(&entry)
         } else {
             None

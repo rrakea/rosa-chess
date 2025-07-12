@@ -64,8 +64,8 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
     }
 
     // Sets the bitboard for the moved piece
-    npos.piece_board(piece).unset(start);
-    npos.piece_board(piece).set(end);
+    npos.piece_mut(piece).unset(start);
+    npos.piece_mut(piece).set(end);
 
     match mv.flag() {
         // The capture is set bellow together with promotion captures
@@ -110,22 +110,22 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         }
 
         MvFlag::WKCastle => {
-            npos.piece_board(pos::ROOK).unset(BOTTOM_RIGHT_SQ);
+            npos.piece_mut(pos::ROOK).unset(BOTTOM_RIGHT_SQ);
             npos.sq[BOTTOM_RIGHT_SQ as usize] = 0;
             key.piece(BOTTOM_RIGHT_SQ, pos::ROOK);
 
-            npos.piece_board(pos::ROOK).set(BOTTOM_RIGHT_SQ - 2);
+            npos.piece_mut(pos::ROOK).set(BOTTOM_RIGHT_SQ - 2);
             npos.sq[BOTTOM_RIGHT_SQ as usize - 2] = pos::ROOK;
             key.piece(BOTTOM_RIGHT_SQ - 2, pos::ROOK);
 
             w_castle = (false, false);
         }
         MvFlag::WQCastle => {
-            npos.piece_board(pos::ROOK).set(BOTTOM_LEFT_SQ);
+            npos.piece_mut(pos::ROOK).set(BOTTOM_LEFT_SQ);
             npos.sq[BOTTOM_LEFT_SQ as usize] = 0;
             key.piece(BOTTOM_LEFT_SQ, pos::ROOK);
 
-            npos.piece_board(pos::ROOK).set(BOTTOM_LEFT_SQ + 3);
+            npos.piece_mut(pos::ROOK).set(BOTTOM_LEFT_SQ + 3);
             npos.sq[BOTTOM_LEFT_SQ as usize + 3] = pos::ROOK;
             key.piece(BOTTOM_LEFT_SQ + 3, pos::ROOK);
 
@@ -134,18 +134,18 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         MvFlag::BKCastle => {
             npos.sq[TOP_RIGHT_SQ as usize] = 0;
             key.piece(TOP_RIGHT_SQ, pos::BROOK);
-            npos.piece_board(pos::BROOK).set(TOP_RIGHT_SQ - 2);
+            npos.piece_mut(pos::BROOK).set(TOP_RIGHT_SQ - 2);
             npos.sq[TOP_RIGHT_SQ as usize - 2] = pos::BROOK;
             key.piece(TOP_RIGHT_SQ - 2, pos::BROOK);
 
             b_castle = (false, false);
         }
         MvFlag::BQCastle => {
-            npos.piece_board(pos::BROOK).set(TOP_LEFT_SQ);
+            npos.piece_mut(pos::BROOK).set(TOP_LEFT_SQ);
             npos.sq[TOP_LEFT_SQ as usize] = 0;
             key.piece(TOP_LEFT_SQ, pos::BROOK);
 
-            npos.piece_board(pos::BROOK).set(TOP_LEFT_SQ + 3);
+            npos.piece_mut(pos::BROOK).set(TOP_LEFT_SQ + 3);
             npos.sq[TOP_LEFT_SQ as usize + 3] = pos::BROOK;
             key.piece(TOP_LEFT_SQ + 3, pos::BROOK);
 
@@ -155,7 +155,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
 
     // This sets the bboard of the captured piece in the bitboard to 0
     if mv.is_cap() {
-        npos.piece_board(op_piece).unset(end);
+        npos.piece_mut(op_piece).unset(end);
     }
 
     // This is active player agnostic
@@ -193,17 +193,17 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         }
     }
 
-    npos.boards.gen_full();
+    pos::gen_full(&mut npos);
     npos.data = pos::gen_data(is_ep, ep_file, w_castle, b_castle);
 
-    if is_legal(&mut npos) {
+    if is_legal(&npos) {
         return Some(npos);
     } else {
         return None;
     }
 }
 
-fn is_legal(p: &mut Pos) -> bool{
-    let king_pos = p.piece_board(pos::KING).get_ones_single();
+fn is_legal(p: &Pos) -> bool{
+    let king_pos = p.piece(pos::KING * -p.active).get_ones_single();
     mv_gen::square_attacked(p, king_pos)
 }

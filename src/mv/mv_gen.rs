@@ -39,7 +39,7 @@ fn wrapper(best: Mv, second: Mv) -> Vec<Mv> {
 fn promotions(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
     let rank = if p.active == 1 { 6 } else { 2 };
-    let pawn_bb = p.piece_board(pos::PAWN);
+    let pawn_bb = p.piece(pos::PAWN);
     // Only pawns that are on the last rank
     let second_rank = pawn_bb.get_val() & constants::RANK_MASKS[rank];
     if second_rank != 0 {
@@ -78,7 +78,7 @@ fn promotions(p: &Pos) -> Vec<Mv> {
 }
 
 fn queen(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(pos::QUEEN * p.active);
+    let bb = p.piece(pos::QUEEN * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -89,7 +89,7 @@ fn queen(p: &Pos) -> Vec<Mv> {
 }
 
 fn rook(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(pos::ROOK * p.active);
+    let bb = p.piece(pos::ROOK * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -100,7 +100,7 @@ fn rook(p: &Pos) -> Vec<Mv> {
 }
 
 fn bishop(p: &Pos) -> Vec<Mv> {
-    let bb = p.boards.get(pos::BISHOP * p.active);
+    let bb = p.piece(pos::BISHOP * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -110,8 +110,8 @@ fn bishop(p: &Pos) -> Vec<Mv> {
     mv
 }
 
-fn king(p: &mut Pos) -> Vec<Mv> {
-    let bb = p.piece_board(pos::KING);
+fn king(p: &Pos) -> Vec<Mv> {
+    let bb = p.piece(pos::KING * p.active);
     // There can only be one king
     let sq = bb.get_ones_single();
     let mut mv = Vec::new();
@@ -120,8 +120,8 @@ fn king(p: &mut Pos) -> Vec<Mv> {
     mv
 }
 
-fn knight(p: &mut Pos) -> Vec<Mv> {
-    let bb = p.piece_board(pos::KNIGHT);
+fn knight(p: &Pos) -> Vec<Mv> {
+    let bb = p.piece(pos::KNIGHT * p.active);
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
@@ -180,7 +180,7 @@ fn castle(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
     let can_castle = p.castling(p.active);
-    let king_bb = p.piece_board(pos::KING);
+    let king_bb = p.piece(pos::KING);
     let king_pos = king_bb.get_ones_single();
 
     // King side
@@ -218,10 +218,10 @@ fn castle(p: &Pos) -> Vec<Mv> {
     mv
 }
 
-fn pawn_quiet(p: &mut Pos) -> Vec<Mv> {
+fn pawn_quiet(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
-    let bb = p.piece_board(pos::PAWN);
+    let bb = p.piece(pos::PAWN * p.active);
     let offset = if p.active == 1 { 8 } else { -8 };
     for pawn in bb.get_ones() {
         let second_pos = (pawn as i8 + offset) as u8;
@@ -233,19 +233,19 @@ fn pawn_quiet(p: &mut Pos) -> Vec<Mv> {
     mv
 }
 
-fn pawn_double(p: &mut Pos) -> Vec<Mv> {
+fn pawn_double(p: &Pos) -> Vec<Mv> {
     let mut mv = Vec::new();
 
-    let mut bb = p.piece_board(pos::PAWN);
+    let bb = p.piece(pos::PAWN * p.active);
     let rank = if p.active == 1 { 2 } else { 6 };
 
-    bb.xor(constants::RANK_MASKS[rank]);
+    let second_rank = Board::new(bb.get_val() ^ constants::RANK_MASKS[rank]);
 
-    if bb.get_val() != 0 {
+    if second_rank.empty() {
         return mv;
     }
 
-    for pawn in bb.get_ones() {
+    for pawn in second_rank.get_ones() {
         let one_move = pawn as i8 + 8 * p.active;
         let two_move = pawn as i8 + 16 * p.active;
 

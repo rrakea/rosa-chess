@@ -1,22 +1,17 @@
-use crate::eval::eval;
-use crate::mv::mv::Mv;
+use crate::eval;
 use crate::mv;
-use crate::pos::pos;
-use crate::table::table;
-use once_cell::sync::Lazy;
-use std::sync::RwLock;
+use crate::mv::mv::Mv;
+use crate::pos;
+use crate::table;
 use std::time;
 
 // This will stop working in 292 billion years :(
 static mut START: u64 = 0;
 static mut END: u64 = 0;
 
-// This will not stay as a rwlock for long :)
-static TT: Lazy<RwLock<table::TT>> = Lazy::new(|| RwLock::new(table::init_transposition_table()));
-
 // State, time -> eval, best move, search depth, time taken
 // Time in milliseconds!!!!!
-pub fn search(p: &pos::Pos, time: u64) -> (f64, Mv, u8, u64) {
+pub fn search(p: &pos::Pos, time: u64, key: table::Key, tt: &mut table::TT) -> (f64, Mv, u8, u64) {
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
     unsafe {
@@ -38,32 +33,46 @@ pub fn search(p: &pos::Pos, time: u64) -> (f64, Mv, u8, u64) {
     }
 
     // Look up the results in the TT table
-    let res = TT.read().unwrap().get(p.key);
-    if res.key != p.key {
+    // This will never panic since we start the search here
+    let res = tt.get(&key).unwrap();
+    if res.key != key {
         // This should NEVER happen if the hashing is any good
         println!("Well.. fuck. Overwritten the starting position entry")
     }
     (
         res.score as f64,
-        res.best,
+        res.best.clone(),
         depth + 1,
         current_time() - unsafe { START },
     )
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
-fn negascout(p: &pos::Pos, depth: u8, mut a: f64, b: f64, ply: u8) -> f64 {
+fn negascout(
+    p: &pos::Pos,
+    depth: u8,
+    mut a: f64,
+    b: f64,
+    ply: u8,
+    tt: &mut table::TT,
+    key: table::Key,
+) -> f64 {
     // Search is done
     if depth == 0 {
         return eval::material_eval(p) as f64;
     }
 
     // Check Transposition table
-    let entry = TT.read().unwrap().get(p.key);
+    let entry = tt.get(&key);
+    let search_hit = match entry {
+        Some(e)=> true,
+        None => false,
+    }
+
 
     // Since the search is better than ours will be
     // This also takes care of repetitions and transpositions
-    if entry.depth > depth {
+    if search_hit entry.depth > depth {
         return entry.score as f64;
     }
 
@@ -73,7 +82,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut a: f64, b: f64, ply: u8) -> f64 {
     }
 
     let mut best_score = f64::MIN;
-    let mut best_move = Mv::null(); 
+    let mut best_move = Mv::null();
 
     let mut second_score = f64::MIN;
     let mut second_move = Mv::null();
