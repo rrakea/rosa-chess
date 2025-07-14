@@ -107,7 +107,11 @@ fn uci_start() -> table::TT {
     }
 }
 
-fn uci_runtime(p: &pos::Pos, tt: &mut table::TT) {
+static mut COLOR: i8 = 1;
+static mut INC: u64 = 0;
+
+fn uci_runtime(tt: &mut table::TT) {
+    let p: Option<pos::Pos> = None;
     let stdin = io::stdin();
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
@@ -115,8 +119,14 @@ fn uci_runtime(p: &pos::Pos, tt: &mut table::TT) {
         log::info!("Command Recieved: {}", cmd);
         match cmd_parts[0].to_lowercase().as_str() {
             "go" => {
-                let (max_depth, time, ponder) = process_go(cmd_parts);
-                start_search(p, time, max_depth, tt);
+                let (max_depth, time) = process_go(cmd_parts);
+                match &p {
+                    None => {
+                        log::error!("Go command recieved before position was set");
+                        panic!("Invalid Position");
+                    }
+                    Some(p) => start_search(p, time, max_depth, tt),
+                };
             }
             "position" => {}
             "ponderhit" => {}
@@ -148,7 +158,7 @@ fn process_options(cmd: Vec<&str>) {}
 
 fn process_position(cmd: Vec<&str>) {}
 
-fn process_go(cmd: Vec<&str>) -> (u64, u64, bool) {
+fn process_go(cmd: Vec<&str>) -> (u64, u64) {
     let mut index = 1;
 
     let mut maxdepth = 0;
@@ -195,19 +205,43 @@ fn process_go(cmd: Vec<&str>) -> (u64, u64, bool) {
         index += 1;
     }
 
-    let time = calc_time(movetime, wtime, btime, winc, binc, infinite);
+    let time = calc_time(movetime, wtime, btime, winc, binc, infinite, ponder);
 
-    (maxdepth, time, ponder)
+    (maxdepth, time)
 }
 
 fn check_next(cmd: &Vec<&str>, index: usize) -> u64 {
     match cmd[index + 1].parse() {
         Ok(o) => o,
         Err(e) => {
-            log::error!("Value after wtime command not int, {}", e);
+            log::error!("Value after command not int, {}", e);
             0
         }
     }
 }
 
-fn calc_time(movetime: u64, wtime: u64, btime: u64, winc: u64, binc: u64, infinte: bool) -> u64 {}
+fn calc_time(
+    movetime: u64,
+    wtime: u64,
+    btime: u64,
+    winc: u64,
+    binc: u64,
+    infinte: bool,
+    ponder: bool,
+) -> u64 {
+
+    if infinte || ponder {
+        return 0;
+    }
+    if movetime != 0 {
+        return movetime;
+    }
+
+    if unsafe { COLOR == 1 } {
+        unsafe { INC = winc };
+        (wtime / 20) + (winc / 2)
+    } else {
+        unsafe { INC = binc };
+        (btime / 20) + (binc / 2)
+    }
+}

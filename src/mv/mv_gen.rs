@@ -125,7 +125,7 @@ fn knight(p: &Pos) -> Vec<Mv> {
     let squares = bb.get_ones();
     let mut mv = Vec::new();
     for sq in squares {
-        let movemask = unsafe { constants::KING_MASKS[sq as usize] };
+        let movemask = unsafe { constants::KNIGHT_MASKS[sq as usize] };
         mv.append(&mut mv_from_movemask(p, movemask, sq));
     }
     mv
@@ -187,9 +187,9 @@ fn castle(p: &Pos) -> Vec<Mv> {
     if can_castle.0
         && p.sq[king_pos as usize + 1] == 0
         && p.sq[king_pos as usize + 2] == 0
-        && square_attacked(p, king_pos)
-        && square_attacked(p, king_pos + 1)
-        && square_attacked(p, king_pos + 2)
+        && square_attacked(p, king_pos, -p.active)
+        && square_attacked(p, king_pos + 1, -p.active)
+        && square_attacked(p, king_pos + 2, -p.active)
     {
         let code = if p.active == 1 {
             MvFlag::WKCastle
@@ -204,9 +204,9 @@ fn castle(p: &Pos) -> Vec<Mv> {
         && p.sq[king_pos as usize - 1] == 0
         && p.sq[king_pos as usize - 2] == 0
         && p.sq[king_pos as usize - 3] == 0
-        && square_attacked(p, king_pos)
-        && square_attacked(p, king_pos - 1)
-        && square_attacked(p, king_pos - 2)
+        && square_attacked(p, king_pos, -p.active)
+        && square_attacked(p, king_pos - 1, -p.active)
+        && square_attacked(p, king_pos - 2, -p.active)
     {
         let code = if p.active == 1 {
             MvFlag::WQCastle
@@ -261,7 +261,47 @@ fn pawn_cap(p: &Pos) -> Vec<Mv> {
     Vec::new()
 }
 
-pub fn square_attacked(p: &Pos, sq: u8) -> bool {
-    //TODO
+pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {
+    // Basically we pretend there is every possible piece on the square
+    // And then & that with the bb of the piece. If non 0 , then the square is attacked
+    // by that piece
+    let pawn_mask = constants::get_mask(pos::PAWN * attacked_by, sq);
+    if check_for_piece(p, pawn_mask, pos::PAWN * attacked_by) {
+        return false;
+    }
+
+    let king_mask = constants::get_mask(pos::KING * attacked_by, sq);
+    if check_for_piece(p, king_mask, pos::KING * attacked_by) {
+        return false;
+    }
+
+    let knight_mask = constants::get_mask(pos::KNIGHT, sq);
+    if check_for_piece(p, knight_mask, pos::KNIGHT * attacked_by) {
+        return false;
+    }
+
+    let bishop_mask = magic::bishop_mask(sq, p);
+    if check_for_piece(p, bishop_mask, pos::BISHOP * attacked_by) {
+        return false;
+    }
+
+    let rook_mask = magic::rook_mask(sq, p);
+    if check_for_piece(p, rook_mask, pos::ROOK * attacked_by) {
+        return false;
+    }
+
+    let queen_mask = rook_mask | bishop_mask;
+    if check_for_piece(p, queen_mask, pos::QUEEN * attacked_by) {
+        return false;
+    }
+
+    return true;
+}
+
+fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: i8) -> bool {
+    let piece_bb = p.piece(piece);
+    if attacker_mask & piece_bb.get_val() != 0 {
+        return true;
+    }
     false
 }

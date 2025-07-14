@@ -1,4 +1,4 @@
-use crate::pos::pos;
+use crate::pos;
 
 const PAWN_VALUE: i8 = 1;
 const KNIGHT_VALUE: i8 = 3;
@@ -15,12 +15,12 @@ pub fn material_eval(p: &pos::Pos) -> i8 {
     let active = p.active;
     for &p in &p.sq {
         match p * active {
-            pos::WPAWN => eval += PAWN_VALUE,
-            pos::WKNIGHT => eval += KNIGHT_VALUE,
-            pos::WBISHOP => eval += BISHOP_VALUE,
-            pos::WROOK => eval += ROOK_VALUE,
-            pos::WQUEEN => eval += QUEEN_VALUE,
-            pos::WKING => {
+            pos::PAWN => eval += PAWN_VALUE,
+            pos::KNIGHT => eval += KNIGHT_VALUE,
+            pos::BISHOP => eval += BISHOP_VALUE,
+            pos::ROOK => eval += ROOK_VALUE,
+            pos::QUEEN => eval += QUEEN_VALUE,
+            pos::KING => {
                 eval += KING_VALUE;
                 self_king = true
             }

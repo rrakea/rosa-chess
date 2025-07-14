@@ -1,3 +1,5 @@
+use crate::pos;
+
 // Masks when we want to check for specific file/ rank
 // e.g. When cheching if a pawn can queen on the next turn
 // RANK[0] corresponds to RANK 1 (not like they are displayed here)
@@ -23,6 +25,25 @@ pub const FILE_MASKS: [u64; 8] = [
     0x8080808080808080,
 ];
 
+pub fn get_mask(piece: i8, sq: u8) -> u64 {
+    let sq = sq as usize;
+    unsafe {
+        match piece {
+            pos::BISHOP | pos::BBISHOP => BISHOP_PREMASKS[sq],
+            pos::KNIGHT | pos::BKNIGHT => KNIGHT_MASKS[sq],
+            pos::ROOK | pos::BROOK => ROOK_PREMASKS[sq],
+            pos::QUEEN | pos::BQUEEN => ROOK_PREMASKS[sq] | BISHOP_PREMASKS[sq],
+            pos::PAWN => WPAWN_MASKS[sq],
+            pos::BPAWN => BPAWN_MASKS[sq],
+            _ => {
+                let error = "get_mask() called with invalid value";
+                log::error!("{}", error);
+                panic!("{}", error);
+            }
+        }
+    }
+}
+
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
 pub const KING_OFFSETS: [i8; 8] = [1, -1, 8, -8, 7, -7, 9, -9];
@@ -33,6 +54,8 @@ pub static mut BISHOP_PREMASKS: [u64; 64] = [0; 64];
 pub static mut ROOK_PREMASKS: [u64; 64] = [0; 64];
 pub static mut KNIGHT_MASKS: [u64; 64] = [0; 64];
 pub static mut KING_MASKS: [u64; 64] = [0; 64];
+pub static mut WPAWN_MASKS: [u64; 64] = [0; 64];
+pub static mut BPAWN_MASKS: [u64; 64] = [0; 64];
 
 pub static mut ROOK_PREMASKS_TRUNC: [u64; 64] = [0; 64];
 pub static mut BISHOP_PREMASKS_TRUNC: [u64; 64] = [0; 64];

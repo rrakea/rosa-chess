@@ -205,5 +205,5 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
 
 fn is_legal(p: &Pos) -> bool{
     let king_pos = p.piece(pos::KING * -p.active).get_ones_single();
-    mv_gen::square_attacked(p, king_pos)
+    mv_gen::square_attacked(p, king_pos, -p.active)
 }

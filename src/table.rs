@@ -62,8 +62,8 @@ impl Key {
                 pos::BQUEEN => unsafe { BQUEEN[i] },
                 pos::BKING => unsafe { BKING[i] },
 
-                //Since we are xor'ing with the key the inversion does nothing
-                0 => !key.0,
+                // x ^ 0 = x
+                0 => 0,
                 _ => panic!("Invalid Piece value: {}", *val),
             };
         }
