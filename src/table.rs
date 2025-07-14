@@ -12,7 +12,7 @@ pub struct Entry {
     pub key: Key,
     pub best: Mv,
     pub second: Mv,
-    pub score: i8,
+    pub score: f32,
     pub depth: u8,
     pub node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound
     pub age: u8,
@@ -48,12 +48,12 @@ impl Key {
         let mut key = Key(0);
         for (i, val) in p.sq.iter().enumerate() {
             key.0 ^= match *val {
-                pos::WPAWN => unsafe { PAWN[i] },
-                pos::WKNIGHT => unsafe { KNIGHT[i] },
-                pos::WBISHOP => unsafe { BISHOP[i] },
-                pos::WROOK => unsafe { ROOK[i] },
-                pos::WQUEEN => unsafe { QUEEN[i] },
-                pos::WKING => unsafe { KING[i] },
+                pos::PAWN => unsafe { PAWN[i] },
+                pos::KNIGHT => unsafe { KNIGHT[i] },
+                pos::BISHOP => unsafe { BISHOP[i] },
+                pos::ROOK => unsafe { ROOK[i] },
+                pos::QUEEN => unsafe { QUEEN[i] },
+                pos::KING => unsafe { KING[i] },
 
                 pos::BPAWN => unsafe { BPAWN[i] },
                 pos::BKNIGHT => unsafe { BKNIGHT[i] },
@@ -109,12 +109,12 @@ impl Key {
     pub fn piece(&mut self, sq: u8, piece: i8) {
         let sq = sq as usize;
         self.0 ^= match piece {
-            pos::WPAWN => unsafe { PAWN[sq] },
-            pos::WKNIGHT => unsafe { KNIGHT[sq] },
-            pos::WBISHOP => unsafe { BISHOP[sq] },
-            pos::WROOK => unsafe { ROOK[sq] },
-            pos::WQUEEN => unsafe { QUEEN[sq] },
-            pos::WKING => unsafe { KING[sq] },
+            pos::PAWN => unsafe { PAWN[sq] },
+            pos::KNIGHT => unsafe { KNIGHT[sq] },
+            pos::BISHOP => unsafe { BISHOP[sq] },
+            pos::ROOK => unsafe { ROOK[sq] },
+            pos::QUEEN => unsafe { QUEEN[sq] },
+            pos::KING => unsafe { KING[sq] },
 
             pos::BPAWN => unsafe { BPAWN[sq] },
             pos::BKNIGHT => unsafe { BKNIGHT[sq] },

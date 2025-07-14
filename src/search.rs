@@ -7,11 +7,12 @@ use std::time;
 
 // This will stop working in 292 billion years :(
 static mut START: u64 = 0;
-static mut END: u64 = 0;
+static mut TIME_TO_SEARCH: u64 = 0;
 
 // State, time -> eval, best move, search depth, time taken
 // Time in milliseconds!!!!!
-pub fn search(p: &pos::Pos, time: u64, key: table::Key, tt: &mut table::TT) -> (f64, Mv, u8, u64) {
+pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, key: table::Key, tt: &mut table::TT) -> (u8, u64) {
+    log::info!("Starting search");
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
     unsafe {
@@ -19,29 +20,29 @@ pub fn search(p: &pos::Pos, time: u64, key: table::Key, tt: &mut table::TT) -> (
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        END = START + time;
+        TIME_TO_SEARCH = time;
     }
 
     // Iterative deepening
     let mut depth = 1;
+    let mut score = 0.0;
     loop {
-        if current_time() >= unsafe { END } {
+        let searched_time = current_time() - unsafe { START };
+        if searched_time > unsafe { TIME_TO_SEARCH } {
             break;
         }
-        negascout(p, depth, f64::MIN, f64::MAX, 0);
+
+        score = negascout(p, depth, f64::MIN, f64::MAX, 0, tt, &key);
+
+        write_info(tt, &key, depth, time, score);
+        
         depth += 1;
     }
 
-    // Look up the results in the TT table
-    // This will never panic since we start the search here
-    let res = tt.get(&key).unwrap();
-    if res.key != key {
-        // This should NEVER happen if the hashing is any good
-        println!("Well.. fuck. Overwritten the starting position entry")
-    }
+    log::info!("Search done");
+    write_info(tt, &key, depth, time, score);
+
     (
-        res.score as f64,
-        res.best.clone(),
         depth + 1,
         current_time() - unsafe { START },
     )
@@ -55,7 +56,7 @@ fn negascout(
     b: f64,
     ply: u8,
     tt: &mut table::TT,
-    key: table::Key,
+    key: &table::Key,
 ) -> f64 {
     // Search is done
     if depth == 0 {
@@ -138,6 +139,14 @@ fn negascout(
         TT.write().unwrap().set(new_entry);
     }
     best_score
+}
+
+fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: f64) {
+        log::info!("Search with depth {} concluded", depth);
+        let res = tt.get(&start_key).unwrap();
+        let info_string = format!("info depth {} time {} pv {} score cp {} ", depth, time, res.best.notation() ,score);
+        log::info!("Command send: {}", info_string);
+        println!("{}", info_string);
 }
 
 fn current_time() -> u64 {

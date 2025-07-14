@@ -1,0 +1,10 @@
+appenders:
+  file:
+    king: file
+    path: "/home/rrakea/code/proj/rosa-logs/log.log"
+    encoder:
+      pattern: "{d} [{l}] - {m}{n}"
+root:
+  level: info
+  appenders:
+    - file

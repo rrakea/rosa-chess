@@ -1,16 +1,15 @@
 pub mod board;
+pub mod config;
 pub mod eval;
+pub mod fen;
 pub mod mask;
 pub mod mv;
 pub mod pos;
-pub mod run;
-pub mod table;
+pub mod runtime;
 pub mod search;
-pub mod uci;
+pub mod table;
 pub mod util;
-pub mod fen;
 
 fn main() {
-    print!("{esc}[2J{esc}[1;1H", esc = 27 as char); // Clear Screen
-    run::run();
+    runtime::start();
 }
