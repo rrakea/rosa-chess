@@ -89,11 +89,18 @@ impl Mv {
         }
     }
 
-    pub fn notation(&self) -> String() {}
+    pub fn notation(&self) -> String {
+        let (start, end) = self.squares();
+        let start = square_name(start);
+        let end = square_name(end);       
+        start + end.as_str()
+    }
 }
 
-impl std::fmt::Display for Mv {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!("{}", self.notation())
-    }
+fn square_name(sq: u8) -> String {
+    let file = sq % 8;
+    let rank = sq / 8;
+    let filestr = (b'a' + file) as char;
+    let rankstr = (b'1' + rank) as char;
+    format!("{}{}", filestr, rankstr)
 }

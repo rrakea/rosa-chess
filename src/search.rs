@@ -46,7 +46,7 @@ pub fn search(
             break;
         }
 
-        score = negascout(p, depth, f64::MIN, f64::MAX, 0, tt, key);
+        score = negascout(p, depth, i32::MIN, i32::MAX, 0, tt, key);
 
         write_info(tt, &key, depth, time, score);
 
@@ -63,8 +63,8 @@ pub fn search(
 fn negascout(
     p: &pos::Pos,
     depth: u8,
-    mut a: f64,
-    b: f64,
+    mut a: i32,
+    b: i32,
     ply: u8,
     tt: &mut table::TT,
     key: &mut table::Key,
@@ -103,8 +103,9 @@ fn negascout(
     let mut best_move = Mv::null();
 
     // Iterator
-    let move_gen = mv::mv_gen::mv_gen(p, entry.mv);
+    let move_gen = mv::mv_gen::mv_gen(p, entry.mv, trust_best);
 
+    let legal_move_exists = true;
     for (i, m) in move_gen.enumerate() {
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
@@ -112,58 +113,50 @@ fn negascout(
             // Impossible move
             None => continue,
         };
+        legal_move_exists = true;
+
         let mut score;
-        if i < 2 {
-            // Transposition table hits
+        if i == 1 && trust_best {
             score = -negascout(&outcome, depth - 1, -b, -a, ply + 1, tt, key);
         } else {
             // Null window search
-            score = -negascout(&outcome, depth - 1, -a - 1.0, -a, ply + 1, tt, key);
+            score = -negascout(&outcome, depth - 1, -a - 1, -a, ply + 1, tt, key);
             // You have to do this, since you cant do a "-" before the tupel
             if a < score && score < b {
                 // Failed high -> Full re-search
                 score = -negascout(&outcome, depth - 1, -b, -a, ply + 1, tt, key);
             }
         }
-        a = f64::max(a, score);
+        a = i32::max(a, score);
         if score > best_score {
             best_score = score;
             best_move = m;
-        } else if score > second_score {
-            second_score = score;
-            second_move = m;
         }
-
         if a >= b {
             break; // Prune :)
         }
     }
-    // Age and node type not set
-    let new_entry = table::Entry {
-        key: p.key,
-        best: best_move,
-        second: second_move,
-        score: best_score as i8,
-        depth,
-        node_type: 0,
-        age: 0,
-    };
 
-    // If our depth is lower we would have quit out before
-    {
-        TT.write().unwrap().set(new_entry);
+    if !legal_move_exists {
+        // TODO
     }
+
+    let node_type = table::NodeType::All;
+    tt.set(table::Entry::new(
+        key, best_score, best_move, depth, node_type,
+    ));
+
     best_score
 }
 
 fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
     log::info!("Search with depth {} concluded", depth);
-    let res = tt.get(&start_key).unwrap();
+    let res = tt.get(&start_key);
     let info_string = format!(
         "info depth {} time {} pv {} score cp {} ",
         depth,
         time,
-        res.best.notation(),
+        res.mv.notation(),
         score
     );
     log::info!("Command send: {}", info_string);

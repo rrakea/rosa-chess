@@ -1,5 +1,4 @@
 use crate::config;
-use crate::fen;
 use crate::mv;
 use crate::pos;
 use crate::search;
@@ -21,19 +20,19 @@ fn start_search(
     time: u64,
     max_depth: u64,
     tt: &mut table::TT,
-) -> (f32, mv::mv::Mv, u8, u64) {
-    let key = table::Key::new(p);
-    let (depth, time_taken) = search::search(p, time, max_depth as u8, key.clone(), tt);
+) -> (i32, mv::mv::Mv, u8, u64) {
+    let mut key = table::Key::new(p);
+    let (depth, time_taken) = search::search(p, time, max_depth as u8, &mut key, tt);
 
     // Look up the results in the TT table
     // This will never panic since we start the search here
-    let res = tt.get(&key).unwrap();
+    let res = tt.get(&key);
     if res.key != key {
         // This should NEVER happen if the hashing is any good
         log::error!("Well.. fuck. Overwritten the starting position TT entry");
     }
 
-    (res.score, res.best.clone(), depth, time_taken)
+    (res.score, res.mv.clone(), depth, time_taken)
 }
 
 /*
@@ -229,7 +228,6 @@ fn calc_time(
     infinte: bool,
     ponder: bool,
 ) -> u64 {
-
     if infinte || ponder {
         return 0;
     }

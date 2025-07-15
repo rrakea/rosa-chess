@@ -41,11 +41,20 @@ pub struct Entry {
     pub score: i32,
     pub mv: Mv,
     pub depth: u8,
-    pub node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound
+    pub node_type: NodeType,
+}
+
+#[repr(u8)]
+#[derive(Clone, Default)]
+pub enum NodeType {
+    #[default]
+    Cut = 0,
+    Pv = 1,
+    All = 2,
 }
 
 impl Entry {
-    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: i8) -> Entry {
+    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: NodeType) -> Entry {
         Entry {
             key,
             score,
@@ -54,9 +63,13 @@ impl Entry {
             node_type,
         }
     }
+
+    pub fn node_type(&self) -> &NodeType {
+        &self.node_type
+    }
 }
 
-#[derive(Clone, PartialEq, Default, Eq)]
+#[derive(Clone, PartialEq, Default, Eq, Copy)]
 pub struct Key(u64);
 
 impl Key {

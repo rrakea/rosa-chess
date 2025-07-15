@@ -16,8 +16,8 @@ use std::iter;
 // -> When a cutoff is reached the rest of the moves dont get generated at all
 // The moves are order such that the most likely good moves are at the top
 // e.g. Promotions
-pub fn mv_gen(p: &Pos, best: Mv) -> impl Iterator<Item = Mv> {
-    iter::once_with(|| wrapper(best))
+pub fn mv_gen(p: &Pos, best: Mv, trust_best: bool) -> impl Iterator<Item = Mv> {
+    iter::once_with(move|| wrapper(best, trust_best))
         .chain(iter::once_with(|| promotions(p)))
         .chain(iter::once_with(|| queen(p)))
         .chain(iter::once_with(|| rook(p)))
@@ -32,8 +32,12 @@ pub fn mv_gen(p: &Pos, best: Mv) -> impl Iterator<Item = Mv> {
         .flat_map(|v| v.into_iter())
 }
 
-fn wrapper(best: Mv) -> Vec<Mv> {
-    vec![best]
+fn wrapper(best: Mv, trust_best: bool) -> Vec<Mv> {
+    if trust_best {
+        vec![best]
+    } else {
+        Vec::new()
+    }
 }
 
 fn promotions(p: &Pos) -> Vec<Mv> {
