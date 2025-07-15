@@ -12,12 +12,17 @@ use std::time;
     node? )
 */
 
-
 // This will stop working in 292 billion years :(
 static mut START: u64 = 0;
 static mut TIME_TO_SEARCH: u64 = 0;
 
-pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, key: table::Key, tt: &mut table::TT) -> (u8, u64) {
+pub fn search(
+    p: &pos::Pos,
+    time: u64,
+    maxdepth: u8,
+    key: &mut table::Key,
+    tt: &mut table::TT,
+) -> (u8, u64) {
     log::info!("Starting search");
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
@@ -41,20 +46,17 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, key: table::Key, tt: &mut t
             break;
         }
 
-        score = negascout(p, depth, f64::MIN, f64::MAX, 0, tt, &key);
+        score = negascout(p, depth, f64::MIN, f64::MAX, 0, tt, key);
 
         write_info(tt, &key, depth, time, score);
-        
+
         depth += 1;
     }
 
     log::info!("Search done");
     write_info(tt, &key, depth, time, score);
 
-    (
-        depth + 1,
-        current_time() - unsafe { START },
-    )
+    (depth + 1, current_time() - unsafe { START })
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
@@ -65,58 +67,62 @@ fn negascout(
     b: f64,
     ply: u8,
     tt: &mut table::TT,
-    key: &table::Key,
+    key: &mut table::Key,
 ) -> i32 {
     // Search is done
     if depth == 0 {
         return eval(p);
     }
 
-    // Check Transposition table
+    // Check the transposition table
     let entry = tt.get(&key);
-    let search_hit = match entry {
-        Some(e)=> true,
-        None => false,
-    };
+    let trust_best = false;
+    let replace_entry = false;
 
-
-    // Since the search is better than ours will be
-    // This also takes care of repetitions and transpositions
-    if search_hit && entry.depth > depth {
-        return entry.score as f64;
+    if entry.key.is_null() {
+        replace_entry = true
+    } else if entry.key.val() == key.val() {
+        // Transposition hit
+        if entry.depth > depth {
+            // The analysis is better than ours
+            return entry.score;
+        } else {
+            // We want to analyze again, but the position is the same
+            // -> We try the best move first
+            trust_best = true;
+            replace_entry = true;
+        }
+    } else {
+        // The entry is from a different position
+        if entry.depth < depth {
+            replace_entry = true;
+        }
     }
 
-    // We are only 1 move away from root && deep enough into the deepening && time ran out
-    if ply == 1 && depth > 6 && current_time() >= unsafe { END } {
-        return entry.score as f64;
-    }
-
-    let mut best_score = f64::MIN;
+    let mut best_score = i32::MIN;
     let mut best_move = Mv::null();
 
-    let mut second_score = f64::MIN;
-    let mut second_move = Mv::null();
-
     // Iterator
-    let move_gen = mv::mv_gen::mv_gen(p, entry.best, entry.second);
+    let move_gen = mv::mv_gen::mv_gen(p, entry.mv);
 
     for (i, m) in move_gen.enumerate() {
-        let outcome = mv::mv_apply::apply(p, &m);
+        let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
             Some(o) => o,
+            // Impossible move
             None => continue,
         };
         let mut score;
         if i < 2 {
             // Transposition table hits
-            score = -negascout(&outcome, depth - 1, -b, -a, ply + 1);
+            score = -negascout(&outcome, depth - 1, -b, -a, ply + 1, tt, key);
         } else {
             // Null window search
-            score = -negascout(&outcome, depth - 1, -a - 1.0, -a, ply + 1);
+            score = -negascout(&outcome, depth - 1, -a - 1.0, -a, ply + 1, tt, key);
             // You have to do this, since you cant do a "-" before the tupel
             if a < score && score < b {
                 // Failed high -> Full re-search
-                score = -negascout(&outcome, depth - 1, -b, -a, ply + 1);
+                score = -negascout(&outcome, depth - 1, -b, -a, ply + 1, tt, key);
             }
         }
         a = f64::max(a, score);
@@ -151,11 +157,17 @@ fn negascout(
 }
 
 fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
-        log::info!("Search with depth {} concluded", depth);
-        let res = tt.get(&start_key).unwrap();
-        let info_string = format!("info depth {} time {} pv {} score cp {} ", depth, time, res.best.notation() ,score);
-        log::info!("Command send: {}", info_string);
-        println!("{}", info_string);
+    log::info!("Search with depth {} concluded", depth);
+    let res = tt.get(&start_key).unwrap();
+    let info_string = format!(
+        "info depth {} time {} pv {} score cp {} ",
+        depth,
+        time,
+        res.best.notation(),
+        score
+    );
+    log::info!("Command send: {}", info_string);
+    println!("{}", info_string);
 }
 
 fn current_time() -> u64 {

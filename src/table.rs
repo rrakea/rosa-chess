@@ -3,8 +3,25 @@ use crate::pos;
 use rand::RngCore;
 
 pub struct TT {
-    t: Vec<Entry>,
+    table: Vec<Entry>,
     size: u64,
+}
+
+impl TT {
+    pub fn new(size: u64) -> TT {
+        let table: Vec<Entry> = vec![Entry::default(); size as usize];
+        TT { table, size }
+    }
+
+    pub fn get(&self, key: &Key) -> &Entry {
+        let index = key.val() % self.size;
+        &self.table[index as usize]
+    }
+
+    pub fn set(&mut self, entry: Entry) {
+        let index = entry.key.val() % self.size;
+        self.table[index as usize] = entry;
+    }
 }
 
 /*
@@ -27,25 +44,15 @@ pub struct Entry {
     pub node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound
 }
 
-impl TT {
-    pub fn new(size: u64) -> TT {
-        let table: Vec<Entry> = vec![Entry::default(); size as usize];
-        TT { t: table, size }
-    }
-
-    pub fn get(&self, key: &Key) -> Option<&Entry> {
-        let index = key.get() % self.size;
-        let entry = &self.t[index as usize];
-        if entry.key == *key {
-            Some(&entry)
-        } else {
-            None
+impl Entry {
+    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: i8) -> Entry {
+        Entry {
+            key,
+            score,
+            mv,
+            depth,
+            node_type,
         }
-    }
-
-    pub fn set(&mut self, entry: Entry) {
-        let index = entry.key.get() % self.size;
-        self.t[index as usize] = entry;
     }
 }
 
@@ -103,8 +110,12 @@ impl Key {
         key
     }
 
-    pub fn get(&self) -> u64 {
+    pub fn val(&self) -> u64 {
         self.0
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.val() == 0
     }
 
     pub fn color(&mut self) {
