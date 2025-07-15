@@ -1,54 +1,30 @@
+use crate::eval_const;
 use crate::pos;
 
-const PAWN_VALUE: i8 = 1;
-const KNIGHT_VALUE: i8 = 3;
-const BISHOP_VALUE: i8 = 3;
-const ROOK_VALUE: i8 = 5;
-const QUEEN_VALUE: i8 = 9;
-const KING_VALUE: i8 = 0;
+// Since we are using negamax this evaluation function has to return
+// a value relative to the side to move
 
-pub fn material_eval(p: &pos::Pos) -> i8 {
-    let mut eval: i8 = 0;
-    let mut self_king = false;
-    let mut op_king = false;
+pub fn eval(p: &pos::Pos) -> i32 {
+    let mut eval = 0;
 
-    let active = p.active;
-    for &p in &p.sq {
-        match p * active {
-            pos::PAWN => eval += PAWN_VALUE,
-            pos::KNIGHT => eval += KNIGHT_VALUE,
-            pos::BISHOP => eval += BISHOP_VALUE,
-            pos::ROOK => eval += ROOK_VALUE,
-            pos::QUEEN => eval += QUEEN_VALUE,
-            pos::KING => {
-                eval += KING_VALUE;
-                self_king = true
-            }
+    // This way of checking for endgame is inspired by this entry:
+    // https://www.chessprogramming.org/Simplified_Evaluation_Function
+    // Not really the best way, tempered eval would be way better
+    let w_minor_piece_count =
+        p.piece(pos::BISHOP).count() + p.piece(pos::KNIGHT).count() + p.piece(pos::ROOK).count();
+    let w_endgame = p.piece(pos::QUEEN).empty() || w_minor_piece_count <= 1;
 
-            pos::BPAWN => eval -= PAWN_VALUE,
-            pos::BKNIGHT => eval -= KNIGHT_VALUE,
-            pos::BBISHOP => eval -= BISHOP_VALUE,
-            pos::BROOK => eval -= ROOK_VALUE,
-            pos::BQUEEN => eval -= QUEEN_VALUE,
-            pos::BKING => {
-                eval -= KING_VALUE;
-                op_king = true
-            }
-            _ => {}
+    let b_minor_piece_count =
+        p.piece(pos::BBISHOP).count() + p.piece(pos::BKNIGHT).count() + p.piece(pos::BROOK).count();
+    let b_endgame = p.piece(pos::BQUEEN).empty() || b_minor_piece_count <= 1;
+
+    let endgame = w_endgame && b_endgame;
+
+    for piece in pos::PIECE_VAL_ARRAY {
+        for sq in p.piece(piece).get_ones() {
+            eval += eval_const::piece_eval(sq, piece, p.active, endgame);
         }
     }
-    if !self_king {
-        return i8::MIN;
-    }
-    if !op_king {
-        return i8::MAX;
-    }
-    eval
-}
 
-pub fn eval(p: &pos::Pos) {
-    let eval = 0;
-    
-
-    eval * p.active
+    eval * p.active as i32
 }

@@ -17,6 +17,10 @@ pub const BROOK: i8 = -4;
 pub const BQUEEN: i8 = -5;
 pub const BKING: i8 = -6;
 
+pub const PIECE_VAL_ARRAY: [i8; 12] = [
+    PAWN, BISHOP, KNIGHT, ROOK, QUEEN, KING, BPAWN, BBISHOP, BKNIGHT, BROOK, BQUEEN, BKING,
+];
+
 #[derive(Clone, Debug)]
 pub struct Pos {
     // Bitboard centric layout
@@ -97,7 +101,7 @@ impl Pos {
 pub fn gen_full(p: &mut Pos) {
     let mut full = 0;
     for board in p.boards {
-        full |= board.get_val();
+        full |= board.val();
     }
     p.full = Board::new(full);
 }

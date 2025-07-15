@@ -7,19 +7,25 @@ pub struct TT {
     size: u64,
 }
 
+/*
+    Alignment:
+    Key: u64 -> 8 bytes
+    Score: i32 -> 4 bytes
+    mv: u16 -> 2 byte
+    Depth: u8 -> 1 byte
+    Node_type: i8 -> 1 byte
+
+    => 16 Bytes (-> No padding)
+*/
+
 #[derive(Clone, Default)]
 pub struct Entry {
     pub key: Key,
-    pub best: Mv,
-    pub second: Mv,
-    pub score: f32,
+    pub score: i32,
+    pub mv: Mv,
     pub depth: u8,
     pub node_type: i8, // -1 -> lower bound; 0 -> exact; 1 -> upper bound
-    pub age: u8,
 }
-
-#[derive(Clone, PartialEq, Default)]
-pub struct Key(u64);
 
 impl TT {
     pub fn new(size: u64) -> TT {
@@ -42,6 +48,9 @@ impl TT {
         self.t[index as usize] = entry;
     }
 }
+
+#[derive(Clone, PartialEq, Default, Eq)]
+pub struct Key(u64);
 
 impl Key {
     pub fn new(p: &pos::Pos) -> Key {

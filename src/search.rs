@@ -1,16 +1,22 @@
-use crate::eval;
+use crate::eval::eval;
 use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
 use crate::table;
 use std::time;
 
+/*
+    Idea: We check if our position is in the TT at the start of a search
+    -> If it is we can start our iterative deepening at that depth value
+    -> Does this interfere with alpha beta pruning (If our nodes is a cut
+    node? )
+*/
+
+
 // This will stop working in 292 billion years :(
 static mut START: u64 = 0;
 static mut TIME_TO_SEARCH: u64 = 0;
 
-// State, time -> eval, best move, search depth, time taken
-// Time in milliseconds!!!!!
 pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, key: table::Key, tt: &mut table::TT) -> (u8, u64) {
     log::info!("Starting search");
     // Safe since none of the threads have started searching yet
@@ -25,8 +31,11 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, key: table::Key, tt: &mut t
 
     // Iterative deepening
     let mut depth = 1;
-    let mut score = 0.0;
+    let mut score = 0;
     loop {
+        if depth == maxdepth {
+            break;
+        }
         let searched_time = current_time() - unsafe { START };
         if searched_time > unsafe { TIME_TO_SEARCH } {
             break;
@@ -57,10 +66,10 @@ fn negascout(
     ply: u8,
     tt: &mut table::TT,
     key: &table::Key,
-) -> f64 {
+) -> i32 {
     // Search is done
     if depth == 0 {
-        return eval::material_eval(p) as f64;
+        return eval(p);
     }
 
     // Check Transposition table
@@ -68,12 +77,12 @@ fn negascout(
     let search_hit = match entry {
         Some(e)=> true,
         None => false,
-    }
+    };
 
 
     // Since the search is better than ours will be
     // This also takes care of repetitions and transpositions
-    if search_hit entry.depth > depth {
+    if search_hit && entry.depth > depth {
         return entry.score as f64;
     }
 
@@ -141,7 +150,7 @@ fn negascout(
     best_score
 }
 
-fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: f64) {
+fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
         log::info!("Search with depth {} concluded", depth);
         let res = tt.get(&start_key).unwrap();
         let info_string = format!("info depth {} time {} pv {} score cp {} ", depth, time, res.best.notation() ,score);

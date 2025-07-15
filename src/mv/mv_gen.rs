@@ -41,7 +41,7 @@ fn promotions(p: &Pos) -> Vec<Mv> {
     let rank = if p.active == 1 { 6 } else { 2 };
     let pawn_bb = p.piece(pos::PAWN);
     // Only pawns that are on the last rank
-    let second_rank = pawn_bb.get_val() & constants::RANK_MASKS[rank];
+    let second_rank = pawn_bb.val() & constants::RANK_MASKS[rank];
     if second_rank != 0 {
         let potentials = Board::new(second_rank).get_ones();
         for pawn in potentials {
@@ -239,7 +239,7 @@ fn pawn_double(p: &Pos) -> Vec<Mv> {
     let bb = p.piece(pos::PAWN * p.active);
     let rank = if p.active == 1 { 2 } else { 6 };
 
-    let second_rank = Board::new(bb.get_val() ^ constants::RANK_MASKS[rank]);
+    let second_rank = Board::new(bb.val() ^ constants::RANK_MASKS[rank]);
 
     if second_rank.empty() {
         return mv;
@@ -300,7 +300,7 @@ pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {
 
 fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: i8) -> bool {
     let piece_bb = p.piece(piece);
-    if attacker_mask & piece_bb.get_val() != 0 {
+    if attacker_mask & piece_bb.val() != 0 {
         return true;
     }
     false

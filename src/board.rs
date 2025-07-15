@@ -6,12 +6,12 @@ impl Board {
         Board(val)
     }
 
-    pub fn get_val(&self) -> u64 {
+    pub fn val(&self) -> u64 {
         self.0
     }
 
     pub fn get_ones(&self) -> Vec<u8> {
-        let mut bb = self.get_val();
+        let mut bb = self.val();
         let mut ones: Vec<u8> = Vec::new();
         let mut lsb;
 
@@ -45,6 +45,10 @@ impl Board {
         for b in bits {
             self.0 &= !(1 << b.into());
         }
+    }
+
+    pub fn count(&self) -> u32 {
+        self.val().count_ones()
     }
 
     pub fn empty(&self) -> bool {
