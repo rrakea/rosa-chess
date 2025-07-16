@@ -44,13 +44,13 @@ pub struct Entry {
     pub node_type: NodeType,
 }
 
-#[repr(u8)]
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq)]
 pub enum NodeType {
     #[default]
-    Cut = 0,
-    Pv = 1,
-    All = 2,
+    Null,
+    Upper,
+    Lower,
+    Exact,
 }
 
 impl Entry {
@@ -62,10 +62,6 @@ impl Entry {
             depth,
             node_type,
         }
-    }
-
-    pub fn node_type(&self) -> &NodeType {
-        &self.node_type
     }
 }
 

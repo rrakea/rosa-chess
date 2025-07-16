@@ -46,7 +46,7 @@ pub fn search(
             break;
         }
 
-        score = negascout(p, depth, i32::MIN, i32::MAX, 0, tt, key);
+        score = negascout(p, depth, i32::MIN, i32::MAX, tt, key);
 
         write_info(tt, &key, depth, time, score);
 
@@ -63,9 +63,8 @@ pub fn search(
 fn negascout(
     p: &pos::Pos,
     depth: u8,
-    mut a: i32,
-    b: i32,
-    ply: u8,
+    mut alpha: i32,
+    mut beta: i32,
     tt: &mut table::TT,
     key: &mut table::Key,
 ) -> i32 {
@@ -76,36 +75,57 @@ fn negascout(
 
     // Check the transposition table
     let entry = tt.get(&key);
-    let trust_best = false;
-    let replace_entry = false;
 
-    if entry.key.is_null() {
-        replace_entry = true
-    } else if entry.key.val() == key.val() {
-        // Transposition hit
+    let mut trust_best_mv = false;
+    let mut replace_entry = false;
+
+    if entry.node_type == table::NodeType::Null {
+        // The entry is unanitialized
+        replace_entry = true;
+    } else if entry.key != *key {
+        // The entry is not the same pos as outs
+        // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
-            // The analysis is better than ours
-            return entry.score;
-        } else {
-            // We want to analyze again, but the position is the same
-            // -> We try the best move first
-            trust_best = true;
             replace_entry = true;
         }
     } else {
-        // The entry is from a different position
+        // The entry is usable
+        trust_best_mv = true;
         if entry.depth < depth {
+            // Cant trust the eval; Still use the best move
             replace_entry = true;
+        } else {
+            match entry.node_type {
+                table::NodeType::Exact => {
+                    // The entries analysis is better than ours
+                    return entry.score;
+                }
+                table::NodeType::Upper => {
+                    if entry.score >= beta {
+                        return entry.score;
+                    } else {
+                        beta = entry.score;
+                    }
+                }
+                table::NodeType::Lower => {
+                    if entry.score <= alpha {
+                        return entry.score;
+                    } else {
+                        alpha = entry.score;
+                    }
+                }
+                _ => {} // Unreachable
+            }
         }
     }
 
-    let mut best_score = i32::MIN;
     let mut best_move = Mv::null();
+    let mut node_type = table::NodeType::Upper;
 
     // Iterator
-    let move_gen = mv::mv_gen::mv_gen(p, entry.mv, trust_best);
+    let move_gen = mv::mv_gen::mv_gen(p, entry.mv.clone(), trust_best_mv);
 
-    let legal_move_exists = true;
+    let mut legal_move_exists = true;
     for (i, m) in move_gen.enumerate() {
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
@@ -116,37 +136,54 @@ fn negascout(
         legal_move_exists = true;
 
         let mut score;
-        if i == 1 && trust_best {
-            score = -negascout(&outcome, depth - 1, -b, -a, ply + 1, tt, key);
+        if i == 0 {
+            // Principle variation search
+            // PV Node
+            score = -negascout(&outcome, depth - 1, -beta, -alpha, tt, key);
         } else {
             // Null window search
-            score = -negascout(&outcome, depth - 1, -a - 1, -a, ply + 1, tt, key);
-            // You have to do this, since you cant do a "-" before the tupel
-            if a < score && score < b {
+            score = -negascout(&outcome, depth - 1, -alpha - 1, -alpha, tt, key);
+            if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(&outcome, depth - 1, -b, -a, ply + 1, tt, key);
+                score = -negascout(&outcome, depth - 1, -beta, -alpha, tt, key);
             }
         }
-        a = i32::max(a, score);
-        if score > best_score {
-            best_score = score;
+        if score > alpha {
+            alpha = score;
             best_move = m;
-        }
-        if a >= b {
-            break; // Prune :)
+            node_type = table::NodeType::Exact;
+
+            // Beta cutoff can only occur on a change of alpha
+            if alpha >= beta {
+                // Cut Node
+                node_type = table::NodeType::Lower;
+                break; // Prune :)
+            }
         }
     }
 
     if !legal_move_exists {
-        // TODO
+        let king_pos = p.piece(pos::KING * p.active).get_ones_single();
+        if mv::mv_gen::square_attacked(p, king_pos, p.active * -1) {
+            // Checkmate
+            return i32::MIN;
+        } else {
+            // Stalemate
+            return 0;
+        }
     }
 
-    let node_type = table::NodeType::All;
-    tt.set(table::Entry::new(
-        key, best_score, best_move, depth, node_type,
-    ));
+    if replace_entry {
+        tt.set(table::Entry::new(
+            key.clone(),
+            alpha,
+            best_move,
+            depth,
+            node_type,
+        ));
+    }
 
-    best_score
+    alpha
 }
 
 fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
