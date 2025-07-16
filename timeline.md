@@ -1,8 +1,6 @@
 ## First Running Version
 Magic: Gen Bishop Magics
-Search: Checkmate
 Finish Uci integration
-Search: Determine node type
 Mv_gen: Finish pawn_cap()
 
 ## 2.0
