@@ -76,7 +76,7 @@ fn negascout(
     // Check the transposition table
     let entry = tt.get(&key);
 
-    let mut trust_best_mv = false;
+    let mut tt_hash_move = Mv::null();
     let mut replace_entry = false;
 
     if entry.node_type == table::NodeType::Null {
@@ -89,8 +89,8 @@ fn negascout(
             replace_entry = true;
         }
     } else {
+        tt_hash_move = entry.mv;
         // The entry is usable
-        trust_best_mv = true;
         if entry.depth < depth {
             // Cant trust the eval; Still use the best move
             replace_entry = true;
@@ -123,10 +123,11 @@ fn negascout(
     let mut node_type = table::NodeType::Upper;
 
     // Iterator
-    let move_gen = mv::mv_gen::mv_gen(p, entry.mv.clone(), trust_best_mv);
-
+    let gen_mvs = mv::mv_gen::gen_mvs(p, tt_hash_move);
+    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs);
+    
     let mut legal_move_exists = true;
-    for (i, m) in move_gen.enumerate() {
+    for (i, m) in ordered_mvs.enumerate() {
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
             Some(o) => o,
