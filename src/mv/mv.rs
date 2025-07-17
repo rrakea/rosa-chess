@@ -1,4 +1,5 @@
 /*
+
 Functions for working with moves encoded as u16
 These encodings are purely usefull for manipulating the bitboards after words
 
@@ -24,7 +25,7 @@ pub enum MvFlag {
     QPromCap = 15,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Mv(u16);
 
 impl Mv {

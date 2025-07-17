@@ -44,6 +44,8 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
     }
 }
 
+pub fn get_pawn_mask(active: i8, sq: u8, can_cap: bool) -> u64 {}
+
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
 pub const KING_OFFSETS: [i8; 8] = [1, -1, 8, -8, 7, -7, 9, -9];
