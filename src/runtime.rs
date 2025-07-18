@@ -1,4 +1,5 @@
 use crate::config;
+use crate::fen;
 use crate::mv;
 use crate::pos;
 use crate::search;
@@ -27,12 +28,8 @@ fn start_search(
     // Look up the results in the TT table
     // This will never panic since we start the search here
     let res = tt.get(&key);
-    if res.key != key {
-        // This should NEVER happen if the hashing is any good
-        log::error!("Well.. fuck. Overwritten the starting position TT entry");
-    }
 
-    (res.score, res.mv.clone(), depth, time_taken)
+    (res.score, res.mv, depth, time_taken)
 }
 
 /*
@@ -60,7 +57,7 @@ fn start_search(
 
 fn uci_start() -> table::TT {
     let stdin = io::stdin();
-    let mut tt_size = config::DEFAULT_TABLE_SIZE_MB;
+    let tt_size = config::DEFAULT_TABLE_SIZE_MB;
     let mut tt: Option<table::TT> = None;
 
     for cmd in stdin.lock().lines() {
@@ -82,10 +79,10 @@ fn uci_start() -> table::TT {
                 break;
             }
             "setoption" => {
-                match process_options(cmd_parts) {
+                /* match process_options(cmd_parts) {
                     Some(o) => tt_size = o,
                     None => (),
-                };
+                }; */
             }
             "quit" => {
                 log::info!("Exiting Early...");
@@ -110,7 +107,7 @@ static mut COLOR: i8 = 1;
 static mut INC: u64 = 0;
 
 fn uci_runtime(tt: &mut table::TT) {
-    let p: Option<pos::Pos> = None;
+    let mut p: Option<pos::Pos> = None;
     let stdin = io::stdin();
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
@@ -124,10 +121,15 @@ fn uci_runtime(tt: &mut table::TT) {
                         log::error!("Go command recieved before position was set");
                         panic!("Invalid Position");
                     }
-                    Some(p) => start_search(p, time, max_depth, tt),
+                    Some(p) => {
+                        p.print();
+                        start_search(p, time, max_depth, tt)
+                    }
                 };
             }
-            "position" => {}
+            "position" => {
+                p = Some(process_position(cmd_parts));
+            }
             "ponderhit" => {}
             "stop" => {}
 
@@ -153,9 +155,17 @@ fn print_options() {
     }
 }
 
+/*
 fn process_options(cmd: Vec<&str>) {}
+*/
 
-fn process_position(cmd: Vec<&str>) {}
+fn process_position(cmd: Vec<&str>) -> pos::Pos {
+    if cmd[1] == "startpos" {
+        fen::starting_pos()
+    } else {
+        fen::fen(cmd[1..].concat())
+    }
+}
 
 fn process_go(cmd: Vec<&str>) -> (u64, u64) {
     let mut index = 1;

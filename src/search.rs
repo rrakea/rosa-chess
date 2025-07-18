@@ -31,7 +31,7 @@ pub fn search(
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        TIME_TO_SEARCH = time;
+        TIME_TO_SEARCH = if time != 0 {time} else {10 * 60 * 1000};
     }
 
     // Iterative deepening
@@ -48,13 +48,13 @@ pub fn search(
 
         score = negascout(p, depth, i32::MIN, i32::MAX, tt, key);
 
-        write_info(tt, &key, depth, time, score);
+        write_info(tt, key, depth, time, score);
 
         depth += 1;
     }
 
     log::info!("Search done");
-    write_info(tt, &key, depth, time, score);
+    write_info(tt, key, depth, time, score);
 
     (depth + 1, current_time() - unsafe { START })
 }
@@ -74,7 +74,7 @@ fn negascout(
     }
 
     // Check the transposition table
-    let entry = tt.get(&key);
+    let entry = tt.get(key);
 
     let mut tt_hash_move = Mv::null();
     let mut replace_entry = false;
@@ -123,11 +123,14 @@ fn negascout(
     let mut node_type = table::NodeType::Upper;
 
     // Iterator
-    let gen_mvs = mv::mv_gen::gen_mvs(p, tt_hash_move);
-    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs);
-    
+    let gen_mvs = mv::mv_gen::gen_mvs(p);
+    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != tt_hash_move);
+    let mv_iter = std::iter::once(tt_hash_move)
+        .chain(ordered_mvs)
+        .filter(|mv| !mv.is_null());
+
     let mut legal_move_exists = true;
-    for (i, m) in ordered_mvs.enumerate() {
+    for (i, m) in mv_iter.enumerate() {
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
             Some(o) => o,
@@ -165,7 +168,7 @@ fn negascout(
 
     if !legal_move_exists {
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
-        if mv::mv_gen::square_attacked(p, king_pos, p.active * -1) {
+        if mv::mv_gen::square_attacked(p, king_pos, -p.active) {
             // Checkmate
             return i32::MIN;
         } else {
@@ -176,7 +179,7 @@ fn negascout(
 
     if replace_entry {
         tt.set(table::Entry::new(
-            key.clone(),
+            *key,
             alpha,
             best_move,
             depth,

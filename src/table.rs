@@ -189,8 +189,8 @@ pub fn init_zobrist_keys() {
     let mut rng = rand::rng();
     let mut keys = [[0; 64]; 12];
     for i in 0..12 {
-        for j in 0..12 * 64 {
-            keys[j][i] = rng.next_u64();
+        for j in 0..64 {
+            keys[i][j] = rng.next_u64();
         }
     }
     unsafe {

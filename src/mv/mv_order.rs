@@ -16,7 +16,7 @@ where
     }
 }
 
-struct MoveOrder<I>
+pub struct MoveOrder<I>
 where
     I: Iterator<Item = Mv>,
 {

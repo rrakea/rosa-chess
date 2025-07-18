@@ -14,10 +14,10 @@ pub fn fen(fen: String) -> pos::Pos {
     let ranks = split_fen[0].split("/");
     for (i, rank) in ranks.enumerate() {
         // For some bitchass reason fen goes from rank 8 to rank 1
-        let i = 8 - i;
+        let i = 8 - i -1;
         let mut current_sq: usize = 0;
         for piece in rank.chars() {
-            if piece.is_digit(10) {
+            if piece.is_ascii_digit() {
                 current_sq += piece.to_digit(10).unwrap() as usize;
             } else {
                 let code = match piece {
@@ -37,7 +37,7 @@ pub fn fen(fen: String) -> pos::Pos {
 
                     _ => panic!("Invalid piece code in FEN: {}", piece),
                 };
-                sq[(current_sq + (i * 8)) as usize] = code;
+                sq[current_sq + (i * 8)] = code;
                 current_sq += 1;
             }
         }
@@ -70,6 +70,6 @@ pub fn fen(fen: String) -> pos::Pos {
         let file = split_fen[3].chars().nth(0).unwrap();
         ep_file = file as u8 - b'a';
     }
-    
+
     pos::Pos::new(sq, active, is_ep, ep_file, w_castle, b_castle)
 }

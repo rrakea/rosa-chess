@@ -14,8 +14,9 @@ use std::iter;
 // More precise ordering is inside mv_order
 // This is more for ordering inside the categories/ ordering the
 // large amount of non remarkable moves
-pub fn gen_mvs(p: &Pos, best: Mv) -> impl Iterator<Item = Mv> {
-    let iter = (promotions(p))
+// This can contain null moves, which have to be filtered out later
+pub fn gen_mvs(p: &Pos)  -> impl Iterator<Item = Mv> {
+    (promotions(p))
         // Cap Pawn moves
         .chain(gen_piece_mvs(p, pos::PAWN, true, false))
         .chain(gen_ep(p))
@@ -25,13 +26,9 @@ pub fn gen_mvs(p: &Pos, best: Mv) -> impl Iterator<Item = Mv> {
         .chain(gen_piece_mvs(p, pos::KNIGHT, true, true))
         .chain(gen_castle(p))
         .chain(gen_piece_mvs(p, pos::KING, true, true))
+        .chain(gen_pawn_double(p))
         // Queit Pawn moves
         .chain(gen_piece_mvs(p, pos::PAWN, false, true))
-        // Filter out the best move duplicate
-        .filter(move |mv| mv == &best);
-
-    // We add the best move at the end so it wont be filtered out
-    iter::once(best).chain(iter)
 }
 
 // The main function, that does all the work
@@ -63,7 +60,6 @@ fn gen_piece_mvs(
                 }
             })
         })
-        .filter(|mv| !mv.is_null())
 }
 
 // Gets a movemask for the piece and sq
@@ -223,7 +219,6 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
                 Mv::null()
             }
         })
-        .filter(|mv| !mv.is_null())
 }
 
 pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {

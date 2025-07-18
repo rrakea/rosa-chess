@@ -31,6 +31,11 @@ fn init_premasks() {
 
             BISHOP_PREMASKS_TRUNC[sq] = gen_move_mask(sq, &BISHOP_OFFSETS, 8, 0, true);
             ROOK_PREMASKS_TRUNC[sq] = gen_move_mask(sq, &ROOK_OFFSETS, 8, 0, true);
+
+            WPAWN_MASKS[sq] = gen_move_mask(sq, &[8], 1, 0, false);
+            BPAWN_MASKS[sq] = gen_move_mask(sq, &[-8], 1, 0, false);
+            WPAWN_MASKS_CAP[sq] = gen_move_mask(sq, &[7, 9], 1, 0, false);
+            BPAWN_MASKS_CAP[sq] = gen_move_mask(sq, &[-7, -9], 1, 0, false);
         }
     }
 }
@@ -52,7 +57,7 @@ fn init_lookups() {
 
             let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
             unsafe {
-                ROOK_LOOKUP[sq][blocker_index as usize] = rook_movemask;
+                ROOK_LOOKUP[sq].push(rook_movemask);
             }
             blocker_index += 1;
             if last_iteration {
@@ -72,7 +77,7 @@ fn init_lookups() {
             }
             let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
             unsafe {
-                BISHOP_LOOKUP[sq][blocker_index as usize] = bishop_movemask;
+                BISHOP_LOOKUP[sq].push(bishop_movemask);
             }
             blocker_index += 1;
             if last_iteration {
@@ -82,11 +87,17 @@ fn init_lookups() {
     }
 }
 
-fn gen_move_mask(sq: usize, offset: &[i8], iterator: i8, blocker_mask: u64, truncate: bool) -> u64 {
+fn gen_move_mask(
+    sq: usize,
+    offset: &[i8],
+    iterations: i8,
+    blocker_mask: u64,
+    truncate: bool,
+) -> u64 {
     let mut pos_moves = Vec::new();
     let mut found_blocker = false;
     'offset: for o in offset {
-        for i in 1..=iterator {
+        for i in 1..=iterations {
             let new_pos = (sq as i8) + (o * i);
             let next_pos = (sq as i8) + (o * (i + 1));
             let last_pos = (sq as i8) + (o * (i - 1));

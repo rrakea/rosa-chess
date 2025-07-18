@@ -44,7 +44,18 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
     }
 }
 
-pub fn get_pawn_mask(active: i8, sq: u8, can_cap: bool) -> u64 {}
+pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
+    let sq = sq as usize;
+    unsafe {
+        match (active, cap) {
+            (1, false) => WPAWN_MASKS[sq],
+            (1, true) => WPAWN_MASKS_CAP[sq],
+            (0, false) => BPAWN_MASKS[sq],
+            (0, true) => WPAWN_MASKS_CAP[sq],
+            _ => panic!("Invalid color value: {}, {}", active, cap),
+        }
+    }
+}
 
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
@@ -58,6 +69,8 @@ pub static mut KNIGHT_MASKS: [u64; 64] = [0; 64];
 pub static mut KING_MASKS: [u64; 64] = [0; 64];
 pub static mut WPAWN_MASKS: [u64; 64] = [0; 64];
 pub static mut BPAWN_MASKS: [u64; 64] = [0; 64];
+pub static mut WPAWN_MASKS_CAP: [u64; 64] = [0; 64];
+pub static mut BPAWN_MASKS_CAP: [u64; 64] = [0; 64];
 
 pub static mut ROOK_PREMASKS_TRUNC: [u64; 64] = [0; 64];
 pub static mut BISHOP_PREMASKS_TRUNC: [u64; 64] = [0; 64];

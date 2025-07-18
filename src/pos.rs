@@ -96,6 +96,18 @@ impl Pos {
         let index = calc_index(piece);
         &self.boards[index]
     }
+
+    pub fn print(&self) {
+        println!("Bitboards: ");
+        for b in self.boards {
+            crate::util::prittify::pritify_bitboard(b.val());
+        }
+        println!("Full: ");
+        crate::util::prittify::pritify_bitboard(self.full.val());
+
+        println!("Sq array: {:?}", self.sq);
+        println!("Data: {:#066b}", self.data);
+    }
 }
 
 pub fn gen_full(p: &mut Pos) {
