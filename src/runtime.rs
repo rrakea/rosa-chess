@@ -7,7 +7,7 @@ use crate::table;
 use std::io::{self, BufRead};
 
 pub fn start() {
-    log4rs::init_file("log4rs.yaml", Default::default());
+    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
     log::info!("Init Log File");
 
     let mut tt = uci_start();
@@ -88,10 +88,19 @@ fn uci_start() -> table::TT {
                 log::info!("Exiting Early...");
                 std::process::exit(0);
             }
+            "shortcut" => {
+                let mut table = table::TT::new(tt_size);
+                table::init_zobrist_keys();
+                mv::magic_init::init_magics();
+                let p = fen::starting_pos();
+                start_search(&p, 15 * 60 * 10, 0, &mut table);
+            }
+            "magics" => {
+                mv::gen_magics::gen_magics();
+            }
             _ => {
                 log::warn!("UCI setup command not understood: {}", cmd)
-            }
-        }
+            }        }
     }
 
     match tt {
@@ -122,7 +131,6 @@ fn uci_runtime(tt: &mut table::TT) {
                         panic!("Invalid Position");
                     }
                     Some(p) => {
-                        p.print();
                         start_search(p, time, max_depth, tt)
                     }
                 };

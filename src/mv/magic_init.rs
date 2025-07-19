@@ -1,5 +1,9 @@
+use rand::rand_core::block;
+
 use crate::mv::constants::*;
 use crate::util;
+
+use super::{constants, magic};
 
 pub fn init_magics() {
     reserve_lookup();
@@ -12,16 +16,16 @@ pub fn init_magics() {
 fn reserve_lookup() {
     for sq in 0..64 {
         unsafe {
-            let rook_shift = ROOK_SHIFT[sq] as usize;
-            ROOK_LOOKUP[sq].reserve(2 ^ rook_shift);
+            let rook_shift = ROOK_SHIFT[sq];
+            ROOK_LOOKUP[sq].resize(usize::pow(2, rook_shift as u32), 0);
 
-            let bishop_shift = BISHOP_SHIFT[sq] as usize;
-            BISHOP_LOOKUP[sq].reserve(2 ^ bishop_shift);
+            let bishop_shift = BISHOP_SHIFT[sq];
+            BISHOP_LOOKUP[sq].resize(usize::pow(2, bishop_shift as u32), 0);
         }
     }
 }
 
-fn init_premasks() {
+pub fn init_premasks() {
     unsafe {
         for sq in 0..64 {
             KING_MASKS[sq] = gen_move_mask(sq, &KING_OFFSETS, 1, 0, false);
@@ -46,6 +50,10 @@ fn init_lookups() {
 
         let mut blocker_index = 0;
         let mut last_iteration = false;
+
+        let magic = constants::ROOK_MAGIC[sq];
+        let shift = constants::ROOK_SHIFT[sq];
+
         loop {
             // Calculate all the possible relevant blocker positions
             let rook_blocker = gen_blockers(rook_trunc_premask, blocker_index);
@@ -56,12 +64,9 @@ fn init_lookups() {
             }
 
             let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
-            if sq == 45 {
-                util::prittify::pritify_bitboard(rook_blocker);
-                util::prittify::pritify_bitboard(rook_movemask);
-            }
+            let index = magic::magic_index(magic, shift, rook_blocker);
             unsafe {
-                ROOK_LOOKUP[sq].push(rook_movemask);
+                ROOK_LOOKUP[sq][index] = rook_movemask;
             }
             blocker_index += 1;
             if last_iteration {
@@ -74,14 +79,18 @@ fn init_lookups() {
         last_iteration = false;
         blocker_index = 0;
 
+        let magic = constants::BISHOP_MAGIC[sq];
+        let shift = constants::BISHOP_SHIFT[sq];
+
         loop {
             let bishop_blocker = gen_blockers(bishop_trunc_premask, blocker_index);
             if bishop_blocker == bishop_trunc_premask {
                 last_iteration = true
             }
             let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
+            let index = magic::magic_index(magic, shift, bishop_blocker);
             unsafe {
-                BISHOP_LOOKUP[sq].push(bishop_movemask);
+                BISHOP_LOOKUP[sq][index] = bishop_movemask;
             }
             blocker_index += 1;
             if last_iteration {
@@ -130,7 +139,7 @@ fn gen_move_mask(
     util::mask::one_at(pos_moves)
 }
 
-fn gen_blockers(mask: u64, counter: u64) -> u64 {
+pub fn gen_blockers(mask: u64, counter: u64) -> u64 {
     let mut res = 0;
     let mut counter_position = 0;
 

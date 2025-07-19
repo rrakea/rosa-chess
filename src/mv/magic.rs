@@ -11,8 +11,8 @@ pub fn rook_mask(sq: u8, p: &Pos) -> u64 {
     let magic = ROOK_MAGIC[sq];
     let shift = ROOK_SHIFT[sq];
     let blocker = premask & p.full.val();
-    let index = (blocker * magic) >> shift;
-    unsafe { ROOK_LOOKUP[sq][index as usize] }
+    let index = magic_index(magic, shift, blocker);
+    unsafe { ROOK_LOOKUP[sq][index] }
 }
 
 pub fn bishop_mask(sq: u8, p: &Pos) -> u64 {
@@ -20,6 +20,10 @@ pub fn bishop_mask(sq: u8, p: &Pos) -> u64 {
     let magic = BISHOP_MAGIC[sq as usize];
     let shift = BISHOP_SHIFT[sq as usize];
     let blocker = premask & p.full.val();
-    let index = (blocker * magic) >> shift;
-    unsafe { BISHOP_LOOKUP[sq as usize][index as usize] }
+    let index = magic_index(magic, shift, blocker);
+    unsafe { BISHOP_LOOKUP[sq as usize][index] }
+}
+
+pub fn magic_index(magic: u64, shift: u8, blocker: u64) -> usize {
+    ((magic * blocker) >> (64 - shift)) as usize
 }
