@@ -3,6 +3,7 @@ use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
 use crate::table;
+use std::iter;
 use std::time;
 
 /*
@@ -28,7 +29,7 @@ pub fn search(
     // Wont be mutated till the next move is made
     unsafe {
         START = current_time();
-        TIME_TO_SEARCH = if time != 0 {time} else {10 * 60 * 1000};
+        TIME_TO_SEARCH = if time != 0 { time } else { 10 * 60 * 1000 };
     }
 
     // Iterative deepening
@@ -121,7 +122,7 @@ fn negascout(
     let mut node_type = table::NodeType::Upper;
 
     // Iterator
-    let gen_mvs = mv::mv_gen::gen_mvs(p);
+    let gen_mvs = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
     let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != tt_hash_move);
     let mv_iter = std::iter::once(tt_hash_move)
         .chain(ordered_mvs)
@@ -129,6 +130,7 @@ fn negascout(
 
     let mut legal_move_exists = true;
     for (i, m) in mv_iter.enumerate() {
+        //println!("{i} {}", m.notation());
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
             Some(o) => o,
@@ -176,13 +178,7 @@ fn negascout(
     }
 
     if replace_entry {
-        tt.set(table::Entry::new(
-            *key,
-            alpha,
-            best_move,
-            depth,
-            node_type,
-        ));
+        tt.set(table::Entry::new(*key, alpha, best_move, depth, node_type));
     }
 
     alpha

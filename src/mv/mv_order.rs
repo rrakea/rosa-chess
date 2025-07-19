@@ -13,6 +13,7 @@ where
         iter: mv_iter,
         buffer: Vec::new(),
         buf_index: 0,
+        exhausted: false,
     }
 }
 
@@ -22,7 +23,8 @@ where
 {
     iter: I,
     buffer: Vec<Mv>,
-    buf_index: u8,
+    buf_index: usize,
+    exhausted: bool,
 }
 
 impl<I> Iterator for MoveOrder<I>
@@ -32,17 +34,25 @@ where
     type Item = Mv;
 
     fn next(&mut self) -> Option<Mv> {
-        let mv = self.iter.next();
-        if let Some(mv) = mv {
-            if mv.is_cap() || mv.is_prom() {
-                return Some(mv);
+        if self.exhausted {
+            if self.buffer.len() != self.buf_index {
+                let next = self.buffer[self.buf_index];
+                self.buf_index += 1;
+                return Some(next);
+            } else {
+                return None;
             }
         }
 
-        if self.buf_index as usize == self.buffer.len() {
-            return None;
+        for mv in self.iter.by_ref() {
+            if mv.is_cap() || mv.is_prom() {
+                return Some(mv);
+            } else {
+                self.buffer.push(mv);
+            }
         }
 
-        Some(self.buffer[self.buf_index as usize])
+        self.exhausted = true;
+        self.next()
     }
 }

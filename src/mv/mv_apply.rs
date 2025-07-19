@@ -16,6 +16,9 @@ const TOP_RIGHT_SQ: u8 = 63;
 // It update the zobrist key, the bitboards,
 // the square based board and the attack boards.
 pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
+    if mv.is_null() {
+        panic!("Null move apply!")
+    }
     let mut npos = old_p.clone();
 
     let mut w_castle = old_p.castling(1);

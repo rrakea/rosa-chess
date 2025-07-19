@@ -15,7 +15,7 @@ use std::iter;
 // This is more for ordering inside the categories/ ordering the
 // large amount of non remarkable moves
 // This can contain null moves, which have to be filtered out later
-pub fn gen_mvs(p: &Pos)  -> impl Iterator<Item = Mv> {
+pub fn gen_mvs(p: &Pos) -> impl Iterator<Item = Mv> {
     (promotions(p))
         // Cap Pawn moves
         .chain(gen_piece_mvs(p, pos::PAWN, true, false))
@@ -45,21 +45,19 @@ fn gen_piece_mvs(
 ) -> impl Iterator<Item = Mv> {
     piece = piece * p.active;
     let piece_positions = p.piece(piece).get_ones();
-    piece_positions
-        .into_iter()
-        .flat_map(move |sq| {
-            let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
-            possible_moves.into_iter().map(move |end_square| {
-                let end_sq_piece = p.sq[end_square as usize];
-                if can_quiet && end_sq_piece == 0 {
-                    Mv::new(sq, end_square, MvFlag::Quiet)
-                } else if can_cap && dif_colors(p.active, end_sq_piece) {
-                    Mv::new(sq, end_square, MvFlag::Cap)
-                } else {
-                    Mv::null()
-                }
-            })
+    piece_positions.into_iter().flat_map(move |sq| {
+        let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
+        possible_moves.into_iter().map(move |end_square| {
+            let end_sq_piece = p.sq[end_square as usize];
+            if can_quiet && end_sq_piece == 0 {
+                Mv::new(sq, end_square, MvFlag::Quiet)
+            } else if can_cap && dif_colors(p.active, end_sq_piece) {
+                Mv::new(sq, end_square, MvFlag::Cap)
+            } else {
+                Mv::null()
+            }
         })
+    })
 }
 
 // Gets a movemask for the piece and sq
@@ -206,19 +204,16 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
 
     let second_rank = Board::new(bb.val() ^ constants::RANK_MASKS[rank]);
 
-    second_rank
-        .get_ones()
-        .into_iter()
-        .map(|pawn| {
-            let one_move = pawn as i8 + 8 * p.active;
-            let two_move = pawn as i8 + 16 * p.active;
+    second_rank.get_ones().into_iter().map(|pawn| {
+        let one_move = pawn as i8 + 8 * p.active;
+        let two_move = pawn as i8 + 16 * p.active;
 
-            if p.sq[one_move as usize] == 0 && p.sq[two_move as usize] == 0 {
-                Mv::new(pawn, two_move as u8, MvFlag::DoubleP)
-            } else {
-                Mv::null()
-            }
-        })
+        if p.sq[one_move as usize] == 0 && p.sq[two_move as usize] == 0 {
+            Mv::new(pawn, two_move as u8, MvFlag::DoubleP)
+        } else {
+            Mv::null()
+        }
+    })
 }
 
 pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {
