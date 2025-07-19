@@ -27,10 +27,7 @@ pub fn search(
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
     unsafe {
-        START = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
+        START = current_time();
         TIME_TO_SEARCH = if time != 0 {time} else {10 * 60 * 1000};
     }
 
@@ -38,6 +35,7 @@ pub fn search(
     let mut depth = 1;
     let mut score = 0;
     loop {
+        log::info!("Starting search at depth: {}", depth);
         if depth == maxdepth {
             break;
         }

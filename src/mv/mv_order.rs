@@ -32,11 +32,11 @@ where
     type Item = Mv;
 
     fn next(&mut self) -> Option<Mv> {
-        for mv in &mut self.iter {
+        let mv = self.iter.next();
+        if let Some(mv) = mv {
             if mv.is_cap() || mv.is_prom() {
                 return Some(mv);
             }
-            self.buffer.push(mv)
         }
 
         if self.buf_index as usize == self.buffer.len() {
