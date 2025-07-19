@@ -63,17 +63,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "chess_rs"
-version = "0.1.0"
-dependencies = [
- "log",
- "log4rs",
- "num-traits",
- "once_cell",
- "rand 0.9.1",
-]
-
-[[package]]
 name = "chrono"
 version = "0.4.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -416,6 +405,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d04b7d0ee6b4a0207a0a7adb104d23ecb0b47d6beae7152d0fa34b692b29fd6"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "rosa"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "log4rs",
+ "num-traits",
+ "once_cell",
+ "rand 0.9.1",
 ]
 
 [[package]]

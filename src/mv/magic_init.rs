@@ -56,6 +56,10 @@ fn init_lookups() {
             }
 
             let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
+            if sq == 45 {
+                util::prittify::pritify_bitboard(rook_blocker);
+                util::prittify::pritify_bitboard(rook_movemask);
+            }
             unsafe {
                 ROOK_LOOKUP[sq].push(rook_movemask);
             }
@@ -89,18 +93,18 @@ fn init_lookups() {
 
 fn gen_move_mask(
     sq: usize,
-    offset: &[i8],
+    directions: &[i8],
     iterations: i8,
     blocker_mask: u64,
     truncate: bool,
 ) -> u64 {
     let mut pos_moves = Vec::new();
     let mut found_blocker = false;
-    'offset: for o in offset {
+    'direction: for dir in directions {
         for i in 1..=iterations {
-            let new_pos = (sq as i8) + (o * i);
-            let next_pos = (sq as i8) + (o * (i + 1));
-            let last_pos = (sq as i8) + (o * (i - 1));
+            let new_pos = (sq as i8) + (dir * i);
+            let next_pos = (sq as i8) + (dir * (i + 1));
+            let last_pos = (sq as i8) + (dir * (i - 1));
 
             let not_out_of_bounds = new_pos >= 0 && new_pos < 64;
             let no_wrap = util::util::no_wrap(last_pos as u8, new_pos as u8);
@@ -108,8 +112,8 @@ fn gen_move_mask(
             if truncate {
                 let next_not_out_of_bounds = next_pos >= 0 && next_pos < 64;
                 let next_no_wrap = util::util::no_wrap(new_pos as u8, next_pos as u8);
-                if next_no_wrap && next_not_out_of_bounds {
-                    continue 'offset;
+                if !next_no_wrap || !next_not_out_of_bounds {
+                    continue 'direction;
                 }
             }
 
@@ -119,7 +123,7 @@ fn gen_move_mask(
                 }
                 pos_moves.push(new_pos as u8);
             } else {
-                continue 'offset;
+                continue 'direction;
             }
         }
     }
