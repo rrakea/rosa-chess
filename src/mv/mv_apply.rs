@@ -43,16 +43,16 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
     // Unset the castling rights since its easier to unset them once
     // and then later set them again rather than update them everywhere they could change
     if w_castle.0 {
-        key.castle(old_act, true);
+        key.castle(1, true);
     }
     if w_castle.1 {
-        key.castle(old_act, false)
+        key.castle(1, false)
     }
     if b_castle.0 {
-        key.castle(old_act, true)
+        key.castle(-1, true)
     }
     if b_castle.1 {
-        key.castle(old_act, false)
+        key.castle(-1, false)
     }
 
     // Set the values in the square based represantation
@@ -74,17 +74,13 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         // The capture is set bellow together with promotion captures
         MvFlag::Quiet | MvFlag::Cap | MvFlag::Ep => (),
         MvFlag::DoubleP => {
-            ep_file = util::util::file(end as u8);
+            ep_file = util::util::file(end);
             is_ep = true;
             key.en_passant(ep_file);
         }
 
         MvFlag::BProm | MvFlag::BPromCap => {
-            let piece = if old_act == 1 {
-                pos::BISHOP
-            } else {
-                pos::BBISHOP
-            };
+            let piece = pos::BISHOP * old_act;
             npos.sq[end as usize] = piece;
             key.piece(end, piece);
         }
@@ -199,14 +195,17 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
     pos::gen_full(&mut npos);
     npos.data = pos::gen_data(is_ep, ep_file, w_castle, b_castle);
 
+    /*
     if is_legal(&npos) {
         return Some(npos);
     } else {
         return None;
     }
+    */
+    Some(npos)
 }
 
-fn is_legal(p: &Pos) -> bool{
+fn is_legal(p: &Pos) -> bool {
     let king_pos = p.piece(pos::KING * -p.active).get_ones_single();
     mv_gen::square_attacked(p, king_pos, -p.active)
 }

@@ -51,8 +51,8 @@ pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
         match (active, cap) {
             (1, false) => WPAWN_MASKS[sq],
             (1, true) => WPAWN_MASKS_CAP[sq],
-            (0, false) => BPAWN_MASKS[sq],
-            (0, true) => WPAWN_MASKS_CAP[sq],
+            (-1, false) => BPAWN_MASKS[sq],
+            (-1, true) => WPAWN_MASKS_CAP[sq],
             _ => panic!("Invalid color value: {}, {}", active, cap),
         }
     }

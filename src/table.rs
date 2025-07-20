@@ -151,7 +151,8 @@ impl Key {
             pos::BROOK => unsafe { BROOK[sq] },
             pos::BQUEEN => unsafe { BQUEEN[sq] },
             pos::BKING => unsafe { BKING[sq] },
-            _ => panic!("Invalid piece code for getting a castle hash: {}", piece),
+            0 => 0,
+            _ => panic!("Invalid piece code for getting a piece hash: {}", piece),
         }
     }
 

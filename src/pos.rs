@@ -142,9 +142,9 @@ pub fn gen_data(is_ep: bool, ep_file: u8, w_castle: (bool, bool), b_castle: (boo
 fn calc_index(piece: i8) -> usize {
     let mut index = piece;
     if index < 0 {
-        index = index * -1 + 6;
+        index = -index + 6;
     }
     // Since our pieces start at 1 but the array at 0
-    index -= 1;
+    index -= 1;   
     index as usize
 }

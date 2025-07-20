@@ -22,7 +22,11 @@ pub fn eval(p: &pos::Pos) -> i32 {
 
     for piece in pos::PIECE_VAL_ARRAY {
         for sq in p.piece(piece).get_ones() {
-            eval += eval_const::piece_eval(sq, piece, p.active, endgame);
+            // Same color
+            if piece * p.active > 0 {
+                eval += eval_const::piece_eval(sq, piece, p.active, endgame);
+            } else {
+                eval -= eval_const::piece_eval(sq, piece, p.active, endgame);            }
         }
     }
 

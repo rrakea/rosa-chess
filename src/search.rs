@@ -130,7 +130,7 @@ fn negascout(
 
     let mut legal_move_exists = true;
     for (i, m) in mv_iter.enumerate() {
-        //println!("{i} {}", m.notation());
+        println!("{}", m.notation());
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
             Some(o) => o,

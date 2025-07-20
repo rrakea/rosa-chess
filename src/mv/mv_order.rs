@@ -35,7 +35,7 @@ where
 
     fn next(&mut self) -> Option<Mv> {
         if self.exhausted {
-            if self.buffer.len() != self.buf_index {
+            if self.buf_index < self.buffer.len() {
                 let next = self.buffer[self.buf_index];
                 self.buf_index += 1;
                 return Some(next);
@@ -44,15 +44,17 @@ where
             }
         }
 
-        for mv in self.iter.by_ref() {
+        let mv = self.iter.next();
+        if let Some(mv) = mv {
             if mv.is_cap() || mv.is_prom() {
                 return Some(mv);
             } else {
                 self.buffer.push(mv);
             }
+        } else {
+            self.exhausted = true;
         }
 
-        self.exhausted = true;
         self.next()
     }
 }

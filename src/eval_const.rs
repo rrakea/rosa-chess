@@ -14,11 +14,12 @@ const QUEEN_EVAL: i32 = 900;
 
 pub fn piece_eval(sq: u8, piece: i8, active: i8, endgame: bool) -> i32 {
     let mut sq = sq as usize;
+    let piece = i8::abs(piece);
     if active == -1 {
         sq = 63 - sq;
     }
 
-    let eval = match (piece, endgame) {
+    match (piece, endgame) {
         (pos::PAWN, _) => PAWN_EVAL + PAWN_TABLE[sq],
         (pos::KNIGHT, _) => KNIGHT_EVAL + KNIGHT_TABLE[sq],
         (pos::BISHOP, _) => BISHOP_EVAL + BISHOP_TABLE[sq],
@@ -27,9 +28,7 @@ pub fn piece_eval(sq: u8, piece: i8, active: i8, endgame: bool) -> i32 {
         (pos::KING, false) => KING_TABLE_MIDDLEGAME[sq],
         (pos::KING, true) => KING_TABLE_ENDGAME[sq],
         _ => panic!("Invalid value in piece_eval() call: {}", piece)
-    };
-
-    eval
+    }
 }
 
 // Please don't auto format this file :)
