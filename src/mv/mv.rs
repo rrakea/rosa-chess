@@ -1,3 +1,4 @@
+use crate::util;
 /*
 
 Functions for working with moves encoded as u16
@@ -93,8 +94,8 @@ impl Mv {
 
     pub fn notation(&self) -> String {
         let (start, end) = self.squares();
-        let start = square_name(start);
-        let end = square_name(end);
+        let start = util::square_name(start);
+        let end = util::square_name(end);
         start + end.as_str()
     }
 
@@ -103,10 +104,3 @@ impl Mv {
     }
 }
 
-fn square_name(sq: u8) -> String {
-    let file = sq % 8;
-    let rank = sq / 8;
-    let filestr = (b'a' + file) as char;
-    let rankstr = (b'1' + rank) as char;
-    format!("{}{}", filestr, rankstr)
-}

@@ -1,4 +1,5 @@
 use super::mv_gen;
+use crate::util;
 use crate::mv::mv::{Mv, MvFlag};
 use crate::pos;
 use crate::pos::Pos;
@@ -80,7 +81,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         // The capture is set bellow together with promotion captures
         MvFlag::Quiet | MvFlag::Cap | MvFlag::Ep => (),
         MvFlag::DoubleP => {
-            ep_file = util::util::file(end);
+            ep_file = util::file(end);
             is_ep = true;
             key.en_passant(ep_file);
         }

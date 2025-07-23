@@ -4,7 +4,7 @@ use crate::mv::magic;
 use crate::mv::mv::{Mv, MvFlag};
 use crate::pos;
 use crate::pos::Pos;
-use crate::util::util;
+use crate::util;
 use std::iter;
 
 // This generates pseudo legal moves
@@ -51,7 +51,7 @@ fn gen_piece_mvs(
             let end_sq_piece = p.sq[end_square as usize];
             if can_quiet && end_sq_piece == 0 {
                 Mv::new(sq, end_square, MvFlag::Quiet)
-            } else if can_cap && end_sq_piece != 0 && dif_colors(p.active, end_sq_piece) {
+            } else if can_cap && end_sq_piece != 0 && util::dif_colors(p.active, end_sq_piece) {
                 Mv::new(sq, end_square, MvFlag::Cap)
             } else {
                 Mv::null()
@@ -88,9 +88,9 @@ fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
 
         let can_quiet = p.sq[(end_quiet) as usize] == 0;
         let can_cap_left = util::no_wrap(start_sq, cap_left)
-            && dif_colors(p.sq[cap_left as usize], p.sq[start_sq as usize]);
+            && util::dif_colors(p.sq[cap_left as usize], p.sq[start_sq as usize]);
         let can_cap_right = util::no_wrap(start_sq, cap_right)
-            && dif_colors(p.sq[cap_right as usize], p.sq[start_sq as usize]);
+            && util::dif_colors(p.sq[cap_right as usize], p.sq[start_sq as usize]);
 
         iter::empty()
             .chain(promotion_helper(start_sq, end_quiet, false, can_quiet))
@@ -261,10 +261,3 @@ fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: i8) -> bool {
     false
 }
 
-fn same_colors(a: i8, b: i8) -> bool {
-    a ^ b >= 0
-}
-
-fn dif_colors(a: i8, b: i8) -> bool {
-    a ^ b < 0
-}

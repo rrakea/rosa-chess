@@ -55,7 +55,7 @@ impl Board {
         self.0 != 0
     }
 
-    pub fn prittify(&self) -> String{
+    pub fn prittify(&self) -> String {
         let mut buf = Vec::new();
         let bit_str = format!("{:064b}", self.val());
         for rank in 0..8 {

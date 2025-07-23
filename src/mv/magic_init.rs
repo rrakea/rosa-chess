@@ -1,4 +1,6 @@
 use crate::mv::constants::*;
+use crate::board;
+use crate::util;
 use super::{constants, magic};
 
 pub fn init_magics() {
@@ -112,17 +114,17 @@ fn gen_move_mask(
             let last_pos = (sq as i8) + (dir * (i - 1));
 
             let not_out_of_bounds = new_pos >= 0 && new_pos < 64;
-            let no_wrap = util::util::no_wrap(last_pos as u8, new_pos as u8);
+            let current_no_wrap = util::no_wrap(last_pos as u8, new_pos as u8);
 
             if truncate {
                 let next_not_out_of_bounds = next_pos >= 0 && next_pos < 64;
-                let next_no_wrap = util::util::no_wrap(new_pos as u8, next_pos as u8);
+                let next_no_wrap = util::no_wrap(new_pos as u8, next_pos as u8);
                 if !next_no_wrap || !next_not_out_of_bounds {
                     continue 'direction;
                 }
             }
 
-            if not_out_of_bounds && no_wrap && !found_blocker {
+            if not_out_of_bounds && current_no_wrap && !found_blocker {
                 if (blocker_mask >> new_pos) & 1 == 1 {
                     found_blocker = true;
                 }
@@ -132,7 +134,9 @@ fn gen_move_mask(
             }
         }
     }
-    util::mask::one_at(pos_moves)
+    let mut ret = board::Board::new(0);
+    ret.set_all(pos_moves);
+    ret.val()
 }
 
 pub fn gen_blockers(mask: u64, counter: u64) -> u64 {

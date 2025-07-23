@@ -3,28 +3,6 @@ use crate::pos;
 // Masks when we want to check for specific file/ rank
 // e.g. When cheching if a pawn can queen on the next turn
 // RANK[0] corresponds to RANK 1 (not like they are displayed here)
-pub const RANK_MASKS: [u64; 8] = [
-    0x00000000000000FF,
-    0x000000000000FF00,
-    0x0000000000FF0000,
-    0x00000000FF000000,
-    0x000000FF00000000,
-    0x0000FF0000000000,
-    0x00FF000000000000,
-    0xFF00000000000000,
-];
-
-pub const FILE_MASKS: [u64; 8] = [
-    0x0101010101010101,
-    0x0202020202020202,
-    0x0404040404040404,
-    0x0808080808080808,
-    0x1010101010101010,
-    0x2020202020202020,
-    0x4040404040404040,
-    0x8080808080808080,
-];
-
 pub fn get_mask(piece: i8, sq: u8) -> u64 {
     let sq = sq as usize;
     unsafe {
@@ -56,6 +34,29 @@ pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
         }
     }
 }
+
+pub const RANK_MASKS: [u64; 8] = [
+    0x00000000000000FF,
+    0x000000000000FF00,
+    0x0000000000FF0000,
+    0x00000000FF000000,
+    0x000000FF00000000,
+    0x0000FF0000000000,
+    0x00FF000000000000,
+    0xFF00000000000000,
+];
+
+pub const FILE_MASKS: [u64; 8] = [
+    0x0101010101010101,
+    0x0202020202020202,
+    0x0404040404040404,
+    0x0808080808080808,
+    0x1010101010101010,
+    0x2020202020202020,
+    0x4040404040404040,
+    0x8080808080808080,
+];
+
 
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
