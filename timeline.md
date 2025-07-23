@@ -1,12 +1,12 @@
 ## First Running Version
 Magic: Gen Bishop Magics
-Finish Uci integration
-Mv_gen: Finish pawn_cap()
+Fixing bugs
 
 ## 2.0
 Use the Piece enum
 Pawn mv_gen using masks
 Make/ Unmake move
+Finish UCI
 
 ## Later
 Parallelism

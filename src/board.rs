@@ -54,4 +54,17 @@ impl Board {
     pub fn empty(&self) -> bool {
         self.0 != 0
     }
+
+    pub fn prittify(&self) -> String{
+        let mut buf = Vec::new();
+        let bit_str = format!("{:064b}", self.val());
+        for rank in 0..8 {
+            let start = rank * 8;
+            let end = start + 8;
+            let row: String = bit_str[start..end].chars().rev().collect();
+            buf.push(row);
+        }
+
+        format!("Bit: {:064b}; Board:\n{}\n", self.val(), buf.join("\n"))
+    }
 }

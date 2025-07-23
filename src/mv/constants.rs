@@ -37,9 +37,8 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
             pos::PAWN => WPAWN_MASKS[sq],
             pos::BPAWN => BPAWN_MASKS[sq],
             _ => {
-                let error = "get_mask() called with invalid value";
-                log::error!("{}, {piece}", error);
-                panic!("{}, {piece}", error);
+
+                scream!("get_mask() called with invalid value, piece {}", piece);
             }
         }
     }
@@ -52,8 +51,8 @@ pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
             (1, false) => WPAWN_MASKS[sq],
             (1, true) => WPAWN_MASKS_CAP[sq],
             (-1, false) => BPAWN_MASKS[sq],
-            (-1, true) => WPAWN_MASKS_CAP[sq],
-            _ => panic!("Invalid color value: {}, {}", active, cap),
+            (-1, true) => BPAWN_MASKS_CAP[sq],
+            _ => scream!("Invalid color value: {}, {}", active, cap),
         }
     }
 }

@@ -43,7 +43,7 @@ fn gen_piece_mvs(
     can_cap: bool,
     can_quiet: bool,
 ) -> impl Iterator<Item = Mv> {
-    piece = piece * p.active;
+    piece *= p.active;
     let piece_positions = p.piece(piece).get_ones();
     piece_positions.into_iter().flat_map(move |sq| {
         let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
@@ -51,7 +51,7 @@ fn gen_piece_mvs(
             let end_sq_piece = p.sq[end_square as usize];
             if can_quiet && end_sq_piece == 0 {
                 Mv::new(sq, end_square, MvFlag::Quiet)
-            } else if can_cap && dif_colors(p.active, end_sq_piece) {
+            } else if can_cap && end_sq_piece != 0 && dif_colors(p.active, end_sq_piece) {
                 Mv::new(sq, end_square, MvFlag::Cap)
             } else {
                 Mv::null()
@@ -70,14 +70,14 @@ fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
         pos::ROOK | pos::BROOK => magic::rook_mask(sq, p),
         pos::BISHOP | pos::BBISHOP => magic::bishop_mask(sq, p),
         pos::QUEEN | pos::BQUEEN => magic::queen_mask(sq, p),
-        _ => panic!("Invalid piece in call: {}", piece),
+        _ => scream!("Invalid piece in call: {}", piece),
     };
     Board::new(raw_board)
 }
 
 fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
     let rank = if p.active == 1 { 6 } else { 2 };
-    let pawn_bb = p.piece(pos::PAWN);
+    let pawn_bb = p.piece(pos::PAWN * p.active);
     // Only pawns that are on the last rank
     let relevant_rank = Board::new(pawn_bb.val() & constants::RANK_MASKS[rank]);
     let start_sqs = relevant_rank.get_ones();

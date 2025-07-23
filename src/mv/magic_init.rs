@@ -1,8 +1,4 @@
-use rand::rand_core::block;
-
 use crate::mv::constants::*;
-use crate::util;
-
 use super::{constants, magic};
 
 pub fn init_magics() {

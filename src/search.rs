@@ -3,7 +3,6 @@ use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
 use crate::table;
-use std::iter;
 use std::time;
 
 /*
@@ -130,7 +129,7 @@ fn negascout(
 
     let mut legal_move_exists = true;
     for (i, m) in mv_iter.enumerate() {
-        println!("{}", m.notation());
+        debug!("{}", m.prittify());
         let outcome = mv::mv_apply::apply(p, &m, key);
         let outcome = match outcome {
             Some(o) => o,
