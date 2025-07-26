@@ -15,7 +15,6 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
             pos::PAWN => WPAWN_MASKS[sq],
             pos::BPAWN => BPAWN_MASKS[sq],
             _ => {
-
                 scream!("get_mask() called with invalid value, piece {}", piece);
             }
         }
@@ -56,41 +55,6 @@ pub const FILE_MASKS: [u64; 8] = [
     0x4040404040404040,
     0x8080808080808080,
 ];
-
-<<<<<<< HEAD
-pub fn get_mask(piece: i8, sq: u8) -> u64 {
-    let sq = sq as usize;
-    unsafe {
-        match piece {
-            pos::BISHOP | pos::BBISHOP => BISHOP_PREMASKS[sq],
-            pos::KNIGHT | pos::BKNIGHT => KNIGHT_MASKS[sq],
-            pos::ROOK | pos::BROOK => ROOK_PREMASKS[sq],
-            pos::KING | pos::BKING => KING_MASKS[sq],
-            pos::QUEEN | pos::BQUEEN => ROOK_PREMASKS[sq] | BISHOP_PREMASKS[sq],
-            pos::PAWN => WPAWN_MASKS[sq],
-            pos::BPAWN => BPAWN_MASKS[sq],
-            _ => {
-                let error = "get_mask() called with invalid value";
-                log::error!("{}, {piece}", error);
-                panic!("{}, {piece}", error);
-            }
-        }
-    }
-}
-
-pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
-    let sq = sq as usize; unsafe {
-        match (active, cap) {
-            (1, false) => WPAWN_MASKS[sq],
-            (1, true) => WPAWN_MASKS_CAP[sq],
-            (-1, false) => BPAWN_MASKS[sq],
-            (-1, true) => WPAWN_MASKS_CAP[sq],
-            _ => panic!("Invalid color value: {}, {}", active, cap),
-        }
-    }
-}
-=======
->>>>>>> e435b6bbcd4c579e653fbc6d78b7a1d9af631c7c
 
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
@@ -185,7 +149,7 @@ pub const ROOK_MAGIC: [u64; 64] = [
 pub const ROOK_SHIFT: [u8; 64] = [
     12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12
+    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
 ];
 
 pub const BISHOP_MAGIC: [u64; 64] = [0; 64];
