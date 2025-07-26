@@ -27,7 +27,7 @@ pub fn piece_eval(sq: u8, piece: i8, active: i8, endgame: bool) -> i32 {
         (pos::QUEEN, _) => QUEEN_EVAL + QUEEN_TABLE[sq],
         (pos::KING, false) => KING_TABLE_MIDDLEGAME[sq],
         (pos::KING, true) => KING_TABLE_ENDGAME[sq],
-        _ => panic!("Invalid value in piece_eval() call: {}", piece)
+        _ => scream!("Invalid value in piece_eval() call: {}", piece)
     }
 }
 

@@ -3,6 +3,38 @@ use crate::pos;
 // Masks when we want to check for specific file/ rank
 // e.g. When cheching if a pawn can queen on the next turn
 // RANK[0] corresponds to RANK 1 (not like they are displayed here)
+pub fn get_mask(piece: i8, sq: u8) -> u64 {
+    let sq = sq as usize;
+    unsafe {
+        match piece {
+            pos::BISHOP | pos::BBISHOP => BISHOP_PREMASKS[sq],
+            pos::KNIGHT | pos::BKNIGHT => KNIGHT_MASKS[sq],
+            pos::ROOK | pos::BROOK => ROOK_PREMASKS[sq],
+            pos::KING | pos::BKING => KING_MASKS[sq],
+            pos::QUEEN | pos::BQUEEN => ROOK_PREMASKS[sq] | BISHOP_PREMASKS[sq],
+            pos::PAWN => WPAWN_MASKS[sq],
+            pos::BPAWN => BPAWN_MASKS[sq],
+            _ => {
+
+                scream!("get_mask() called with invalid value, piece {}", piece);
+            }
+        }
+    }
+}
+
+pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
+    let sq = sq as usize;
+    unsafe {
+        match (active, cap) {
+            (1, false) => WPAWN_MASKS[sq],
+            (1, true) => WPAWN_MASKS_CAP[sq],
+            (-1, false) => BPAWN_MASKS[sq],
+            (-1, true) => BPAWN_MASKS_CAP[sq],
+            _ => scream!("Invalid color value: {}, {}", active, cap),
+        }
+    }
+}
+
 pub const RANK_MASKS: [u64; 8] = [
     0x00000000000000FF,
     0x000000000000FF00,
@@ -25,6 +57,7 @@ pub const FILE_MASKS: [u64; 8] = [
     0x8080808080808080,
 ];
 
+<<<<<<< HEAD
 pub fn get_mask(piece: i8, sq: u8) -> u64 {
     let sq = sq as usize;
     unsafe {
@@ -56,6 +89,8 @@ pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
         }
     }
 }
+=======
+>>>>>>> e435b6bbcd4c579e653fbc6d78b7a1d9af631c7c
 
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];

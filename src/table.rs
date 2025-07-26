@@ -89,7 +89,7 @@ impl Key {
 
                 // x ^ 0 = x
                 0 => 0,
-                _ => panic!("Invalid Piece value: {}", *val),
+                _ => scream!("Invalid Piece value new key call: {}", *val),
             };
         }
 
@@ -152,7 +152,7 @@ impl Key {
             pos::BQUEEN => unsafe { BQUEEN[sq] },
             pos::BKING => unsafe { BKING[sq] },
             0 => 0,
-            _ => panic!("Invalid piece code for getting a piece hash: {}", piece),
+            _ => scream!("Invalid piece code for getting a piece hash: {}", piece),
         }
     }
 
@@ -162,7 +162,7 @@ impl Key {
             (1, false) => unsafe { CASTLE[1] },
             (-1, true) => unsafe { CASTLE[2] },
             (-1, false) => unsafe { CASTLE[3] },
-            _ => panic!("Invalid value in castle_hash: {}, {}", active, king_side),
+            _ => scream!("Invalid value in castle_hash: {}, {}", active, king_side),
         }
     }
 }

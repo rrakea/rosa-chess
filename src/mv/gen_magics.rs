@@ -1,6 +1,7 @@
 use crate::mv::constants;
 use crate::mv::magic_init;
 use crate::util;
+use crate::board;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
@@ -32,8 +33,8 @@ pub fn gen_magics() {
         // I have never gotten a shift value below 10
         'shifts: for shift in [12, 11, 10, 9] {
             // The corners are probably not possible with under 12
-            if ![0,7,56,63].contains(&sq) && shift == 12{
-                continue 'shifts
+            if ![0, 7, 56, 63].contains(&sq) && shift == 12 {
+                continue 'shifts;
             }
             // Huge number :)
             'magics: for i in 0..MAGIC_TRIES {
@@ -117,7 +118,7 @@ fn init_movemasks() {
                     let new_pos: i8 = sq as i8 + offset * i as i8;
                     if new_pos >= 0
                         && new_pos < 64
-                        && util::util::no_wrap(
+                        && util::no_wrap(
                             (sq as i8 + offset * (i as i8 - 1)) as u8,
                             new_pos as u8,
                         )
@@ -133,9 +134,10 @@ fn init_movemasks() {
                     }
                 }
             }
-            let movemask = util::mask::one_at(pos_mv);
+            let mut movemask = board::Board::new(0);
+            movemask.set_all(pos_mv);
             unsafe {
-                ROOK_MOVE_WITH_BLOCKERS[sq][blocker_index] = movemask;
+                ROOK_MOVE_WITH_BLOCKERS[sq][blocker_index] = movemask.val();
             }
             blocker_index += 1;
             if last_iteration {

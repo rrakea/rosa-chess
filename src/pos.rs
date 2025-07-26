@@ -100,10 +100,11 @@ impl Pos {
     pub fn print(&self) {
         println!("Bitboards: ");
         for b in self.boards {
-            crate::util::prittify::pritify_bitboard(b.val());
+            println!("{}", b.prittify());
         }
-        println!("Full: ");
-        crate::util::prittify::pritify_bitboard(self.full.val());
+        println!();
+            println!("Full: {}", self.full.prittify());
+
 
         println!("Sq array: {:?}", self.sq);
         println!("Data: {:#066b}", self.data);

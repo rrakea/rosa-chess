@@ -127,8 +127,7 @@ fn uci_runtime(tt: &mut table::TT) {
                 let (max_depth, time) = process_go(cmd_parts);
                 match &p {
                     None => {
-                        log::error!("Go command recieved before position was set");
-                        panic!("Invalid Position");
+                        scream!("Go command recieved before position was set");
                     }
                     Some(p) => {
                         start_search(p, time, max_depth, tt)

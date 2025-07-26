@@ -35,7 +35,7 @@ pub fn fen(fen: String) -> pos::Pos {
                     'q' => pos::BQUEEN,
                     'k' => pos::BKING,
 
-                    _ => panic!("Invalid piece code in FEN: {}", piece),
+                    _ => scream!("Invalid piece code in FEN: {}", piece),
                 };
                 sq[current_sq + (i * 8)] = code;
                 current_sq += 1;
@@ -58,7 +58,7 @@ pub fn fen(fen: String) -> pos::Pos {
                 'Q' => w_castle.1 = true,
                 'k' => b_castle.0 = true,
                 'q' => b_castle.1 = true,
-                _ => panic!("Invalid castle in FEN: {}", castle),
+                _ => scream!("Invalid castle in FEN: {}", castle),
             }
         }
     }

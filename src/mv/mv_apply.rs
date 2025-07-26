@@ -1,10 +1,9 @@
+use super::mv_gen;
+use crate::util;
 use crate::mv::mv::{Mv, MvFlag};
 use crate::pos;
 use crate::pos::Pos;
 use crate::table::Key;
-use crate::util;
-
-use super::mv_gen;
 
 const BOTTOM_LEFT_SQ: u8 = 0;
 const BOTTOM_RIGHT_SQ: u8 = 7;
@@ -17,8 +16,9 @@ const TOP_RIGHT_SQ: u8 = 63;
 // the square based board and the attack boards.
 pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
     if mv.is_null() {
-        panic!("Null move apply!")
+        debug!("Null move apply!");
     }
+
     let mut npos = old_p.clone();
 
     let mut w_castle = old_p.castling(1);
@@ -62,6 +62,13 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
     npos.sq[end as usize] = piece;
     key.piece(start, piece);
 
+    if piece == 0 {
+        debug!("Piece is 0, mv: {}", mv.prittify());
+    }
+    if op_piece == 0 && mv.is_cap() {
+        debug!("OpPiece is 0, mv: {}", mv.prittify());
+    }
+
     if op_piece != 0 {
         key.piece(end, piece);
     }
@@ -74,7 +81,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         // The capture is set bellow together with promotion captures
         MvFlag::Quiet | MvFlag::Cap | MvFlag::Ep => (),
         MvFlag::DoubleP => {
-            ep_file = util::util::file(end);
+            ep_file = util::file(end);
             is_ep = true;
             key.en_passant(ep_file);
         }
