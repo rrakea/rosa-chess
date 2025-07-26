@@ -46,8 +46,7 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
 }
 
 pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
-    let sq = sq as usize;
-    unsafe {
+    let sq = sq as usize; unsafe {
         match (active, cap) {
             (1, false) => WPAWN_MASKS[sq],
             (1, true) => WPAWN_MASKS_CAP[sq],
