@@ -52,6 +52,7 @@ fn gen_piece_mvs(
             if can_quiet && end_sq_piece == 0 {
                 Mv::new(sq, end_square, MvFlag::Quiet)
             } else if can_cap && end_sq_piece != 0 && util::dif_colors(p.active, end_sq_piece) {
+                debug!("IN PIECE GEN: Piece: {piece}, end Piece: {end_sq_piece}");
                 Mv::new(sq, end_square, MvFlag::Cap)
             } else {
                 Mv::null()
@@ -260,4 +261,3 @@ fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: i8) -> bool {
     }
     false
 }
-

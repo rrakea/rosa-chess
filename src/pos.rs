@@ -107,7 +107,7 @@ impl Pos {
 
 
         println!("Sq array: {:?}", self.sq);
-        println!("Data: {:#066b}", self.data);
+        println!("Data: {:#010b}", self.data);
     }
 }
 

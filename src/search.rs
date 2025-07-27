@@ -20,10 +20,10 @@ pub fn search(
     p: &pos::Pos,
     time: u64,
     maxdepth: u8,
-    key: &mut table::Key,
+    key: table::Key,
     tt: &mut table::TT,
 ) -> (u8, u64) {
-    log::info!("Starting search");
+    debug!("Starting search");
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
     unsafe {
@@ -35,7 +35,7 @@ pub fn search(
     let mut depth = 1;
     let mut score = 0;
     loop {
-        log::info!("Starting search at depth: {}", depth);
+        debug!("Starting search at depth: {}", depth);
         if depth == maxdepth {
             break;
         }
@@ -46,13 +46,13 @@ pub fn search(
 
         score = negascout(p, depth, i32::MIN, i32::MAX, tt, key);
 
-        write_info(tt, key, depth, time, score);
+        write_info(tt, &key, depth, time, score);
 
         depth += 1;
     }
 
-    log::info!("Search done");
-    write_info(tt, key, depth, time, score);
+    debug!("Search done");
+    write_info(tt, &key, depth, time, score);
 
     (depth + 1, current_time() - unsafe { START })
 }
@@ -64,7 +64,7 @@ fn negascout(
     mut alpha: i32,
     mut beta: i32,
     tt: &mut table::TT,
-    key: &mut table::Key,
+    key: table::Key,
 ) -> i32 {
     // Search is done
     if depth == 0 {
@@ -72,7 +72,7 @@ fn negascout(
     }
 
     // Check the transposition table
-    let entry = tt.get(key);
+    let entry = tt.get(&key);
 
     let mut tt_hash_move = Mv::null();
     let mut replace_entry = false;
@@ -80,11 +80,12 @@ fn negascout(
     if entry.node_type == table::NodeType::Null {
         // The entry is unanitialized
         replace_entry = true;
-    } else if entry.key != *key {
+    } else if entry.key != key {
         // The entry is not the same pos as outs
         // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
             replace_entry = true;
+            debug!("Evicting TT entry");
         }
     } else {
         tt_hash_move = entry.mv;
@@ -118,6 +119,7 @@ fn negascout(
     }
 
     let mut best_move = Mv::null();
+    let mut best_key = table::Key::default();
     let mut node_type = table::NodeType::Upper;
 
     // Iterator
@@ -128,32 +130,36 @@ fn negascout(
         .filter(|mv| !mv.is_null());
 
     let mut legal_move_exists = true;
+    let mut key = key;
     for (i, m) in mv_iter.enumerate() {
-        debug!("{}", m.prittify());
-        let outcome = mv::mv_apply::apply(p, &m, key);
+        //debug!("{}", m.prittify());
+        let outcome = mv::mv_apply::apply(p, &m, &mut key);
         let outcome = match outcome {
             Some(o) => o,
             // Impossible move
             None => continue,
         };
+        let (npos, nkey) = outcome;
+        debug!("evaluating move: {}", m.prittify());
         legal_move_exists = true;
 
         let mut score;
         if i == 0 {
             // Principle variation search
             // PV Node
-            score = -negascout(&outcome, depth - 1, -beta, -alpha, tt, key);
+            score = -negascout(&npos, depth - 1, -beta, -alpha, tt, nkey);
         } else {
             // Null window search
-            score = -negascout(&outcome, depth - 1, -alpha - 1, -alpha, tt, key);
+            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha, tt, nkey);
             if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(&outcome, depth - 1, -beta, -alpha, tt, key);
+                score = -negascout(&npos, depth - 1, -beta, -alpha, tt, nkey);
             }
         }
         if score > alpha {
             alpha = score;
             best_move = m;
+            best_key = nkey;
             node_type = table::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
@@ -166,6 +172,7 @@ fn negascout(
     }
 
     if !legal_move_exists {
+        debug!("Found checkmate at depth: {depth}");
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
         if mv::mv_gen::square_attacked(p, king_pos, -p.active) {
             // Checkmate
@@ -177,7 +184,10 @@ fn negascout(
     }
 
     if replace_entry {
-        tt.set(table::Entry::new(*key, alpha, best_move, depth, node_type));
+        tt.set(table::Entry::new(
+            best_key, alpha, best_move, depth, node_type,
+        ));
+        debug!("replacing TT entry: ");
     }
 
     alpha
@@ -185,7 +195,7 @@ fn negascout(
 
 fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
     log::info!("Search with depth {} concluded", depth);
-    let res = tt.get(&start_key);
+    let res = tt.get(start_key);
     let info_string = format!(
         "info depth {} time {} pv {} score cp {} ",
         depth,

@@ -22,8 +22,8 @@ fn start_search(
     max_depth: u64,
     tt: &mut table::TT,
 ) -> (i32, mv::mv::Mv, u8, u64) {
-    let mut key = table::Key::new(p);
-    let (depth, time_taken) = search::search(p, time, max_depth as u8, &mut key, tt);
+    let key = table::Key::new(p);
+    let (depth, time_taken) = search::search(p, time, max_depth as u8, key, tt);
 
     // Look up the results in the TT table
     // This will never panic since we start the search here
@@ -100,7 +100,8 @@ fn uci_start() -> table::TT {
             }
             _ => {
                 log::warn!("UCI setup command not understood: {}", cmd)
-            }        }
+            }
+        }
     }
 
     match tt {
@@ -129,9 +130,7 @@ fn uci_runtime(tt: &mut table::TT) {
                     None => {
                         scream!("Go command recieved before position was set");
                     }
-                    Some(p) => {
-                        start_search(p, time, max_depth, tt)
-                    }
+                    Some(p) => start_search(p, time, max_depth, tt),
                 };
             }
             "position" => {

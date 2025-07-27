@@ -1,9 +1,9 @@
 use super::mv_gen;
-use crate::util;
 use crate::mv::mv::{Mv, MvFlag};
 use crate::pos;
 use crate::pos::Pos;
 use crate::table::Key;
+use crate::util;
 
 const BOTTOM_LEFT_SQ: u8 = 0;
 const BOTTOM_RIGHT_SQ: u8 = 7;
@@ -14,12 +14,15 @@ const TOP_RIGHT_SQ: u8 = 63;
 // and returns the position after the move
 // It update the zobrist key, the bitboards,
 // the square based board and the attack boards.
-pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
+pub fn apply(old_p: &Pos, mv: &Mv, old_key: &mut Key) -> Option<(Pos, Key)> {
+    debug!("Applying mv: {}", mv.prittify());
     if mv.is_null() {
         debug!("Null move apply!");
+        return None;
     }
 
     let mut npos = old_p.clone();
+    let mut nkey = old_key.clone();
 
     let mut w_castle = old_p.castling(1);
     let mut b_castle = old_p.castling(-1);
@@ -28,14 +31,15 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
 
     // Remove the old ep file from the hash
     if old_p.is_en_passant() {
-        key.en_passant(ep_file);
+        nkey.en_passant(ep_file);
         ep_file = 0;
     }
 
     let old_act = npos.active;
     let new_act = -npos.active;
+
     npos.active = new_act;
-    key.color();
+    nkey.color();
     let sq = mv.squares();
     let start = sq.0;
     let end = sq.1;
@@ -43,24 +47,20 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
     // Unset the castling rights since its easier to unset them once
     // and then later set them again rather than update them everywhere they could change
     if w_castle.0 {
-        key.castle(1, true);
+        nkey.castle(1, true);
     }
     if w_castle.1 {
-        key.castle(1, false)
+        nkey.castle(1, false)
     }
     if b_castle.0 {
-        key.castle(-1, true)
+        nkey.castle(-1, true)
     }
     if b_castle.1 {
-        key.castle(-1, false)
+        nkey.castle(-1, false)
     }
 
-    // Set the values in the square based represantation
     let piece = npos.sq[start as usize];
     let op_piece = npos.sq[end as usize];
-    npos.sq[start as usize] = 0;
-    npos.sq[end as usize] = piece;
-    key.piece(start, piece);
 
     if piece == 0 {
         debug!("Piece is 0, mv: {}", mv.prittify());
@@ -69,13 +69,22 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         debug!("OpPiece is 0, mv: {}", mv.prittify());
     }
 
+    // Set the values in the square based represantation
+    npos.sq[start as usize] = 0;
+    npos.sq[end as usize] = piece;
+    nkey.piece(start, piece);
     if op_piece != 0 {
-        key.piece(end, piece);
+        nkey.piece(end, piece);
     }
 
     // Sets the bitboard for the moved piece
     npos.piece_mut(piece).unset(start);
     npos.piece_mut(piece).set(end);
+
+    if mv.is_cap() {
+        debug!("Piece is: {}, in pos: {}", op_piece, npos.sq[end as usize]);
+        npos.piece_mut(op_piece).unset(end);
+    }
 
     match mv.flag() {
         // The capture is set bellow together with promotion captures
@@ -83,13 +92,13 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         MvFlag::DoubleP => {
             ep_file = util::file(end);
             is_ep = true;
-            key.en_passant(ep_file);
+            nkey.en_passant(ep_file);
         }
 
         MvFlag::BProm | MvFlag::BPromCap => {
             let piece = pos::BISHOP * old_act;
             npos.sq[end as usize] = piece;
-            key.piece(end, piece);
+            nkey.piece(end, piece);
         }
         MvFlag::NProm | MvFlag::NPromCap => {
             let piece = if old_act == 1 {
@@ -98,12 +107,12 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
                 pos::BKNIGHT
             };
             npos.sq[end as usize] = piece;
-            key.piece(end, piece);
+            nkey.piece(end, piece);
         }
         MvFlag::RProm | MvFlag::RPromCap => {
             let piece = if old_act == 1 { pos::ROOK } else { pos::BROOK };
             npos.sq[end as usize] = piece;
-            key.piece(end, piece);
+            nkey.piece(end, piece);
         }
         MvFlag::QProm | MvFlag::QPromCap => {
             let piece = if old_act == 1 {
@@ -112,58 +121,52 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
                 pos::BQUEEN
             };
             npos.sq[end as usize] = piece;
-            key.piece(end, piece);
+            nkey.piece(end, piece);
         }
 
         MvFlag::WKCastle => {
             npos.piece_mut(pos::ROOK).unset(BOTTOM_RIGHT_SQ);
             npos.sq[BOTTOM_RIGHT_SQ as usize] = 0;
-            key.piece(BOTTOM_RIGHT_SQ, pos::ROOK);
+            nkey.piece(BOTTOM_RIGHT_SQ, pos::ROOK);
 
             npos.piece_mut(pos::ROOK).set(BOTTOM_RIGHT_SQ - 2);
             npos.sq[BOTTOM_RIGHT_SQ as usize - 2] = pos::ROOK;
-            key.piece(BOTTOM_RIGHT_SQ - 2, pos::ROOK);
+            nkey.piece(BOTTOM_RIGHT_SQ - 2, pos::ROOK);
 
             w_castle = (false, false);
         }
         MvFlag::WQCastle => {
             npos.piece_mut(pos::ROOK).set(BOTTOM_LEFT_SQ);
             npos.sq[BOTTOM_LEFT_SQ as usize] = 0;
-            key.piece(BOTTOM_LEFT_SQ, pos::ROOK);
+            nkey.piece(BOTTOM_LEFT_SQ, pos::ROOK);
 
             npos.piece_mut(pos::ROOK).set(BOTTOM_LEFT_SQ + 3);
             npos.sq[BOTTOM_LEFT_SQ as usize + 3] = pos::ROOK;
-            key.piece(BOTTOM_LEFT_SQ + 3, pos::ROOK);
+            nkey.piece(BOTTOM_LEFT_SQ + 3, pos::ROOK);
 
             w_castle = (false, false);
         }
         MvFlag::BKCastle => {
             npos.sq[TOP_RIGHT_SQ as usize] = 0;
-            key.piece(TOP_RIGHT_SQ, pos::BROOK);
+            nkey.piece(TOP_RIGHT_SQ, pos::BROOK);
             npos.piece_mut(pos::BROOK).set(TOP_RIGHT_SQ - 2);
             npos.sq[TOP_RIGHT_SQ as usize - 2] = pos::BROOK;
-            key.piece(TOP_RIGHT_SQ - 2, pos::BROOK);
+            nkey.piece(TOP_RIGHT_SQ - 2, pos::BROOK);
 
             b_castle = (false, false);
         }
         MvFlag::BQCastle => {
             npos.piece_mut(pos::BROOK).set(TOP_LEFT_SQ);
             npos.sq[TOP_LEFT_SQ as usize] = 0;
-            key.piece(TOP_LEFT_SQ, pos::BROOK);
+            nkey.piece(TOP_LEFT_SQ, pos::BROOK);
 
             npos.piece_mut(pos::BROOK).set(TOP_LEFT_SQ + 3);
             npos.sq[TOP_LEFT_SQ as usize + 3] = pos::BROOK;
-            key.piece(TOP_LEFT_SQ + 3, pos::BROOK);
+            nkey.piece(TOP_LEFT_SQ + 3, pos::BROOK);
 
             b_castle = (false, false);
         }
     }
-
-    // This sets the bboard of the captured piece in the bitboard to 0
-    if mv.is_cap() {
-        npos.piece_mut(op_piece).unset(end);
-    }
-
     // This is active player agnostic
     if w_castle.0 {
         // If the king moves || the rook moved from starting square || the rook if captured
@@ -171,7 +174,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
             w_castle.0 = false;
         } else {
             //Castling is still legal
-            key.castle(old_act, true);
+            nkey.castle(old_act, true);
         }
     }
 
@@ -179,7 +182,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         if piece == pos::KING || (piece == pos::ROOK && start == 7) || end == 7 {
             w_castle.1 = false;
         } else {
-            key.castle(old_act, false);
+            nkey.castle(old_act, false);
         }
     }
 
@@ -187,7 +190,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         if piece == pos::BKING || (piece == pos::BROOK && start == 63) || end == 63 {
             b_castle.0 = false;
         } else {
-            key.castle(old_act, true);
+            nkey.castle(old_act, true);
         }
     }
 
@@ -195,7 +198,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         if piece == pos::BKING || (piece == pos::BROOK && start == 56) || end == 56 {
             b_castle.1 = false;
         } else {
-            key.castle(old_act, false);
+            nkey.castle(old_act, false);
         }
     }
 
@@ -209,10 +212,11 @@ pub fn apply(old_p: &Pos, mv: &Mv, key: &mut Key) -> Option<Pos> {
         return None;
     }
     */
-    Some(npos)
+    Some((npos, nkey))
 }
 
 fn is_legal(p: &Pos) -> bool {
     let king_pos = p.piece(pos::KING * -p.active).get_ones_single();
+    debug!("Checking legality with king at pos: {}", king_pos);
     mv_gen::square_attacked(p, king_pos, -p.active)
 }
