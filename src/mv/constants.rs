@@ -15,7 +15,6 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
             pos::PAWN => WPAWN_MASKS[sq],
             pos::BPAWN => BPAWN_MASKS[sq],
             _ => {
-
                 scream!("get_mask() called with invalid value, piece {}", piece);
             }
         }
@@ -56,7 +55,6 @@ pub const FILE_MASKS: [u64; 8] = [
     0x4040404040404040,
     0x8080808080808080,
 ];
-
 
 pub const BISHOP_OFFSETS: [i8; 4] = [7, 9, -7, -9];
 pub const ROOK_OFFSETS: [i8; 4] = [1, -1, 8, -8];
@@ -151,7 +149,7 @@ pub const ROOK_MAGIC: [u64; 64] = [
 pub const ROOK_SHIFT: [u8; 64] = [
     12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
     11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12
+    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
 ];
 
 pub const BISHOP_MAGIC: [u64; 64] = [0; 64];
