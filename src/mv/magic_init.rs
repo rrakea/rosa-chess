@@ -98,7 +98,7 @@ fn init_lookups() {
     }
 }
 
-fn gen_move_mask(
+pub fn gen_move_mask(
     sq: usize,
     directions: &[i8],
     iterations: i8,
