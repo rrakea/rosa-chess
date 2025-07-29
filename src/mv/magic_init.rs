@@ -1,7 +1,7 @@
-use crate::mv::constants::*;
-use crate::board;
-use crate::util;
 use super::{constants, magic};
+use crate::board;
+use crate::mv::constants::*;
+use crate::util;
 
 pub fn init_magics() {
     reserve_lookup();
@@ -44,55 +44,59 @@ pub fn init_premasks() {
 
 fn init_lookups() {
     for sq in 0..64 {
-        let rook_trunc_premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
+        {
+            let rook_trunc_premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
 
-        let mut blocker_index = 0;
-        let mut last_iteration = false;
+            let mut blocker_index = 0;
+            let mut last_iteration = false;
 
-        let magic = constants::ROOK_MAGIC[sq];
-        let shift = constants::ROOK_SHIFT[sq];
+            let magic = constants::ROOK_MAGIC[sq];
+            let shift = constants::ROOK_SHIFT[sq];
 
-        loop {
-            // Calculate all the possible relevant blocker positions
-            let rook_blocker = gen_blockers(rook_trunc_premask, blocker_index);
-            // If the blockers are the same as the mask we have passed in
-            // we have gone through all the blockers
-            if rook_blocker == rook_trunc_premask {
-                last_iteration = true;
-            }
+            loop {
+                // Calculate all the possible relevant blocker positions
+                let rook_blocker = gen_blockers(rook_trunc_premask, blocker_index);
+                // If the blockers are the same as the mask we have passed in
+                // we have gone through all the blockers
+                if rook_blocker == rook_trunc_premask {
+                    last_iteration = true;
+                }
 
-            let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
-            let index = magic::magic_index(magic, shift, rook_blocker);
-            unsafe {
-                ROOK_LOOKUP[sq][index] = rook_movemask;
-            }
-            blocker_index += 1;
-            if last_iteration {
-                break;
+                let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
+                let index = magic::magic_index(magic, shift, rook_blocker);
+                unsafe {
+                    ROOK_LOOKUP[sq][index] = rook_movemask;
+                }
+                blocker_index += 1;
+                if last_iteration {
+                    break;
+                }
             }
         }
 
-        let bishop_trunc_premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
+        {
+            let bishop_trunc_premask = unsafe { BISHOP_PREMASKS_TRUNC[sq] };
 
-        last_iteration = false;
-        blocker_index = 0;
+            let mut blocker_index = 0;
+            let mut last_iteration = false;
 
-        let magic = constants::BISHOP_MAGIC[sq];
-        let shift = constants::BISHOP_SHIFT[sq];
+            let magic = constants::BISHOP_MAGIC[sq];
+            let shift = constants::BISHOP_SHIFT[sq];
 
-        loop {
-            let bishop_blocker = gen_blockers(bishop_trunc_premask, blocker_index);
-            if bishop_blocker == bishop_trunc_premask {
-                last_iteration = true
-            }
-            let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
-            let index = magic::magic_index(magic, shift, bishop_blocker);
-            unsafe {
-                BISHOP_LOOKUP[sq][index] = bishop_movemask;
-            }
-            blocker_index += 1;
-            if last_iteration {
-                break;
+            loop {
+                let bishop_blocker = gen_blockers(bishop_trunc_premask, blocker_index);
+                if bishop_blocker == bishop_trunc_premask {
+                    last_iteration = true
+                }
+                let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
+                let index = magic::magic_index(magic, shift, bishop_blocker);
+                unsafe {
+                    BISHOP_LOOKUP[sq][index] = bishop_movemask;
+                }
+                blocker_index += 1;
+                if last_iteration {
+                    break;
+                }
             }
         }
     }

@@ -16,12 +16,21 @@ pub fn rook_mask(sq: u8, p: &Pos) -> u64 {
 }
 
 pub fn bishop_mask(sq: u8, p: &Pos) -> u64 {
-    let premask = unsafe { BISHOP_PREMASKS[sq as usize] };
-    let magic = BISHOP_MAGIC[sq as usize];
-    let shift = BISHOP_SHIFT[sq as usize];
+    let sq = sq as usize;
+    let premask = unsafe { BISHOP_PREMASKS[sq] };
+    let magic = BISHOP_MAGIC[sq];
+    let shift = BISHOP_SHIFT[sq];
     let blocker = premask & p.full.val();
     let index = magic_index(magic, shift, blocker);
-    unsafe { BISHOP_LOOKUP[sq as usize][index] }
+    let tmp = unsafe { BISHOP_LOOKUP[sq][index] };
+    /* debug!(
+        "In bishop_mask: moves: {}, full: {}, blocker: {}, index: {}",
+        crate::board::Board::new(tmp).prittify(),
+        p.full.prittify(),
+        crate::board::Board::new(blocker).prittify(),
+        index
+    ); */
+    tmp
 }
 
 pub fn magic_index(magic: u64, shift: u8, blocker: u64) -> usize {

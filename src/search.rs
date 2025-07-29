@@ -74,7 +74,7 @@ fn negascout(
     // Check the transposition table
     let entry = tt.get(&key);
 
-    let mut tt_hash_move = Mv::null();
+    let mut pvs_move = Mv::null();
     let mut replace_entry = false;
 
     if entry.node_type == table::NodeType::Null {
@@ -88,7 +88,7 @@ fn negascout(
             debug!("Evicting TT entry");
         }
     } else {
-        tt_hash_move = entry.mv;
+        pvs_move = entry.mv;
         // The entry is usable
         if entry.depth < depth {
             // Cant trust the eval; Still use the best move
@@ -124,8 +124,8 @@ fn negascout(
 
     // Iterator
     let gen_mvs = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
-    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != tt_hash_move);
-    let mv_iter = std::iter::once(tt_hash_move)
+    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != pvs_move);
+    let mv_iter = std::iter::once(pvs_move)
         .chain(ordered_mvs)
         .filter(|mv| !mv.is_null());
 
@@ -140,7 +140,7 @@ fn negascout(
             None => continue,
         };
         let (npos, nkey) = outcome;
-        debug!("evaluating move: {}", m.prittify());
+        debug!("Searching move: {} at depth: {}", m.prittify(), depth);
         legal_move_exists = true;
 
         let mut score;

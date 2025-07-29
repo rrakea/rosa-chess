@@ -79,6 +79,9 @@ pub static mut ROOK_LOOKUP: [Vec<u64>; 64] = [const { Vec::new() }; 64];
 pub static mut BISHOP_LOOKUP: [Vec<u64>; 64] = [const { Vec::new() }; 64];
 
 // Precalculated
+
+// The magics shift are all equivalent to the "best magics so far page" on the chess programming wiki
+// -> The magic gen should be correct :)))
 pub const ROOK_MAGIC: [u64; 64] = [
     0x4080009021804000,
     0x00400240d0082000,

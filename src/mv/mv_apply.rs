@@ -22,7 +22,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, old_key: &mut Key) -> Option<(Pos, Key)> {
     }
 
     let mut npos = old_p.clone();
-    let mut nkey = old_key.clone();
+    let mut nkey = *old_key;
 
     let mut w_castle = old_p.castling(1);
     let mut b_castle = old_p.castling(-1);
@@ -64,6 +64,10 @@ pub fn apply(old_p: &Pos, mv: &Mv, old_key: &mut Key) -> Option<(Pos, Key)> {
 
     if piece == 0 {
         debug!("Piece is 0, mv: {}", mv.prittify());
+        println!("Old board: ");
+        old_p.print();
+        println!("New board: ");
+        npos.print();
     }
     if op_piece == 0 && mv.is_cap() {
         debug!("OpPiece is 0, mv: {}", mv.prittify());
@@ -82,7 +86,7 @@ pub fn apply(old_p: &Pos, mv: &Mv, old_key: &mut Key) -> Option<(Pos, Key)> {
     npos.piece_mut(piece).set(end);
 
     if mv.is_cap() {
-        debug!("Piece is: {}, in pos: {}", op_piece, npos.sq[end as usize]);
+        debug!("Capture: Piece is: {}, in pos: {}", op_piece, npos.sq[end as usize]);
         npos.piece_mut(op_piece).unset(end);
     }
 
