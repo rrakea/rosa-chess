@@ -14,12 +14,6 @@ const TOP_RIGHT_SQ: u8 = 63;
 // It update the zobrist key, the bitboards,
 // the square based board and the attack boards.
 pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
-    debug!("Applying mv: {}", mv.prittify());
-    if mv.is_null() {
-        debug!("Null move apply!");
-        return None;
-    }
-
     let mut pos = old_p.clone();
 
     let (mut wk_castle, mut wq_castle) = pos.castling(1);
@@ -54,21 +48,24 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
     }
 
     let piece = pos.piece_at_sq(start);
-    let op_piece = pos.piece_at_sq(end);
+    let mut op_piece = pos.piece_at_sq(end);
+    if mv.is_ep() {
+        let ep_sq = if pos.active == 1 { end + 8 } else { end - 8 };
+        op_piece = pos.piece_at_sq(ep_sq);
+    }
 
     if piece == 0 {
         debug!("Piece is 0, mv: {}", mv.prittify());
-        println!("{}", old_p.prittify());
     }
     if op_piece == 0 && mv.is_cap() {
         debug!("OpPiece is 0, mv: {}", mv.prittify());
     }
 
-    pos.piece_unset(piece, start);
-    pos.piece_unset(op_piece, end);
+    pos.piece_toggle(piece, start);
+    pos.piece_toggle(op_piece, end);
     // We dont set the pawn board  at a promotion, since the piece changes
     if !mv.is_prom() {
-        pos.piece_set(piece, end);
+        pos.piece_toggle(piece, end);
     }
 
     match mv.flag() {
@@ -80,35 +77,35 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
         }
 
         MvFlag::BProm | MvFlag::BPromCap => {
-            pos.piece_set(pos::BISHOP * color, end);
+            pos.piece_toggle(pos::BISHOP * color, end);
         }
         MvFlag::NProm | MvFlag::NPromCap => {
-            pos.piece_set(pos::KNIGHT * color, end);
+            pos.piece_toggle(pos::KNIGHT * color, end);
         }
         MvFlag::RProm | MvFlag::RPromCap => {
-            pos.piece_set(pos::ROOK * color, end);
+            pos.piece_toggle(pos::ROOK * color, end);
         }
         MvFlag::QProm | MvFlag::QPromCap => {
-            pos.piece_set(pos::QUEEN * color, end);
+            pos.piece_toggle(pos::QUEEN * color, end);
         }
 
         // For all the casteling, we dont need to set the king, since
         // castles are encoded as the king moving 2 squares
         MvFlag::WKCastle => {
-            pos.piece_unset(pos::ROOK, BOTTOM_RIGHT_SQ);
-            pos.piece_set(pos::ROOK, BOTTOM_RIGHT_SQ - 2);
+            pos.piece_toggle(pos::ROOK, BOTTOM_RIGHT_SQ);
+            pos.piece_toggle(pos::ROOK, BOTTOM_RIGHT_SQ - 2);
         }
         MvFlag::WQCastle => {
-            pos.piece_unset(pos::ROOK, BOTTOM_LEFT_SQ);
-            pos.piece_set(pos::ROOK, BOTTOM_LEFT_SQ + 3);
+            pos.piece_toggle(pos::ROOK, BOTTOM_LEFT_SQ);
+            pos.piece_toggle(pos::ROOK, BOTTOM_LEFT_SQ + 3);
         }
         MvFlag::BKCastle => {
-            pos.piece_unset(pos::ROOK, TOP_RIGHT_SQ);
-            pos.piece_set(pos::ROOK, TOP_RIGHT_SQ - 2);
+            pos.piece_toggle(pos::ROOK, TOP_RIGHT_SQ);
+            pos.piece_toggle(pos::ROOK, TOP_RIGHT_SQ - 2);
         }
         MvFlag::BQCastle => {
-            pos.piece_unset(pos::ROOK, TOP_LEFT_SQ);
-            pos.piece_set(pos::ROOK, TOP_LEFT_SQ + 3);
+            pos.piece_toggle(pos::ROOK, TOP_LEFT_SQ);
+            pos.piece_toggle(pos::ROOK, TOP_LEFT_SQ + 3);
         }
     }
 
@@ -154,7 +151,13 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
         }
     }
 
-    pos.gen_new_data(is_ep, ep_file, (wk_castle, wq_castle), (bk_castle, bq_castle));
+    pos.gen_new_data(
+        is_ep,
+        ep_file,
+        (wk_castle, wq_castle),
+        (bk_castle, bq_castle),
+    );
+    pos.gen_new_full();
 
     /*
     if is_legal(&npos) {

@@ -22,17 +22,9 @@ pub fn bishop_mask(sq: u8, p: &Pos) -> u64 {
     let shift = BISHOP_SHIFT[sq];
     let blocker = premask & p.full.val();
     let index = magic_index(magic, shift, blocker);
-    let tmp = unsafe { BISHOP_LOOKUP[sq][index] };
-    /* debug!(
-        "In bishop_mask: moves: {}, full: {}, blocker: {}, index: {}",
-        crate::board::Board::new(tmp).prittify(),
-        p.full.prittify(),
-        crate::board::Board::new(blocker).prittify(),
-        index
-    ); */
-    tmp
+    unsafe { BISHOP_LOOKUP[sq][index] }
 }
 
 pub fn magic_index(magic: u64, shift: u8, blocker: u64) -> usize {
-    ((magic * blocker) >> (64 - shift)) as usize
+    (u64::wrapping_mul(magic, blocker) >> (64 - shift)) as usize
 }

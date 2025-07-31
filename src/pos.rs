@@ -33,7 +33,7 @@ pub struct Pos {
 
     // Square centric representation
     // Using the consts defined above
-    pub sq: [i8; 64],
+    sq: [i8; 64],
 
     pub key: table::Key,
 
@@ -57,7 +57,7 @@ impl Pos {
         let mut boards = [Board::new(0); 12];
         for (sq, piece) in sq.into_iter().enumerate() {
             if piece != 0 {
-                boards[calc_index(piece)].set(sq as u8);
+                boards[calc_index(piece)].toggle(sq as u8);
             }
         }
         let mut newp = Pos {
@@ -100,19 +100,17 @@ impl Pos {
         self.sq[sq as usize]
     }
 
-    pub fn piece_set(&mut self, piece: i8, sq: u8) {
-        self.sq[sq as usize] = piece;
-        self.boards[calc_index(piece)].set(sq);
-        self.key.piece(sq, piece);
-    }
-
-    pub fn piece_unset(&mut self, piece: i8, sq: u8) {
+    pub fn piece_toggle(&mut self, piece: i8, sq: u8) {
         if piece == 0 {
             return;
         }
-        self.sq[sq as usize] = 0;
-        self.boards[calc_index(piece)].unset(sq);
+        self.sq[sq as usize] = piece;
+        self.boards[calc_index(piece)].toggle(sq);
         self.key.piece(sq, piece);
+    }
+
+    pub fn piece_iter(&self) -> impl Iterator<Item = i8> {
+        self.sq.into_iter()
     }
 
     pub fn prittify(&self) -> String {

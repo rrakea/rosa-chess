@@ -52,7 +52,6 @@ fn gen_piece_mvs(
             if can_quiet && end_sq_piece == 0 {
                 Mv::new(sq, end_square, MvFlag::Quiet)
             } else if can_cap && end_sq_piece != 0 && util::dif_colors(p.active, end_sq_piece) {
-                debug!("IN PIECE GEN: Piece: {piece}, end Piece: {end_sq_piece}");
                 Mv::new(sq, end_square, MvFlag::Cap)
             } else {
                 Mv::null()
@@ -127,25 +126,32 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         return mv.into_iter();
     }
 
-    let ep_file = p.en_passant_file() as i8;
-    let left = ep_file - 1;
-    let right = ep_file + 1;
-    let rank = if p.active == 1 { 4 } else { 3 };
-    let pawn_pos_left = (rank * 8 + left) as u8;
-    let pawn_pos_right = (rank * 8 + right) as u8;
+    let file = p.en_passant_file() as i8;
+    let left;
+    let right;
+    let end;
+    if p.active == 1 {
+        left = 4 * 8 + file - 1;
+        right = 4 * 8 + file - 1;
+        end = 5 * 8 + file;
+    } else {
+        left = 3 * 8 + file - 1;
+        right = 3 * 8 + file + 1;        
+        end = 2 * 8 + file;
+    }
 
-    if left != -1 && p.piece_at_sq(pawn_pos_left) == pos::PAWN * p.active {
+    if left > 0 && p.piece_at_sq(left as u8) == pos::PAWN * p.active {
         mv.push(Mv::new(
-            pawn_pos_left,
-            (rank * 8 + ep_file) as u8,
+            left as u8,
+            end as u8,
             MvFlag::Ep,
         ));
     }
 
-    if right != 8 && p.piece_at_sq(pawn_pos_right) == pos::PAWN * p.active {
+    if right < 8 && p.piece_at_sq(right as u8) == pos::PAWN * p.active {
         mv.push(Mv::new(
-            pawn_pos_left,
-            (rank * 8 + ep_file) as u8,
+            right as u8,
+            end as u8,
             MvFlag::Ep,
         ));
     }
@@ -203,14 +209,14 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
     let bb = p.piece(pos::PAWN * p.active);
     let rank = if p.active == 1 { 1 } else { 6 };
 
-    let second_rank = Board::new(bb.val() ^ constants::RANK_MASKS[rank]);
+    let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
 
-    second_rank.get_ones().into_iter().map(|pawn| {
-        let one_move = (pawn as i8 + 8 * p.active) as u8;
-        let two_move = (pawn as i8 + 16 * p.active) as u8;
+    second_rank.get_ones().into_iter().map(|sq| {
+        let one_move = (sq as i8 + (8 * p.active)) as u8;
+        let two_move = (sq as i8 + (16 * p.active)) as u8;
 
         if p.piece_at_sq(one_move) == 0 && p.piece_at_sq(two_move) == 0 {
-            Mv::new(pawn, two_move, MvFlag::DoubleP)
+            Mv::new(sq, two_move, MvFlag::DoubleP)
         } else {
             Mv::null()
         }
@@ -251,7 +257,7 @@ pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {
         return false;
     }
 
-    return true;
+    true
 }
 
 fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: i8) -> bool {

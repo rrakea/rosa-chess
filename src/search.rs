@@ -38,7 +38,7 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8,
             break;
         }
 
-        score = negascout(p, depth, i32::MIN, i32::MAX, tt);
+        score = negascout(p, depth, i32::MIN +1 , i32::MAX -1, tt);
 
         write_info(p, tt, depth, time, score);
 
@@ -55,7 +55,6 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8,
 fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut table::TT) -> i32 {
     // Search is done
     if depth == 0 {
-        debug!("Evaling");
         return eval(p);
     }
 
@@ -66,7 +65,6 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     let mut replace_entry = false;
 
     if entry.node_type == table::NodeType::Null {
-        debug!("Uninit entry");
         // The entry is unanitialized
         replace_entry = true;
     } else if entry.key != p.key {
@@ -74,7 +72,6 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
         // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
             replace_entry = true;
-            debug!("Evicting TT entry");
         }
     } else {
         pvs_move = entry.mv;
@@ -119,16 +116,14 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
 
     let mut legal_move_exists = true;
     for (i, m) in mv_iter.enumerate() {
-        //debug!("{}", m.prittify());
         let outcome = mv::mv_apply::apply(p, &m);
-        let outcome = match outcome {
+        let npos = match outcome {
             Some(o) => o,
             // Impossible move
             None => continue,
         };
-        let npos = outcome;
-        debug!("Searching move: {} at depth: {}", m.prittify(), depth);
-        debug!("PVS move: {}", pvs_move.prittify());
+        //debug!("Searching move: {} at depth: {}", m.prittify(), depth);
+        //debug!("PVS move: {}", pvs_move.prittify());
         legal_move_exists = true;
 
         let mut score;
@@ -163,7 +158,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
         if mv::mv_gen::square_attacked(p, king_pos, -p.active) {
             // Checkmate
-            return i32::MIN;
+            return i32::MIN + 1;
         } else {
             // Stalemate
             return 0;
@@ -172,7 +167,6 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
 
     if replace_entry {
         tt.set(table::Entry::new(p.key, alpha, best_move, depth, node_type));
-        debug!("replacing TT entry: ");
     }
 
     alpha

@@ -7,7 +7,7 @@ These encodings are purely usefull for manipulating the bitboards after words
 Encoding inspired by Chess Programming Wiki:
 */
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MvFlag {
     Quiet = 0,
     Cap = 1,
@@ -92,6 +92,10 @@ impl Mv {
         }
     }
 
+    pub fn is_ep(&self) -> bool {
+        self.flag() == MvFlag::Ep
+    }
+
     pub fn notation(&self) -> String {
         let (start, end) = self.squares();
         let start = util::square_name(start);
@@ -103,4 +107,3 @@ impl Mv {
         format!("{}, {:?}", self.notation(), self.flag())
     }
 }
-

@@ -71,8 +71,8 @@ pub struct Key(u64);
 impl Key {
     pub fn new(p: &pos::Pos) -> Key {
         let mut key = Key(0);
-        for (i, val) in p.sq.iter().enumerate() {
-            key.0 ^= match *val {
+        for (i, val) in p.piece_iter().enumerate() {
+            key.0 ^= match val {
                 pos::PAWN => unsafe { PAWN[i] },
                 pos::KNIGHT => unsafe { KNIGHT[i] },
                 pos::BISHOP => unsafe { BISHOP[i] },
@@ -89,7 +89,7 @@ impl Key {
 
                 // x ^ 0 = x
                 0 => 0,
-                _ => scream!("Invalid Piece value new key call: {}", *val),
+                _ => scream!("Invalid Piece value new key call: {}", val),
             };
         }
 

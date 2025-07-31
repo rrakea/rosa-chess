@@ -27,23 +27,13 @@ impl Board {
         self.0.trailing_zeros() as u8
     }
 
-    pub fn set(&mut self, bit: u8) {
+    pub fn toggle(&mut self, bit: u8) {
         self.0 |= 1 << bit;
     }
 
-    pub fn unset(&mut self, bit: u8) {
-        self.0 &= !1 << bit;
-    }
-
-    pub fn set_all<T: Into<u64>>(&mut self, bits: Vec<T>) {
+    pub fn toggle_all<T: Into<u64>>(&mut self, bits: Vec<T>) {
         for b in bits {
-            self.0 |= 1 << b.into();
-        }
-    }
-
-    pub fn unset_all<T: Into<u64>>(&mut self, bits: Vec<T>) {
-        for b in bits {
-            self.0 &= !(1 << b.into());
+            self.0 ^= 1 << b.into();
         }
     }
 
