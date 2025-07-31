@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::{board::Board, table};
 // Iternal representation of the current position.
 // Using a hybrid approach of both bitboards and square centric
 
@@ -27,17 +27,19 @@ pub struct Pos {
     // The boardarray is build like this:
     // 0 -> wpawn, 1 -> wbishop..
     // 6 -> bpawn, 7 -> bbishop..
-    pub boards: [Board; 12],
+    boards: [Board; 12],
 
     pub full: Board,
 
     // Square centric representation
     // Using the consts defined above
-    pub sq: [i8; 64],
+    sq: [i8; 64],
+
+    pub key: table::Key,
 
     // Extra Data
     // Encoded like this: castling:  b queen, b king, w queen, b king; en_passant file;
-    pub data: u8,
+    data: u8,
 
     // Active player (1 -> white; -1 -> black)
     pub active: i8,
@@ -58,15 +60,17 @@ impl Pos {
                 boards[calc_index(piece)].set(sq as u8);
             }
         }
-        let data = gen_data(is_ep, ep_file, w_castle, b_castle);
         let mut newp = Pos {
             boards,
             sq,
-            data,
+            data: 0,
             active,
             full: Board::new(0),
+            key: table::Key::default(),
         };
-        gen_full(&mut newp);
+        newp.gen_new_full();
+        newp.gen_new_data(is_ep, ep_file, w_castle, b_castle);
+        newp.gen_new_key();
         newp
     }
 
@@ -87,57 +91,79 @@ impl Pos {
         }
     }
 
-    pub fn piece_mut(&mut self, piece: i8) -> &mut Board {
-        let index = calc_index(piece);
-        &mut self.boards[index]
-    }
-
     pub fn piece(&self, piece: i8) -> &Board {
         let index = calc_index(piece);
         &self.boards[index]
     }
 
-    pub fn print(&self) {
-        println!("Bitboards: ");
-        for b in self.boards {
-            println!("{}", b.prittify());
+    pub fn piece_at_sq(&self, sq: u8) -> i8 {
+        self.sq[sq as usize]
+    }
+
+    pub fn piece_set(&mut self, piece: i8, sq: u8) {
+        self.sq[sq as usize] = piece;
+        self.boards[calc_index(piece)].set(sq);
+        self.key.piece(sq, piece);
+    }
+
+    pub fn piece_unset(&mut self, piece: i8, sq: u8) {
+        if piece == 0 {
+            return;
         }
-        println!();
-            println!("Full: {}", self.full.prittify());
+        self.sq[sq as usize] = 0;
+        self.boards[calc_index(piece)].unset(sq);
+        self.key.piece(sq, piece);
+    }
 
+    pub fn prittify(&self) -> String {
+        let mut str = String::new();
+        for b in self.boards {
+            str += format!("{}\n", b.prittify()).as_str();
+        }
+        str += format!("{}\n", self.full.prittify()).as_str();
+        str += format!("Sq array: {:?}\n", self.sq).as_str();
+        str += format!("Data: {:#010b}", self.data).as_str();
+        str
+    }
 
-        println!("Sq array: {:?}", self.sq);
-        println!("Data: {:#010b}", self.data);
+    pub fn gen_new_key(&mut self) {
+        self.key = table::Key::new(self)
     }
-}
 
-pub fn gen_full(p: &mut Pos) {
-    let mut full = 0;
-    for board in p.boards {
-        full |= board.val();
+    pub fn gen_new_full(&mut self) {
+        let mut full = 0;
+        for board in self.boards {
+            full |= board.val();
+        }
+        self.full = Board::new(full);
     }
-    p.full = Board::new(full);
-}
 
-pub fn gen_data(is_ep: bool, ep_file: u8, w_castle: (bool, bool), b_castle: (bool, bool)) -> u8 {
-    let mut data: u8 = 0;
-    if is_ep {
-        data |= 0b0000_1000;
-        data |= ep_file;
+    pub fn gen_new_data(
+        &mut self,
+        is_ep: bool,
+        ep_file: u8,
+        w_castle: (bool, bool),
+        b_castle: (bool, bool),
+    ) {
+        let mut data: u8 = 0;
+        if is_ep {
+            data |= 0b0000_1000;
+            data |= ep_file;
+        }
+        if w_castle.0 {
+            data |= 0b0001_0000;
+        }
+        if w_castle.1 {
+            data |= 0b0010_0000;
+        }
+        if b_castle.0 {
+            data |= 0b0100_0000;
+        }
+        if b_castle.1 {
+            data |= 0b1000_0000;
+        }
+        self.data = data;
     }
-    if w_castle.0 {
-        data |= 0b0001_0000;
-    }
-    if w_castle.1 {
-        data |= 0b0010_0000;
-    }
-    if b_castle.0 {
-        data |= 0b0100_0000;
-    }
-    if b_castle.1 {
-        data |= 0b1000_0000;
-    }
-    data
 }
 
 fn calc_index(piece: i8) -> usize {
@@ -146,6 +172,13 @@ fn calc_index(piece: i8) -> usize {
         index = -index + 6;
     }
     // Since our pieces start at 1 but the array at 0
-    index -= 1;   
+    index -= 1;
+    if index < 0 || index >= 12 {
+        scream!(
+            "Wrong index in calc_index(), index: {}, piece: {}",
+            index,
+            piece
+        );
+    }
     index as usize
 }

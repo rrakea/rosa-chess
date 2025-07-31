@@ -16,13 +16,7 @@ use std::time;
 static mut START: u64 = 0;
 static mut TIME_TO_SEARCH: u64 = 0;
 
-pub fn search(
-    p: &pos::Pos,
-    time: u64,
-    maxdepth: u8,
-    key: table::Key,
-    tt: &mut table::TT,
-) -> (u8, u64) {
+pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8, u64) {
     debug!("Starting search");
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
@@ -44,43 +38,38 @@ pub fn search(
             break;
         }
 
-        score = negascout(p, depth, i32::MIN, i32::MAX, tt, key);
+        score = negascout(p, depth, i32::MIN, i32::MAX, tt);
 
-        write_info(tt, &key, depth, time, score);
+        write_info(p, tt, depth, time, score);
 
         depth += 1;
     }
 
     debug!("Search done");
-    write_info(tt, &key, depth, time, score);
+    write_info(p, tt, depth, time, score);
 
     (depth + 1, current_time() - unsafe { START })
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
-fn negascout(
-    p: &pos::Pos,
-    depth: u8,
-    mut alpha: i32,
-    mut beta: i32,
-    tt: &mut table::TT,
-    key: table::Key,
-) -> i32 {
+fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut table::TT) -> i32 {
     // Search is done
     if depth == 0 {
+        debug!("Evaling");
         return eval(p);
     }
 
     // Check the transposition table
-    let entry = tt.get(&key);
+    let entry = tt.get(&p.key);
 
     let mut pvs_move = Mv::null();
     let mut replace_entry = false;
 
     if entry.node_type == table::NodeType::Null {
+        debug!("Uninit entry");
         // The entry is unanitialized
         replace_entry = true;
-    } else if entry.key != key {
+    } else if entry.key != p.key {
         // The entry is not the same pos as outs
         // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
@@ -119,7 +108,6 @@ fn negascout(
     }
 
     let mut best_move = Mv::null();
-    let mut best_key = table::Key::default();
     let mut node_type = table::NodeType::Upper;
 
     // Iterator
@@ -130,36 +118,35 @@ fn negascout(
         .filter(|mv| !mv.is_null());
 
     let mut legal_move_exists = true;
-    let mut key = key;
     for (i, m) in mv_iter.enumerate() {
         //debug!("{}", m.prittify());
-        let outcome = mv::mv_apply::apply(p, &m, &mut key);
+        let outcome = mv::mv_apply::apply(p, &m);
         let outcome = match outcome {
             Some(o) => o,
             // Impossible move
             None => continue,
         };
-        let (npos, nkey) = outcome;
+        let npos = outcome;
         debug!("Searching move: {} at depth: {}", m.prittify(), depth);
+        debug!("PVS move: {}", pvs_move.prittify());
         legal_move_exists = true;
 
         let mut score;
         if i == 0 {
             // Principle variation search
             // PV Node
-            score = -negascout(&npos, depth - 1, -beta, -alpha, tt, nkey);
+            score = -negascout(&npos, depth - 1, -beta, -alpha, tt);
         } else {
             // Null window search
-            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha, tt, nkey);
+            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha, tt);
             if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(&npos, depth - 1, -beta, -alpha, tt, nkey);
+                score = -negascout(&npos, depth - 1, -beta, -alpha, tt);
             }
         }
         if score > alpha {
             alpha = score;
             best_move = m;
-            best_key = nkey;
             node_type = table::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
@@ -184,18 +171,16 @@ fn negascout(
     }
 
     if replace_entry {
-        tt.set(table::Entry::new(
-            best_key, alpha, best_move, depth, node_type,
-        ));
+        tt.set(table::Entry::new(p.key, alpha, best_move, depth, node_type));
         debug!("replacing TT entry: ");
     }
 
     alpha
 }
 
-fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
+fn write_info(pos: &pos::Pos, tt: &table::TT, depth: u8, time: u64, score: i32) {
     log::info!("Search with depth {} concluded", depth);
-    let res = tt.get(start_key);
+    let res = tt.get(&pos.key);
     let info_string = format!(
         "info depth {} time {} pv {} score cp {} ",
         depth,

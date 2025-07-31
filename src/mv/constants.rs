@@ -1,8 +1,5 @@
 use crate::pos;
 
-// Masks when we want to check for specific file/ rank
-// e.g. When cheching if a pawn can queen on the next turn
-// RANK[0] corresponds to RANK 1 (not like they are displayed here)
 pub fn get_mask(piece: i8, sq: u8) -> u64 {
     let sq = sq as usize;
     unsafe {
@@ -34,6 +31,9 @@ pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
     }
 }
 
+// Masks when we want to check for specific file/ rank
+// e.g. When cheching if a pawn can queen on the next turn
+// RANK[0] corresponds to RANK 1 (not like they are displayed here)
 pub const RANK_MASKS: [u64; 8] = [
     0x00000000000000FF,
     0x000000000000FF00,

@@ -65,6 +65,6 @@ impl Board {
             buf.push(row);
         }
 
-        format!("Bit: {:064b}; Board:\n{}\n", self.val(), buf.join("\n"))
+        format!("{}\n", buf.join("\n"))
     }
 }

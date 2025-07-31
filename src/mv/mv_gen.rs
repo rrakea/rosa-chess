@@ -23,7 +23,7 @@ pub fn gen_mvs(p: &Pos) -> impl Iterator<Item = Mv> {
         .chain(gen_piece_mvs(p, pos::QUEEN, true, true))
         .chain(gen_piece_mvs(p, pos::ROOK, true, true))
         .chain(gen_piece_mvs(p, pos::BISHOP, true, true))
-        .chain(gen_piece_mvs(p, pos::KNIGHT, true, true))
+//        .chain(gen_piece_mvs(p, pos::KNIGHT, true, true))
         .chain(gen_castle(p))
         .chain(gen_piece_mvs(p, pos::KING, true, true))
         .chain(gen_pawn_double(p))

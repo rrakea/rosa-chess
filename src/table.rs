@@ -65,7 +65,7 @@ impl Entry {
     }
 }
 
-#[derive(Clone, PartialEq, Default, Eq, Copy)]
+#[derive(Clone, PartialEq, Default, Eq, Copy, Debug)]
 pub struct Key(u64);
 
 impl Key {
