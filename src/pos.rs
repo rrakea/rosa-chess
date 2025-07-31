@@ -33,7 +33,7 @@ pub struct Pos {
 
     // Square centric representation
     // Using the consts defined above
-    sq: [i8; 64],
+    pub sq: [i8; 64],
 
     pub key: table::Key,
 
