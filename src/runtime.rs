@@ -92,7 +92,7 @@ fn uci_start() -> table::TT {
                 table::init_zobrist_keys();
                 mv::magic_init::init_magics();
                 let p = fen::starting_pos();
-                start_search(&p, 15 * 60 * 10, 0, &mut table);
+                start_search(&p, 40000, 0, &mut table);
             }
             "magics" => {
                 mv::gen_magics::gen_magics();
