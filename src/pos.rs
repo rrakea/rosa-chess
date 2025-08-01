@@ -118,9 +118,11 @@ impl Pos {
         for b in self.boards {
             str += format!("{}\n", b.prittify()).as_str();
         }
+        let color = if self.active == 1 { "w" } else { "b" };
         str += format!("{}\n", self.full.prittify()).as_str();
         str += format!("Sq array: {:?}\n", self.sq).as_str();
-        str += format!("Data: {:#010b}", self.data).as_str();
+        str += format!("Data: {:#010b}\n", self.data).as_str();
+        str += format!("Active: {color}").as_str();
         str
     }
 

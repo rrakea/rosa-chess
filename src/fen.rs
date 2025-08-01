@@ -11,12 +11,11 @@ pub fn fen(fen: String) -> pos::Pos {
     let mut sq: [i8; 64] = [0; 64];
     let split_fen: Vec<&str> = fen.split(" ").collect();
 
-    let ranks = split_fen[0].split("/");
-    for (i, rank) in ranks.enumerate() {
-        // For some bitchass reason fen goes from rank 8 to rank 1
-        let i = 8 - i -1;
+    let ranks = split_fen[0].rsplit("/");
+    // For some reason fen goes from rank 8 to rank 1
+    for (rank, rank_str) in ranks.enumerate() {
         let mut current_sq: usize = 0;
-        for piece in rank.chars() {
+        for piece in rank_str.chars() {
             if piece.is_ascii_digit() {
                 current_sq += piece.to_digit(10).unwrap() as usize;
             } else {
@@ -37,7 +36,7 @@ pub fn fen(fen: String) -> pos::Pos {
 
                     _ => scream!("Invalid piece code in FEN: {}", piece),
                 };
-                sq[current_sq + (i * 8)] = code;
+                sq[current_sq + (rank * 8)] = code;
                 current_sq += 1;
             }
         }
