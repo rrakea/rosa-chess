@@ -1,4 +1,5 @@
 use super::mv_gen;
+
 use crate::mv::mv::{Mv, MvFlag};
 use crate::pos;
 use crate::pos::Pos;

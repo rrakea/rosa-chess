@@ -28,7 +28,7 @@ impl Board {
     }
 
     pub fn toggle(&mut self, bit: u8) {
-        self.0 |= 1 << bit;
+        self.0 ^= 1 << bit;
     }
 
     pub fn toggle_all<T: Into<u64>>(&mut self, bits: Vec<T>) {

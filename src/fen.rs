@@ -1,6 +1,6 @@
 use crate::pos;
 
-const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 pub fn starting_pos() -> pos::Pos {
     fen(STARTING_FEN.to_string())

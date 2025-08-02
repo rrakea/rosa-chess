@@ -97,6 +97,13 @@ fn uci_start() -> table::TT {
             "magics" => {
                 mv::gen_magics::gen_magics();
             }
+            "test" => {
+                mv::magic_init::init_magics();
+                for sq in 0..64 {
+                    let mask = unsafe { mv::constants::BISHOP_PREMASKS_TRUNC[sq] };
+                    println!("{}", &crate::board::Board::new(mask).prittify());
+                }
+            }
             _ => {
                 log::warn!("UCI setup command not understood: {}", cmd)
             }

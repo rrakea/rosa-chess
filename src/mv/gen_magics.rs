@@ -131,7 +131,9 @@ fn magic_generator(piece: i8) {
 
             // If we havent update the magic this shift value
             // We assume there is no magic possible at this/ a smaller shift value
-            if unsafe { ROOK_MAGIC[sq].1 } != shift {
+            if (piece == pos::ROOK && unsafe { ROOK_MAGIC[sq].1 } != shift)
+                || unsafe { BISHOP_MAGIC[sq].1 } != shift
+            {
                 break 'shifts;
             }
         }

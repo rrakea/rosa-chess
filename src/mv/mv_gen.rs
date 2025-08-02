@@ -63,7 +63,7 @@ fn gen_piece_mvs(
 // Gets a movemask for the piece and sq
 // A Board where all the squares a piece could move from the sq
 // are flipped to 1
-fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
+pub fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
     let raw_board = match piece {
         pos::KING | pos::BKING | pos::KNIGHT | pos::BKNIGHT => constants::get_mask(piece, sq),
         pos::PAWN | pos::BPAWN => constants::get_pawn_mask(p.active, sq, can_cap),

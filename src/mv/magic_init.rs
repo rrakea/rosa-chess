@@ -86,7 +86,7 @@ fn init_lookups() {
             loop {
                 let bishop_blocker = gen_blockers(bishop_trunc_premask, blocker_index);
                 if bishop_blocker == bishop_trunc_premask {
-                    last_iteration = true
+                    last_iteration = true;
                 }
                 let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
                 let index = magic::magic_index(magic, shift, bishop_blocker);
@@ -110,30 +110,31 @@ pub fn gen_move_mask(
     truncate: bool,
 ) -> u64 {
     let mut pos_moves = Vec::new();
-    let mut found_blocker = false;
     'direction: for dir in directions {
         for i in 1..=iterations {
             let new_pos = (sq as i8) + (dir * i);
             let next_pos = (sq as i8) + (dir * (i + 1));
             let last_pos = (sq as i8) + (dir * (i - 1));
 
-            let not_out_of_bounds = new_pos >= 0 && new_pos < 64;
-            let current_no_wrap = util::no_wrap(last_pos as u8, new_pos as u8);
+            let out_of_bounds = new_pos < 0 || new_pos >= 64;
+            let wrapped = !util::no_wrap(last_pos as u8, new_pos as u8);
+
+            if wrapped || out_of_bounds {
+                continue 'direction;
+            }
 
             if truncate {
-                let next_not_out_of_bounds = next_pos >= 0 && next_pos < 64;
-                let next_no_wrap = util::no_wrap(new_pos as u8, next_pos as u8);
-                if !next_no_wrap || !next_not_out_of_bounds {
+                let next_out_of_bounds = next_pos < 0 || next_pos >= 64;
+                let next_wrap = !util::no_wrap(new_pos as u8, next_pos as u8);
+                if next_wrap || next_out_of_bounds {
                     continue 'direction;
                 }
             }
 
-            if not_out_of_bounds && current_no_wrap && !found_blocker {
-                if (blocker_mask >> new_pos) & 1 == 1 {
-                    found_blocker = true;
-                }
-                pos_moves.push(new_pos as u8);
-            } else {
+            pos_moves.push(new_pos as u8);
+
+            // Our current square contains another piece
+            if (blocker_mask >> new_pos) & 1u64 == 1 {
                 continue 'direction;
             }
         }

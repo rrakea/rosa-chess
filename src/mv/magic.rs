@@ -7,7 +7,7 @@ pub fn queen_mask(sq: u8, p: &Pos) -> u64 {
 
 pub fn rook_mask(sq: u8, p: &Pos) -> u64 {
     let sq = sq as usize;
-    let premask = unsafe { ROOK_PREMASKS[sq] };
+    let premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
     let magic = ROOK_MAGIC[sq];
     let shift = ROOK_SHIFT[sq];
     let blocker = premask & p.full.val();
@@ -17,7 +17,7 @@ pub fn rook_mask(sq: u8, p: &Pos) -> u64 {
 
 pub fn bishop_mask(sq: u8, p: &Pos) -> u64 {
     let sq = sq as usize;
-    let premask = unsafe { BISHOP_PREMASKS[sq] };
+    let premask = unsafe { BISHOP_PREMASKS_TRUNC[sq] };
     let magic = BISHOP_MAGIC[sq];
     let shift = BISHOP_SHIFT[sq];
     let blocker = premask & p.full.val();
