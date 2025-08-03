@@ -20,7 +20,7 @@ pub fn get_mask(piece: i8, sq: u8) -> u64 {
 
 pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
     let sq = sq as usize;
-    let ret = unsafe {
+    unsafe {
         match (active, cap) {
             (1, false) => WPAWN_MASKS[sq],
             (1, true) => WPAWN_MASKS_CAP[sq],
@@ -28,12 +28,6 @@ pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
             (-1, true) => BPAWN_MASKS_CAP[sq],
             _ => scream!("Invalid color value: {}, {}", active, cap),
         }
-    };
-    // Since we dont also want to log a capture when we are promoting
-    if active == 1 {
-        ret & !RANK_MASKS[6] & !RANK_MASKS[7]
-    } else {
-        ret & !RANK_MASKS[1] & !RANK_MASKS[0]
     }
 }
 

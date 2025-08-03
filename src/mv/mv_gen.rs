@@ -63,10 +63,11 @@ fn gen_piece_mvs(
 // Gets a movemask for the piece and sq
 // A Board where all the squares a piece could move from the sq
 // are flipped to 1
-pub fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
+fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
     let raw_board = match piece {
         pos::KING | pos::BKING | pos::KNIGHT | pos::BKNIGHT => constants::get_mask(piece, sq),
-        pos::PAWN | pos::BPAWN => constants::get_pawn_mask(p.active, sq, can_cap),
+        pos::PAWN => constants::get_pawn_mask(1, sq, can_cap) & !constants::RANK_MASKS[7],
+        pos::BPAWN => constants::get_pawn_mask(-1, sq, can_cap) & !constants::RANK_MASKS[0],
         pos::ROOK | pos::BROOK => magic::rook_mask(sq, p),
         pos::BISHOP | pos::BBISHOP => magic::bishop_mask(sq, p),
         pos::QUEEN | pos::BQUEEN => magic::queen_mask(sq, p),
@@ -76,7 +77,7 @@ pub fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
 }
 
 fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
-    let rank = if p.active == 1 { 6 } else { 2 };
+    let rank = if p.active == 1 { 6 } else { 1 };
     let pawn_bb = p.piece(pos::PAWN * p.active);
     // Only pawns that are on the last rank
     let relevant_rank = Board::new(pawn_bb.val() & constants::RANK_MASKS[rank]);
@@ -88,8 +89,10 @@ fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
 
         let can_quiet = p.piece_at_sq(end_quiet) == 0;
         let can_cap_left = util::no_wrap(start_sq, cap_left)
+            && p.piece_at_sq(cap_left) != 0
             && util::dif_colors(p.piece_at_sq(cap_left), p.piece_at_sq(start_sq));
         let can_cap_right = util::no_wrap(start_sq, cap_right)
+            && p.piece_at_sq(cap_right) != 0
             && util::dif_colors(p.piece_at_sq(cap_right), p.piece_at_sq(start_sq));
 
         iter::empty()
@@ -161,7 +164,7 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
     let mut mv = Vec::new();
 
     let can_castle = p.castling(p.active);
-    let king_bb = p.piece(pos::KING);
+    let king_bb = p.piece(pos::KING * p.active);
     let king_pos = king_bb.get_ones_single();
 
     // King side
@@ -170,8 +173,8 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
     if can_castle.0
         && p.piece_at_sq(king_pos + 1) == 0
         && p.piece_at_sq(king_pos + 2) == 0
-        && square_attacked(p, king_pos, -p.active)
-        && square_attacked(p, king_pos + 1, -p.active)
+        && square_not_attacked(p, king_pos, -p.active)
+        && square_not_attacked(p, king_pos + 1, -p.active)
     {
         let code = if p.active == 1 {
             MvFlag::WKCastle
@@ -186,8 +189,8 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
         && p.piece_at_sq(king_pos - 1) == 0
         && p.piece_at_sq(king_pos - 2) == 0
         && p.piece_at_sq(king_pos - 3) == 0
-        && square_attacked(p, king_pos, -p.active)
-        && square_attacked(p, king_pos - 1, -p.active)
+        && square_not_attacked(p, king_pos, -p.active)
+        && square_not_attacked(p, king_pos - 1, -p.active)
     {
         let code = if p.active == 1 {
             MvFlag::WQCastle
@@ -221,11 +224,11 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
     })
 }
 
-pub fn square_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
+pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
     // Basically we pretend there is every possible piece on the square
     // And then & that with the bb of the piece. If non 0 , then the square is attacked
     // by that piece
-    let pawn_mask = constants::get_pawn_mask(attacker_color, sq, true);
+    let pawn_mask = constants::get_pawn_mask(-attacker_color, sq, true);
     if check_for_piece(p, pawn_mask, pos::PAWN * attacker_color) {
         return false;
     }

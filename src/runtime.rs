@@ -88,6 +88,21 @@ pub fn start() {
                 println!("{}", &p.prittify_sq_based());
             }
 
+            "printfull" => {
+                println!("{}", &p.prittify());
+            }
+
+            "attacked" => {
+                println!(
+                    "{}",
+                    !mv::mv_gen::square_not_attacked(
+                        &p,
+                        cmd_parts[1].parse().unwrap(),
+                        -p.active
+                    )
+                );
+            }
+
             "magics" => {
                 mv::gen_magics::gen_magics();
             }

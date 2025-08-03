@@ -156,7 +156,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     if !legal_move_exists {
         debug!("Found checkmate at depth: {depth}");
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
-        if mv::mv_gen::square_attacked(p, king_pos, -p.active) {
+        if mv::mv_gen::square_not_attacked(p, king_pos, -p.active) {
             // Checkmate
             return i32::MIN + 1;
         } else {
@@ -220,7 +220,7 @@ pub fn division_search(p: &pos::Pos, depth: u8) {
         };
         let count = counting_search(&npos, depth);
         total += count;
-        println!("{}: {}, {:?}", mv.notation(), count, mv.flag());
+        println!("{}: {}", mv.notation(), count);
     }
     println!("\nTotal: {total}\n");
 }
