@@ -140,11 +140,17 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         end = 2 * 8 + file;
     }
 
-    if left > 0 && p.piece_at_sq(left as u8) == pos::PAWN * p.active {
+    if left > 0
+        && p.piece_at_sq(left as u8) == pos::PAWN * p.active
+        && util::no_wrap(left as u8, end as u8)
+    {
         mv.push(Mv::new(left as u8, end as u8, MvFlag::Ep));
     }
 
-    if right < 8 && p.piece_at_sq(right as u8) == pos::PAWN * p.active {
+    if right < 8
+        && p.piece_at_sq(right as u8) == pos::PAWN * p.active
+        && util::no_wrap(right as u8, end as u8)
+    {
         mv.push(Mv::new(right as u8, end as u8, MvFlag::Ep));
     }
 
