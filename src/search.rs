@@ -38,7 +38,7 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8,
             break;
         }
 
-        score = negascout(p, depth, i32::MIN +1 , i32::MAX -1, tt);
+        score = negascout(p, depth, i32::MIN + 1, i32::MAX - 1, tt);
 
         write_info(p, tt, depth, time, score);
 
@@ -191,4 +191,36 @@ fn current_time() -> u64 {
         .duration_since(time::SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_millis() as u64
+}
+
+pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
+    if depth == 0 {
+        return 1;
+    }
+    let mut count: u64 = 0;
+    let mv_iter = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
+    for mv in mv_iter {
+        let npos = mv::mv_apply::apply(p, &mv);
+        let npos = match npos {
+            Some(n) => n,
+            None => continue,
+        };
+        count += counting_search(&npos, depth - 1);
+    }
+    count
+}
+
+pub fn division_search(p: &pos::Pos, depth: u8) {
+    let mut total = 0;
+    for mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
+        let npos = mv::mv_apply::apply(p, &mv);
+        let npos = match npos {
+            Some(p) => p,
+            None => continue,
+        };
+        let count = counting_search(&npos, depth);
+        total += count;
+        println!("{}: {}, {:?}", mv.notation(), count, mv.flag());
+    }
+    println!("\nTotal: {total}\n");
 }

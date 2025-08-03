@@ -7,62 +7,18 @@ use crate::table;
 use std::io::{self, BufRead};
 
 pub fn start() {
-    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
-    log::info!("Init Log File");
-
-    let mut tt = uci_start();
-
-    uci_runtime(&mut tt);
-}
-
-// Score, Best Move, Depth
-fn start_search(
-    p: &pos::Pos,
-    time: u64,
-    max_depth: u64,
-    tt: &mut table::TT,
-) -> (i32, mv::mv::Mv, u8, u64) {
-    let (depth, time_taken) = search::search(p, time, max_depth as u8, tt);
-
-    // Look up the results in the TT table
-    // This will never panic since we start the search here
-    let res = tt.get(&p.key);
-
-    (res.score, res.mv, depth, time_taken)
-}
-
-/*
-    This implements the Universal Chess Interface (UCI)
-
-    Unimplemented Commands:
-        Debug, Register, Copyprotection
-
-    Example:
-    Interface (I); Engine(E)
-        I: uci -> (use uci?)
-        E: id name <name>
-        E: id author <author>
-        E: option name <name> type <type> default <values>
-        E: uciok
-        I: setoption name <name> [value <value>]
-        I: isready
-        // Init internals
-        E: readyok
-        I: position [fen <fen> | startpos] [moves <moves>]
-        I: go [wtime btime depth infinite]
-        I: quit
-
-*/
-
-fn uci_start() -> table::TT {
     let stdin = io::stdin();
+
+    let mut p: pos::Pos = fen::starting_pos();
     let tt_size = config::DEFAULT_TABLE_SIZE_MB;
-    let mut tt: Option<table::TT> = None;
+    let mut tt = table::TT::new(tt_size);
+    table::init_zobrist_keys();
+    mv::magic_init::init_magics();
 
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
         let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
-        log::info!("Command Recieved: {}", cmd);
+        log::info!("Command Recieved: {cmd}");
         match cmd_parts[0].to_lowercase().as_str() {
             "uci" => {
                 println!("id name {} {}", config::NAME, config::VERSION);
@@ -70,87 +26,84 @@ fn uci_start() -> table::TT {
                 print_options();
                 println!("ociok");
             }
-            "isready" => {
-                tt = Some(table::TT::new(tt_size));
-                table::init_zobrist_keys();
-                mv::magic_init::init_magics();
-                println!("reakyok");
-                break;
+
+            "isready" => println!("reakyok"),
+
+            "position" => {
+                if cmd_parts[1] == "startpos" {
+                    p = fen::starting_pos();
+                } else if cmd_parts[1] == "fen" {
+                    p = fen::fen(cmd_parts[2..].join(" "));
+                }
             }
-            "setoption" => {
-                /* match process_options(cmd_parts) {
-                    Some(o) => tt_size = o,
-                    None => (),
-                }; */
-            }
+
             "quit" => {
-                log::info!("Exiting Early...");
                 std::process::exit(0);
             }
-            "shortcut" => {
-                let mut table = table::TT::new(tt_size);
-                table::init_zobrist_keys();
-                mv::magic_init::init_magics();
-                let p = fen::starting_pos();
-                start_search(&p, 40000, 0, &mut table);
+
+            "go" => {
+                let (maxdepth, time) = process_go(cmd_parts);
+                search::search(&p, time, maxdepth, &mut tt);
             }
+
+            "perft" => {
+                if cmd_parts.len() < 2 {
+                    print!("Depth for perft not set");
+                    continue;
+                }
+
+                let depth = cmd_parts[1].parse();
+                match depth {
+                    Ok(d) => println!("{}", search::counting_search(&p, d)),
+                    Err(_) => println!("Depth not a number"),
+                }
+            }
+
+            "division" => {
+                if cmd_parts.len() < 2 {
+                    print!("Depth for division search not set");
+                    continue;
+                }
+
+                let depth = cmd_parts[1].parse();
+                match depth {
+                    Ok(d) => search::division_search(&p, d),
+                    Err(_) => println!("Depth not a number"),
+                }
+            }
+
+            "make" => {
+                println!("Warning: Does not check legality");
+                if cmd_parts.len() < 2 {
+                    println!("No move specified");
+                    continue;
+                }
+                let mv = cmd_parts[1];
+                let mv = mv::mv::Mv::from_str(mv, &p);
+                println!("{}", mv.prittify());
+                p = mv::mv_apply::apply(&p, &mv).unwrap();
+            }
+
+            "print" | "p" => {
+                println!("{}", &p.prittify_sq_based());
+            }
+
             "magics" => {
                 mv::gen_magics::gen_magics();
             }
-            "test" => {
-                mv::magic_init::init_magics();
-                for sq in 0..64 {
-                    let mask = unsafe { mv::constants::BISHOP_PREMASKS_TRUNC[sq] };
-                    println!("{}", &crate::board::Board::new(mask).prittify());
-                }
-            }
-            _ => {
-                log::warn!("UCI setup command not understood: {}", cmd)
-            }
-        }
-    }
 
-    match tt {
-        Some(o) => return o,
-        None => {
-            log::error!("Programm exited before \"isready\" command was sent");
-            std::process::exit(0);
+            "ponderhit" => {}
+            "stop" => {}
+            "setoption" => {}
+            _ => {
+                log::warn!("UCI setup command not understood: {cmd}");
+            }
         }
     }
 }
 
 static mut COLOR: i8 = 1;
 static mut INC: u64 = 0;
-
-fn uci_runtime(tt: &mut table::TT) {
-    let mut p: Option<pos::Pos> = None;
-    let stdin = io::stdin();
-    for cmd in stdin.lock().lines() {
-        let cmd = cmd.unwrap();
-        let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
-        log::info!("Command Recieved: {}", cmd);
-        match cmd_parts[0].to_lowercase().as_str() {
-            "go" => {
-                let (max_depth, time) = process_go(cmd_parts);
-                match &p {
-                    None => {
-                        scream!("Go command recieved before position was set");
-                    }
-                    Some(p) => start_search(p, time, max_depth, tt),
-                };
-            }
-            "position" => {
-                p = Some(process_position(cmd_parts));
-            }
-            "ponderhit" => {}
-            "stop" => {}
-
-            _ => {
-                log::warn!("UCI runtime command not understood: {}", cmd)
-            }
-        }
-    }
-}
 
 fn print_options() {
     println!(
@@ -167,19 +120,7 @@ fn print_options() {
     }
 }
 
-/*
-fn process_options(cmd: Vec<&str>) {}
-*/
-
-fn process_position(cmd: Vec<&str>) -> pos::Pos {
-    if cmd[1] == "startpos" {
-        fen::starting_pos()
-    } else {
-        fen::fen(cmd[1..].concat())
-    }
-}
-
-fn process_go(cmd: Vec<&str>) -> (u64, u64) {
+fn process_go(cmd: Vec<&str>) -> (u8, u64) {
     let mut index = 1;
 
     let mut maxdepth = 0;
@@ -213,7 +154,7 @@ fn process_go(cmd: Vec<&str>) -> (u64, u64) {
             }
             "depth" => {
                 index += 1;
-                maxdepth = check_next(&cmd, index)
+                maxdepth = check_next(&cmd, index) as u8;
             }
             "movetime" => {
                 index += 1;
@@ -221,7 +162,7 @@ fn process_go(cmd: Vec<&str>) -> (u64, u64) {
             }
             "ponder" => ponder = true,
             "infinite" => infinite = true,
-            _ => log::warn!("Go command part not understood: {}", cmd_part),
+            _ => log::warn!("Go command part not understood: {cmd_part}"),
         }
         index += 1;
     }
@@ -231,11 +172,11 @@ fn process_go(cmd: Vec<&str>) -> (u64, u64) {
     (maxdepth, time)
 }
 
-fn check_next(cmd: &Vec<&str>, index: usize) -> u64 {
+fn check_next(cmd: &[&str], index: usize) -> u64 {
     match cmd[index + 1].parse() {
         Ok(o) => o,
         Err(e) => {
-            log::error!("Value after command not int, {}", e);
+            log::error!("Value after command not int, {e}");
             0
         }
     }
@@ -255,6 +196,10 @@ fn calc_time(
     }
     if movetime != 0 {
         return movetime;
+    }
+
+    if wtime + btime + winc + binc == 0 {
+        return 0;
     }
 
     if unsafe { COLOR == 1 } {

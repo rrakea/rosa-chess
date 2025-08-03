@@ -160,18 +160,14 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
     );
     pos.gen_new_full();
 
-    /*
-    if is_legal(&npos) {
-        return Some(npos);
+    if is_legal(&pos) {
+        Some(pos)
     } else {
-        return None;
+        None
     }
-    */
-    Some(pos)
 }
 
 fn is_legal(p: &Pos) -> bool {
     let king_pos = p.piece(pos::KING * -p.active).get_ones_single();
-    debug!("Checking legality with king at pos: {}", king_pos);
-    mv_gen::square_attacked(p, king_pos, -p.active)
+    mv_gen::square_attacked(p, king_pos, p.active)
 }

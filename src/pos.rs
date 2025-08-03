@@ -104,7 +104,11 @@ impl Pos {
         if piece == 0 {
             return;
         }
-        self.sq[sq as usize] = piece;
+        if self.sq[sq as usize] == piece {
+            self.sq[sq as usize] = 0;
+        } else {
+            self.sq[sq as usize] = piece;
+        }
         self.boards[calc_index(piece)].toggle(sq);
         self.key.piece(sq, piece);
     }
@@ -124,6 +128,33 @@ impl Pos {
         str += format!("Data: {:#010b}\n", self.data).as_str();
         str += format!("Active: {color}").as_str();
         str
+    }
+
+    pub fn prittify_sq_based(&self) -> String {
+        let mut ranks = Vec::new();
+        let mut buf = Vec::new();
+
+        for (sq, piece) in self.sq.iter().enumerate() {
+            if sq % 8 == 0 {
+                ranks.push(buf);
+                buf = Vec::new();
+            }
+            buf.push(piece);
+        }
+        ranks.push(buf);
+
+        let mut board = String::new();
+        for rank in ranks.iter().rev() {
+            for piece in rank {
+                if piece >= &&0 {
+                    board += " "
+                }
+                board += piece.to_string().as_str();
+                board += "|"
+            }
+            board += "\n"
+        }
+        board
     }
 
     pub fn gen_new_key(&mut self) {

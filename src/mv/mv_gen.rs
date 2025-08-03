@@ -136,24 +136,16 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         end = 5 * 8 + file;
     } else {
         left = 3 * 8 + file - 1;
-        right = 3 * 8 + file + 1;        
+        right = 3 * 8 + file + 1;
         end = 2 * 8 + file;
     }
 
     if left > 0 && p.piece_at_sq(left as u8) == pos::PAWN * p.active {
-        mv.push(Mv::new(
-            left as u8,
-            end as u8,
-            MvFlag::Ep,
-        ));
+        mv.push(Mv::new(left as u8, end as u8, MvFlag::Ep));
     }
 
     if right < 8 && p.piece_at_sq(right as u8) == pos::PAWN * p.active {
-        mv.push(Mv::new(
-            right as u8,
-            end as u8,
-            MvFlag::Ep,
-        ));
+        mv.push(Mv::new(right as u8, end as u8, MvFlag::Ep));
     }
 
     mv.into_iter()
@@ -223,37 +215,37 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
     })
 }
 
-pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {
+pub fn square_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
     // Basically we pretend there is every possible piece on the square
     // And then & that with the bb of the piece. If non 0 , then the square is attacked
     // by that piece
-    let pawn_mask = constants::get_mask(pos::PAWN * attacked_by, sq);
-    if check_for_piece(p, pawn_mask, pos::PAWN * attacked_by) {
+    let pawn_mask = constants::get_mask(pos::PAWN * attacker_color, sq);
+    if check_for_piece(p, pawn_mask, pos::PAWN * attacker_color) {
         return false;
     }
 
-    let king_mask = constants::get_mask(pos::KING * attacked_by, sq);
-    if check_for_piece(p, king_mask, pos::KING * attacked_by) {
+    let king_mask = constants::get_mask(pos::KING * attacker_color, sq);
+    if check_for_piece(p, king_mask, pos::KING * attacker_color) {
         return false;
     }
 
     let knight_mask = constants::get_mask(pos::KNIGHT, sq);
-    if check_for_piece(p, knight_mask, pos::KNIGHT * attacked_by) {
+    if check_for_piece(p, knight_mask, pos::KNIGHT * attacker_color) {
         return false;
     }
 
     let bishop_mask = magic::bishop_mask(sq, p);
-    if check_for_piece(p, bishop_mask, pos::BISHOP * attacked_by) {
+    if check_for_piece(p, bishop_mask, pos::BISHOP * attacker_color) {
         return false;
     }
 
     let rook_mask = magic::rook_mask(sq, p);
-    if check_for_piece(p, rook_mask, pos::ROOK * attacked_by) {
+    if check_for_piece(p, rook_mask, pos::ROOK * attacker_color) {
         return false;
     }
 
     let queen_mask = rook_mask | bishop_mask;
-    if check_for_piece(p, queen_mask, pos::QUEEN * attacked_by) {
+    if check_for_piece(p, queen_mask, pos::QUEEN * attacker_color) {
         return false;
     }
 

@@ -57,3 +57,11 @@ pub fn square_name(sq: u8) -> String {
     let rankstr = (b'1' + rank) as char;
     format!("{}{}", filestr, rankstr)
 }
+
+pub fn square_num(sq: &str) -> u8 {
+    let file = sq.chars().nth(0).unwrap();
+    let rank = sq.chars().nth(1).unwrap();
+    let file = file as u8 - b'a';
+    let rank = rank.to_digit(10).unwrap() as u8 -1 ;
+    rank * 8 + file
+}
