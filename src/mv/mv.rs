@@ -43,9 +43,12 @@ impl Mv {
         let mut flag = MvFlag::Quiet;
         let piece = p.piece_at_sq(start);
         let op_piece = p.piece_at_sq(end);
+        let mv_diff = (end - start) as i8 * p.active;
+
         if op_piece != 0 {
             flag = MvFlag::Cap;
         }
+
         if piece == pos::PAWN * p.active && (util::rank(end) == 0 || util::rank(end) == 7) {
             let prom_piece = mv_str
                 .chars()
@@ -68,6 +71,24 @@ impl Mv {
                     _ => scream!("Promotion piece not valid"),
                 };
             }
+        }
+
+        if piece == pos::PAWN * p.active {
+            if mv_diff == 16 {
+                flag = MvFlag::DoubleP;
+            } else if op_piece == 0 && (mv_diff == 7 || mv_diff == 9){
+                flag = MvFlag::Ep;
+            }
+        }
+
+        if piece == pos::KING * p.active {
+            match (p.active, mv_diff) {
+                (1, 2) => flag = MvFlag::WKCastle,
+                (1, -2) => flag = MvFlag::WQCastle,
+                (-1, 2) => flag = MvFlag::BKCastle,
+                (-1, -2) => flag = MvFlag::BQCastle,
+                _ => ()
+            };
         }
 
         Mv::new(start, end, flag)
@@ -138,7 +159,18 @@ impl Mv {
         let (start, end) = self.squares();
         let start = util::square_name(start);
         let end = util::square_name(end);
-        start + end.as_str()
+
+        let mut prom_str = "";
+        if self.is_prom() {
+            prom_str = match self.flag() {
+                MvFlag::QProm | MvFlag::QPromCap => "q",
+                MvFlag::RProm | MvFlag::RPromCap => "r",
+                MvFlag::BProm | MvFlag::BPromCap => "b",
+                MvFlag::NProm | MvFlag::NPromCap => "n",
+                _ => "",
+            }
+        }
+        start + end.as_str() + prom_str
     }
 
     pub fn prittify(&self) -> String {

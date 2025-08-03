@@ -30,10 +30,23 @@ pub fn start() {
             "isready" => println!("reakyok"),
 
             "position" => {
-                if cmd_parts[1] == "startpos" {
+                let mv_position = if cmd_parts[1] == "startpos" {
                     p = fen::starting_pos();
+                    3
                 } else if cmd_parts[1] == "fen" {
                     p = fen::fen(cmd_parts[2..].join(" "));
+                    4
+                } else {
+                    continue;
+                };
+
+                if cmd_parts.len() <= 2 {
+                    continue;
+                }
+                
+                for part in &cmd_parts[mv_position..] {
+                    let mv = mv::mv::Mv::from_str(part, &p);
+                    p = mv::mv_apply::apply(&p, &mv).expect("Move is not legal");
                 }
             }
 
@@ -42,10 +55,21 @@ pub fn start() {
             }
 
             "go" => {
+                if cmd_parts.len() <= 1 {
+                    continue;
+                }
+
+                match cmd_parts[1] {
+                    "perft" => {search::division_search(&p, cmd_parts[2].parse().unwrap());}
+                    _ => (),
+                }
+            }
+            /*
+            "go" => {
                 let (maxdepth, time) = process_go(cmd_parts);
                 search::search(&p, time, maxdepth, &mut tt);
             }
-
+            */
             "perft" => {
                 if cmd_parts.len() < 2 {
                     print!("Depth for perft not set");
@@ -95,12 +119,18 @@ pub fn start() {
             "attacked" => {
                 println!(
                     "{}",
-                    !mv::mv_gen::square_not_attacked(
-                        &p,
-                        cmd_parts[1].parse().unwrap(),
-                        -p.active
-                    )
+                    !mv::mv_gen::square_not_attacked(&p, cmd_parts[1].parse().unwrap(), -p.active)
                 );
+            }
+
+            "script" => {
+                let depth: u8 = cmd_parts[1].parse().expect("Depth not num");
+                p = fen::fen(cmd_parts[2].to_string());
+                for part in &cmd_parts[4..] {
+                    let mv = mv::mv::Mv::from_str(part, &p);
+                    p = mv::mv_apply::apply(&p, &mv).expect("Move not legal");
+                }
+                search::division_search(&p, depth);
             }
 
             "magics" => {

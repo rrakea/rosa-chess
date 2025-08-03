@@ -218,9 +218,9 @@ pub fn division_search(p: &pos::Pos, depth: u8) {
             Some(p) => p,
             None => continue,
         };
-        let count = counting_search(&npos, depth);
+        let count = counting_search(&npos, depth -1);
         total += count;
         println!("{}: {}", mv.notation(), count);
     }
-    println!("\nTotal: {total}\n");
+    println!("Nodes searched: {total}\n");
 }
