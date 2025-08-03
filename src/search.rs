@@ -3,8 +3,8 @@ use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
 use crate::table;
-use std::time;
 use std::thread;
+use std::time;
 
 /*
     Idea: We check if our position is in the TT at the start of a search
@@ -50,11 +50,6 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8,
     write_info(p, tt, depth, time, score);
 
     (depth + 1, current_time() - unsafe { START })
-}
-
-fn threading_test() {
-    let thread_count = thread::available_parallelism();
-    
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
