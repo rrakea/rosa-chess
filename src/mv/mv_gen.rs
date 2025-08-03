@@ -225,7 +225,7 @@ pub fn square_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
     // Basically we pretend there is every possible piece on the square
     // And then & that with the bb of the piece. If non 0 , then the square is attacked
     // by that piece
-    let pawn_mask = constants::get_mask(pos::PAWN * attacker_color, sq);
+    let pawn_mask = constants::get_pawn_mask(attacker_color, sq, true);
     if check_for_piece(p, pawn_mask, pos::PAWN * attacker_color) {
         return false;
     }
