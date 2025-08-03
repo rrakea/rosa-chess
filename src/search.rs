@@ -3,7 +3,6 @@ use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
 use crate::table;
-use std::thread;
 use std::time;
 
 /*
