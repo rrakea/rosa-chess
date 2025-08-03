@@ -17,13 +17,7 @@ use std::thread;
 static mut START: u64 = 0;
 static mut TIME_TO_SEARCH: u64 = 0;
 
-pub fn search(
-    p: &pos::Pos,
-    time: u64,
-    maxdepth: u8,
-    key: table::Key,
-    tt: &mut table::TT,
-) -> (u8, u64) {
+pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8, u64) {
     debug!("Starting search");
     // Safe since none of the threads have started searching yet
     // Wont be mutated till the next move is made
@@ -45,15 +39,15 @@ pub fn search(
             break;
         }
 
-        score = negascout(p, depth, i32::MIN, i32::MAX, tt, key);
+        score = negascout(p, depth, i32::MIN + 1, i32::MAX - 1, tt);
 
-        write_info(tt, &key, depth, time, score);
+        write_info(p, tt, depth, time, score);
 
         depth += 1;
     }
 
     debug!("Search done");
-    write_info(tt, &key, depth, time, score);
+    write_info(p, tt, depth, time, score);
 
     (depth + 1, current_time() - unsafe { START })
 }
@@ -64,37 +58,29 @@ fn threading_test() {
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
-fn negascout(
-    p: &pos::Pos,
-    depth: u8,
-    mut alpha: i32,
-    mut beta: i32,
-    tt: &mut table::TT,
-    key: table::Key,
-) -> i32 {
+fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut table::TT) -> i32 {
     // Search is done
     if depth == 0 {
         return eval(p);
     }
 
     // Check the transposition table
-    let entry = tt.get(&key);
+    let entry = tt.get(&p.key);
 
-    let mut tt_hash_move = Mv::null();
+    let mut pvs_move = Mv::null();
     let mut replace_entry = false;
 
     if entry.node_type == table::NodeType::Null {
         // The entry is unanitialized
         replace_entry = true;
-    } else if entry.key != key {
+    } else if entry.key != p.key {
         // The entry is not the same pos as outs
         // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
             replace_entry = true;
-            debug!("Evicting TT entry");
         }
     } else {
-        tt_hash_move = entry.mv;
+        pvs_move = entry.mv;
         // The entry is usable
         if entry.depth < depth {
             // Cant trust the eval; Still use the best move
@@ -125,47 +111,43 @@ fn negascout(
     }
 
     let mut best_move = Mv::null();
-    let mut best_key = table::Key::default();
     let mut node_type = table::NodeType::Upper;
 
     // Iterator
     let gen_mvs = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
-    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != tt_hash_move);
-    let mv_iter = std::iter::once(tt_hash_move)
+    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != pvs_move);
+    let mv_iter = std::iter::once(pvs_move)
         .chain(ordered_mvs)
         .filter(|mv| !mv.is_null());
 
     let mut legal_move_exists = true;
-    let mut key = key;
     for (i, m) in mv_iter.enumerate() {
-        //debug!("{}", m.prittify());
-        let outcome = mv::mv_apply::apply(p, &m, &mut key);
-        let outcome = match outcome {
+        let outcome = mv::mv_apply::apply(p, &m);
+        let npos = match outcome {
             Some(o) => o,
             // Impossible move
             None => continue,
         };
-        let (npos, nkey) = outcome;
-        debug!("evaluating move: {}", m.prittify());
+        //debug!("Searching move: {} at depth: {}", m.prittify(), depth);
+        //debug!("PVS move: {}", pvs_move.prittify());
         legal_move_exists = true;
 
         let mut score;
         if i == 0 {
             // Principle variation search
             // PV Node
-            score = -negascout(&npos, depth - 1, -beta, -alpha, tt, nkey);
+            score = -negascout(&npos, depth - 1, -beta, -alpha, tt);
         } else {
             // Null window search
-            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha, tt, nkey);
+            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha, tt);
             if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(&npos, depth - 1, -beta, -alpha, tt, nkey);
+                score = -negascout(&npos, depth - 1, -beta, -alpha, tt);
             }
         }
         if score > alpha {
             alpha = score;
             best_move = m;
-            best_key = nkey;
             node_type = table::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
@@ -182,7 +164,7 @@ fn negascout(
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
         if mv::mv_gen::square_attacked(p, king_pos, -p.active) {
             // Checkmate
-            return i32::MIN;
+            return i32::MIN + 1;
         } else {
             // Stalemate
             return 0;
@@ -190,18 +172,15 @@ fn negascout(
     }
 
     if replace_entry {
-        tt.set(table::Entry::new(
-            best_key, alpha, best_move, depth, node_type,
-        ));
-        debug!("replacing TT entry: ");
+        tt.set(table::Entry::new(p.key, alpha, best_move, depth, node_type));
     }
 
     alpha
 }
 
-fn write_info(tt: &table::TT, start_key: &table::Key, depth: u8, time: u64, score: i32) {
+fn write_info(pos: &pos::Pos, tt: &table::TT, depth: u8, time: u64, score: i32) {
     log::info!("Search with depth {} concluded", depth);
-    let res = tt.get(start_key);
+    let res = tt.get(&pos.key);
     let info_string = format!(
         "info depth {} time {} pv {} score cp {} ",
         depth,
@@ -218,4 +197,36 @@ fn current_time() -> u64 {
         .duration_since(time::SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_millis() as u64
+}
+
+pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
+    if depth == 0 {
+        return 1;
+    }
+    let mut count: u64 = 0;
+    let mv_iter = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
+    for mv in mv_iter {
+        let npos = mv::mv_apply::apply(p, &mv);
+        let npos = match npos {
+            Some(n) => n,
+            None => continue,
+        };
+        count += counting_search(&npos, depth - 1);
+    }
+    count
+}
+
+pub fn division_search(p: &pos::Pos, depth: u8) {
+    let mut total = 0;
+    for mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
+        let npos = mv::mv_apply::apply(p, &mv);
+        let npos = match npos {
+            Some(p) => p,
+            None => continue,
+        };
+        let count = counting_search(&npos, depth);
+        total += count;
+        println!("{}: {}, {:?}", mv.notation(), count, mv.flag());
+    }
+    println!("\nTotal: {total}\n");
 }

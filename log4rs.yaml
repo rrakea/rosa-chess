@@ -1,7 +1,7 @@
 appenders:
   file:
     kind: file
-    path: "/home/rrakea/code/proj/rosa/logs/log.txt"
+    path: "/home/rrakea/code/proj/rosa/logs/log.log"
     encoder:
       pattern: "{d} [{l}] - {m}{n}"
 root:

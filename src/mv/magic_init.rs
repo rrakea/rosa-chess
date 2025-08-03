@@ -1,7 +1,7 @@
-use crate::mv::constants::*;
-use crate::board;
-use crate::util;
 use super::{constants, magic};
+use crate::board;
+use crate::mv::constants::*;
+use crate::util;
 
 pub fn init_magics() {
     reserve_lookup();
@@ -44,61 +44,65 @@ pub fn init_premasks() {
 
 fn init_lookups() {
     for sq in 0..64 {
-        let rook_trunc_premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
+        {
+            let rook_trunc_premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
 
-        let mut blocker_index = 0;
-        let mut last_iteration = false;
+            let mut blocker_index = 0;
+            let mut last_iteration = false;
 
-        let magic = constants::ROOK_MAGIC[sq];
-        let shift = constants::ROOK_SHIFT[sq];
+            let magic = constants::ROOK_MAGIC[sq];
+            let shift = constants::ROOK_SHIFT[sq];
 
-        loop {
-            // Calculate all the possible relevant blocker positions
-            let rook_blocker = gen_blockers(rook_trunc_premask, blocker_index);
-            // If the blockers are the same as the mask we have passed in
-            // we have gone through all the blockers
-            if rook_blocker == rook_trunc_premask {
-                last_iteration = true;
-            }
+            loop {
+                // Calculate all the possible relevant blocker positions
+                let rook_blocker = gen_blockers(rook_trunc_premask, blocker_index);
+                // If the blockers are the same as the mask we have passed in
+                // we have gone through all the blockers
+                if rook_blocker == rook_trunc_premask {
+                    last_iteration = true;
+                }
 
-            let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
-            let index = magic::magic_index(magic, shift, rook_blocker);
-            unsafe {
-                ROOK_LOOKUP[sq][index] = rook_movemask;
-            }
-            blocker_index += 1;
-            if last_iteration {
-                break;
+                let rook_movemask = gen_move_mask(sq, &ROOK_OFFSETS, 8, rook_blocker, false);
+                let index = magic::magic_index(magic, shift, rook_blocker);
+                unsafe {
+                    ROOK_LOOKUP[sq][index] = rook_movemask;
+                }
+                blocker_index += 1;
+                if last_iteration {
+                    break;
+                }
             }
         }
 
-        let bishop_trunc_premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
+        {
+            let bishop_trunc_premask = unsafe { BISHOP_PREMASKS_TRUNC[sq] };
 
-        last_iteration = false;
-        blocker_index = 0;
+            let mut blocker_index = 0;
+            let mut last_iteration = false;
 
-        let magic = constants::BISHOP_MAGIC[sq];
-        let shift = constants::BISHOP_SHIFT[sq];
+            let magic = constants::BISHOP_MAGIC[sq];
+            let shift = constants::BISHOP_SHIFT[sq];
 
-        loop {
-            let bishop_blocker = gen_blockers(bishop_trunc_premask, blocker_index);
-            if bishop_blocker == bishop_trunc_premask {
-                last_iteration = true
-            }
-            let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
-            let index = magic::magic_index(magic, shift, bishop_blocker);
-            unsafe {
-                BISHOP_LOOKUP[sq][index] = bishop_movemask;
-            }
-            blocker_index += 1;
-            if last_iteration {
-                break;
+            loop {
+                let bishop_blocker = gen_blockers(bishop_trunc_premask, blocker_index);
+                if bishop_blocker == bishop_trunc_premask {
+                    last_iteration = true;
+                }
+                let bishop_movemask = gen_move_mask(sq, &BISHOP_OFFSETS, 8, bishop_blocker, false);
+                let index = magic::magic_index(magic, shift, bishop_blocker);
+                unsafe {
+                    BISHOP_LOOKUP[sq][index] = bishop_movemask;
+                }
+                blocker_index += 1;
+                if last_iteration {
+                    break;
+                }
             }
         }
     }
 }
 
-fn gen_move_mask(
+pub fn gen_move_mask(
     sq: usize,
     directions: &[i8],
     iterations: i8,
@@ -106,36 +110,37 @@ fn gen_move_mask(
     truncate: bool,
 ) -> u64 {
     let mut pos_moves = Vec::new();
-    let mut found_blocker = false;
     'direction: for dir in directions {
         for i in 1..=iterations {
             let new_pos = (sq as i8) + (dir * i);
             let next_pos = (sq as i8) + (dir * (i + 1));
             let last_pos = (sq as i8) + (dir * (i - 1));
 
-            let not_out_of_bounds = new_pos >= 0 && new_pos < 64;
-            let current_no_wrap = util::no_wrap(last_pos as u8, new_pos as u8);
+            let out_of_bounds = new_pos < 0 || new_pos >= 64;
+            let wrapped = !util::no_wrap(last_pos as u8, new_pos as u8);
+
+            if wrapped || out_of_bounds {
+                continue 'direction;
+            }
 
             if truncate {
-                let next_not_out_of_bounds = next_pos >= 0 && next_pos < 64;
-                let next_no_wrap = util::no_wrap(new_pos as u8, next_pos as u8);
-                if !next_no_wrap || !next_not_out_of_bounds {
+                let next_out_of_bounds = next_pos < 0 || next_pos >= 64;
+                let next_wrap = !util::no_wrap(new_pos as u8, next_pos as u8);
+                if next_wrap || next_out_of_bounds {
                     continue 'direction;
                 }
             }
 
-            if not_out_of_bounds && current_no_wrap && !found_blocker {
-                if (blocker_mask >> new_pos) & 1 == 1 {
-                    found_blocker = true;
-                }
-                pos_moves.push(new_pos as u8);
-            } else {
+            pos_moves.push(new_pos as u8);
+
+            // Our current square contains another piece
+            if (blocker_mask >> new_pos) & 1u64 == 1 {
                 continue 'direction;
             }
         }
     }
     let mut ret = board::Board::new(0);
-    ret.set_all(pos_moves);
+    ret.toggle_all(pos_moves);
     ret.val()
 }
 

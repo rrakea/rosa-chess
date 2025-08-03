@@ -48,11 +48,10 @@ fn gen_piece_mvs(
     piece_positions.into_iter().flat_map(move |sq| {
         let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
         possible_moves.into_iter().map(move |end_square| {
-            let end_sq_piece = p.sq[end_square as usize];
+            let end_sq_piece = p.piece_at_sq(end_square);
             if can_quiet && end_sq_piece == 0 {
                 Mv::new(sq, end_square, MvFlag::Quiet)
             } else if can_cap && end_sq_piece != 0 && util::dif_colors(p.active, end_sq_piece) {
-                debug!("IN PIECE GEN: Piece: {piece}, end Piece: {end_sq_piece}");
                 Mv::new(sq, end_square, MvFlag::Cap)
             } else {
                 Mv::null()
@@ -64,7 +63,7 @@ fn gen_piece_mvs(
 // Gets a movemask for the piece and sq
 // A Board where all the squares a piece could move from the sq
 // are flipped to 1
-fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
+pub fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
     let raw_board = match piece {
         pos::KING | pos::BKING | pos::KNIGHT | pos::BKNIGHT => constants::get_mask(piece, sq),
         pos::PAWN | pos::BPAWN => constants::get_pawn_mask(p.active, sq, can_cap),
@@ -87,11 +86,11 @@ fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
         let cap_right = (start_sq as i8 + 9 * p.active) as u8;
         let cap_left = (start_sq as i8 + 7 * p.active) as u8;
 
-        let can_quiet = p.sq[(end_quiet) as usize] == 0;
+        let can_quiet = p.piece_at_sq(end_quiet) == 0;
         let can_cap_left = util::no_wrap(start_sq, cap_left)
-            && util::dif_colors(p.sq[cap_left as usize], p.sq[start_sq as usize]);
+            && util::dif_colors(p.piece_at_sq(cap_left), p.piece_at_sq(start_sq));
         let can_cap_right = util::no_wrap(start_sq, cap_right)
-            && util::dif_colors(p.sq[cap_right as usize], p.sq[start_sq as usize]);
+            && util::dif_colors(p.piece_at_sq(cap_right), p.piece_at_sq(start_sq));
 
         iter::empty()
             .chain(promotion_helper(start_sq, end_quiet, false, can_quiet))
@@ -127,27 +126,32 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         return mv.into_iter();
     }
 
-    let ep_file = p.en_passant_file() as i8;
-    let left = ep_file - 1;
-    let right = ep_file + 1;
-    let rank = if p.active == 1 { 4 } else { 3 };
-    let pawn_pos_left = (rank * 8 + left) as usize;
-    let pawn_pos_right = (rank * 8 + right) as usize;
-
-    if left != -1 && p.sq[pawn_pos_left] == pos::PAWN * p.active {
-        mv.push(Mv::new(
-            (pawn_pos_left) as u8,
-            (rank * 8 + ep_file) as u8,
-            MvFlag::Ep,
-        ));
+    let file = p.en_passant_file() as i8;
+    let left;
+    let right;
+    let end;
+    if p.active == 1 {
+        left = 4 * 8 + file - 1;
+        right = 4 * 8 + file - 1;
+        end = 5 * 8 + file;
+    } else {
+        left = 3 * 8 + file - 1;
+        right = 3 * 8 + file + 1;
+        end = 2 * 8 + file;
     }
 
-    if right != 8 && p.sq[pawn_pos_right] == pos::PAWN * p.active {
-        mv.push(Mv::new(
-            (rank * 8 + right) as u8,
-            (rank * 8 + ep_file) as u8,
-            MvFlag::Ep,
-        ));
+    if left > 0
+        && p.piece_at_sq(left as u8) == pos::PAWN * p.active
+        && util::no_wrap(left as u8, end as u8)
+    {
+        mv.push(Mv::new(left as u8, end as u8, MvFlag::Ep));
+    }
+
+    if right < 8
+        && p.piece_at_sq(right as u8) == pos::PAWN * p.active
+        && util::no_wrap(right as u8, end as u8)
+    {
+        mv.push(Mv::new(right as u8, end as u8, MvFlag::Ep));
     }
 
     mv.into_iter()
@@ -164,8 +168,8 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
     // We can skip checking the last square, since that is where the kings ends up
     // -> It is searched again in checking for legal moves
     if can_castle.0
-        && p.sq[king_pos as usize + 1] == 0
-        && p.sq[king_pos as usize + 2] == 0
+        && p.piece_at_sq(king_pos + 1) == 0
+        && p.piece_at_sq(king_pos + 2) == 0
         && square_attacked(p, king_pos, -p.active)
         && square_attacked(p, king_pos + 1, -p.active)
     {
@@ -179,9 +183,9 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
 
     // Queen side
     if can_castle.1
-        && p.sq[king_pos as usize - 1] == 0
-        && p.sq[king_pos as usize - 2] == 0
-        && p.sq[king_pos as usize - 3] == 0
+        && p.piece_at_sq(king_pos - 1) == 0
+        && p.piece_at_sq(king_pos - 2) == 0
+        && p.piece_at_sq(king_pos - 3) == 0
         && square_attacked(p, king_pos, -p.active)
         && square_attacked(p, king_pos - 1, -p.active)
     {
@@ -203,55 +207,55 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
     let bb = p.piece(pos::PAWN * p.active);
     let rank = if p.active == 1 { 1 } else { 6 };
 
-    let second_rank = Board::new(bb.val() ^ constants::RANK_MASKS[rank]);
+    let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
 
-    second_rank.get_ones().into_iter().map(|pawn| {
-        let one_move = pawn as i8 + 8 * p.active;
-        let two_move = pawn as i8 + 16 * p.active;
+    second_rank.get_ones().into_iter().map(|sq| {
+        let one_move = (sq as i8 + (8 * p.active)) as u8;
+        let two_move = (sq as i8 + (16 * p.active)) as u8;
 
-        if p.sq[one_move as usize] == 0 && p.sq[two_move as usize] == 0 {
-            Mv::new(pawn, two_move as u8, MvFlag::DoubleP)
+        if p.piece_at_sq(one_move) == 0 && p.piece_at_sq(two_move) == 0 {
+            Mv::new(sq, two_move, MvFlag::DoubleP)
         } else {
             Mv::null()
         }
     })
 }
 
-pub fn square_attacked(p: &Pos, sq: u8, attacked_by: i8) -> bool {
+pub fn square_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
     // Basically we pretend there is every possible piece on the square
     // And then & that with the bb of the piece. If non 0 , then the square is attacked
     // by that piece
-    let pawn_mask = constants::get_mask(pos::PAWN * attacked_by, sq);
-    if check_for_piece(p, pawn_mask, pos::PAWN * attacked_by) {
+    let pawn_mask = constants::get_pawn_mask(attacker_color, sq, true);
+    if check_for_piece(p, pawn_mask, pos::PAWN * attacker_color) {
         return false;
     }
 
-    let king_mask = constants::get_mask(pos::KING * attacked_by, sq);
-    if check_for_piece(p, king_mask, pos::KING * attacked_by) {
+    let king_mask = constants::get_mask(pos::KING * attacker_color, sq);
+    if check_for_piece(p, king_mask, pos::KING * attacker_color) {
         return false;
     }
 
     let knight_mask = constants::get_mask(pos::KNIGHT, sq);
-    if check_for_piece(p, knight_mask, pos::KNIGHT * attacked_by) {
+    if check_for_piece(p, knight_mask, pos::KNIGHT * attacker_color) {
         return false;
     }
 
     let bishop_mask = magic::bishop_mask(sq, p);
-    if check_for_piece(p, bishop_mask, pos::BISHOP * attacked_by) {
+    if check_for_piece(p, bishop_mask, pos::BISHOP * attacker_color) {
         return false;
     }
 
     let rook_mask = magic::rook_mask(sq, p);
-    if check_for_piece(p, rook_mask, pos::ROOK * attacked_by) {
+    if check_for_piece(p, rook_mask, pos::ROOK * attacker_color) {
         return false;
     }
 
     let queen_mask = rook_mask | bishop_mask;
-    if check_for_piece(p, queen_mask, pos::QUEEN * attacked_by) {
+    if check_for_piece(p, queen_mask, pos::QUEEN * attacker_color) {
         return false;
     }
 
-    return true;
+    true
 }
 
 fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: i8) -> bool {

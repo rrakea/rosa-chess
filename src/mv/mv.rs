@@ -1,3 +1,4 @@
+use crate::pos;
 use crate::util;
 /*
 
@@ -7,7 +8,7 @@ These encodings are purely usefull for manipulating the bitboards after words
 Encoding inspired by Chess Programming Wiki:
 */
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MvFlag {
     Quiet = 0,
     Cap = 1,
@@ -33,6 +34,43 @@ pub struct Mv(u16);
 impl Mv {
     pub fn new(start: u8, end: u8, flag: MvFlag) -> Mv {
         Mv(start as u16 | (end as u16) << 6 | (flag as u16) << 12)
+    }
+
+    pub fn from_str(mv_str: &str, p: &pos::Pos) -> Mv {
+        println!("Castling and en passant not implemented yet :(");
+        let start = util::square_num(&mv_str[..2]);
+        let end = util::square_num(&mv_str[2..4]);
+        let mut flag = MvFlag::Quiet;
+        let piece = p.piece_at_sq(start);
+        let op_piece = p.piece_at_sq(end);
+        if op_piece != 0 {
+            flag = MvFlag::Cap;
+        }
+        if piece == pos::PAWN * p.active && (util::rank(end) == 0 || util::rank(end) == 7) {
+            let prom_piece = mv_str
+                .chars()
+                .nth(4)
+                .expect("Promotion does not specify piece");
+            if op_piece != 0 {
+                flag = match prom_piece {
+                    'q' => MvFlag::QPromCap,
+                    'n' => MvFlag::NPromCap,
+                    'b' => MvFlag::BPromCap,
+                    'r' => MvFlag::RPromCap,
+                    _ => scream!("Promotion piece not valid"),
+                };
+            } else {
+                flag = match prom_piece {
+                    'q' => MvFlag::QProm,
+                    'n' => MvFlag::NProm,
+                    'b' => MvFlag::BProm,
+                    'r' => MvFlag::RProm,
+                    _ => scream!("Promotion piece not valid"),
+                };
+            }
+        }
+
+        Mv::new(start, end, flag)
     }
 
     pub fn null() -> Mv {
@@ -92,6 +130,10 @@ impl Mv {
         }
     }
 
+    pub fn is_ep(&self) -> bool {
+        self.flag() == MvFlag::Ep
+    }
+
     pub fn notation(&self) -> String {
         let (start, end) = self.squares();
         let start = util::square_name(start);
@@ -103,4 +145,3 @@ impl Mv {
         format!("{}, {:?}", self.notation(), self.flag())
     }
 }
-

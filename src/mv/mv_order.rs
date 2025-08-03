@@ -34,27 +34,26 @@ where
     type Item = Mv;
 
     fn next(&mut self) -> Option<Mv> {
-        if self.exhausted {
-            if self.buf_index < self.buffer.len() {
-                let next = self.buffer[self.buf_index];
-                self.buf_index += 1;
-                return Some(next);
+        loop {
+            let mv = self.iter.next();
+            if let Some(mv) = mv {
+                if mv.is_cap() || mv.is_prom() {
+                    return Some(mv);
+                } else {
+                    self.buffer.push(mv);
+                }
             } else {
-                return None;
+                self.exhausted = true;
+                break;
             }
         }
 
-        let mv = self.iter.next();
-        if let Some(mv) = mv {
-            if mv.is_cap() || mv.is_prom() {
-                return Some(mv);
-            } else {
-                self.buffer.push(mv);
-            }
-        } else {
-            self.exhausted = true;
+        if self.exhausted && self.buf_index < self.buffer.len() {
+            let next = self.buffer[self.buf_index];
+            self.buf_index += 1;
+            return Some(next);
         }
 
-        self.next()
+        None
     }
 }
