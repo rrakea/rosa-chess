@@ -1,3 +1,5 @@
+use crate::mv::mv::Mv;
+use crate::mv::mv_apply;
 use crate::pos;
 
 const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -70,5 +72,20 @@ pub fn fen(fen: String) -> pos::Pos {
         ep_file = file as u8 - b'a';
     }
 
-    pos::Pos::new(sq, active, is_ep, ep_file, w_castle, b_castle)
+    // split_fen[4] and 5 specify move clocks, which we dont use yet
+    let mut pos = pos::Pos::new(sq, active, is_ep, ep_file, w_castle, b_castle);
+
+    let mut adding_moves = false;
+    for part in split_fen {
+        if part == "moves" {
+            adding_moves = true;
+            continue;
+        }
+        if adding_moves {
+            let mv = Mv::from_str(part, &pos);
+            pos = mv_apply::apply(&pos, &mv).expect("Applied move to position not legal");
+        }
+    }
+
+    pos
 }

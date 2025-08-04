@@ -48,12 +48,13 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
         pos.key.castle(-1, false)
     }
 
-    let piece = pos.piece_at_sq(start);
-    let mut op_piece = pos.piece_at_sq(end);
+    let mut op_end = end;
     if mv.is_ep() {
-        let ep_sq = if pos.active == 1 { end + 8 } else { end - 8 };
-        op_piece = pos.piece_at_sq(ep_sq);
+        op_end = if color == 1 { end - 8 } else { end + 8 };
     }
+
+    let piece = pos.piece_at_sq(start);
+    let op_piece = pos.piece_at_sq(op_end);
 
     if piece == 0 {
         debug!("Piece is 0, mv: {}", mv.prittify());
@@ -63,7 +64,7 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
     }
 
     pos.piece_toggle(piece, start);
-    pos.piece_toggle(op_piece, end);
+    pos.piece_toggle(op_piece, op_end);
     // We dont set the pawn board  at a promotion, since the piece changes
     if !mv.is_prom() {
         pos.piece_toggle(piece, end);
@@ -101,18 +102,20 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
             pos.piece_toggle(pos::ROOK, BOTTOM_LEFT_SQ + 3);
         }
         MvFlag::BKCastle => {
-            pos.piece_toggle(pos::ROOK, TOP_RIGHT_SQ);
-            pos.piece_toggle(pos::ROOK, TOP_RIGHT_SQ - 2);
+            pos.piece_toggle(pos::BROOK, TOP_RIGHT_SQ);
+            pos.piece_toggle(pos::BROOK, TOP_RIGHT_SQ - 2);
         }
         MvFlag::BQCastle => {
-            pos.piece_toggle(pos::ROOK, TOP_LEFT_SQ);
-            pos.piece_toggle(pos::ROOK, TOP_LEFT_SQ + 3);
+            pos.piece_toggle(pos::BROOK, TOP_LEFT_SQ);
+            pos.piece_toggle(pos::BROOK, TOP_LEFT_SQ + 3);
         }
     }
 
     if piece == pos::KING {
         wk_castle = false;
         wq_castle = false;
+    }
+    if piece == pos::BKING {
         bk_castle = false;
         bq_castle = false;
     }
@@ -120,7 +123,7 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
     // This is active player agnostic
     if wk_castle {
         // The rook moved from starting square || the rook if captured
-        if (piece == pos::ROOK && start == 0) || end == 0 {
+        if (piece == pos::ROOK && start == 7) || end == 7 {
             wk_castle = false;
         } else {
             //Castling is still legal
@@ -129,7 +132,7 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
     }
 
     if wq_castle {
-        if (piece == pos::ROOK && start == 7) || end == 7 {
+        if (piece == pos::ROOK && start == 0) || end == 0 {
             wq_castle = false;
         } else {
             pos.key.castle(color, false);

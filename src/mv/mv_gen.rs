@@ -135,7 +135,7 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
     let end;
     if p.active == 1 {
         left = 4 * 8 + file - 1;
-        right = 4 * 8 + file - 1;
+        right = 4 * 8 + file + 1;
         end = 5 * 8 + file;
     } else {
         left = 3 * 8 + file - 1;
@@ -143,14 +143,14 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         end = 2 * 8 + file;
     }
 
-    if left > 0
+    if (0..64).contains(&left)
         && p.piece_at_sq(left as u8) == pos::PAWN * p.active
         && util::no_wrap(left as u8, end as u8)
     {
         mv.push(Mv::new(left as u8, end as u8, MvFlag::Ep));
     }
 
-    if right < 8
+    if (0..64).contains(&right)
         && p.piece_at_sq(right as u8) == pos::PAWN * p.active
         && util::no_wrap(right as u8, end as u8)
     {
@@ -228,8 +228,30 @@ pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
     // Basically we pretend there is every possible piece on the square
     // And then & that with the bb of the piece. If non 0 , then the square is attacked
     // by that piece
+    /*
     let pawn_mask = constants::get_pawn_mask(-attacker_color, sq, true);
     if check_for_piece(p, pawn_mask, pos::PAWN * attacker_color) {
+        return false;
+    }
+    */
+
+    let (attack_left, attack_right) = if attacker_color == 1 {
+        (sq as i8 - 7, sq as i8 - 9)
+    } else {
+        (sq as i8 + 7, sq as i8 + 9)
+    };
+
+    if (0..64).contains(&attack_left)
+        && p.piece_at_sq(attack_left as u8) == pos::PAWN * attacker_color
+        && util::no_wrap(attack_left as u8, sq)
+    {
+        return false;
+    }
+
+    if (0..64).contains(&attack_right)
+        && p.piece_at_sq(attack_right as u8) == pos::PAWN * attacker_color
+        && util::no_wrap(attack_right as u8, sq)
+    {
         return false;
     }
 
@@ -238,7 +260,7 @@ pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
         return false;
     }
 
-    let knight_mask = constants::get_mask(pos::KNIGHT, sq);
+    let knight_mask = constants::get_mask(pos::KNIGHT * attacker_color, sq);
     if check_for_piece(p, knight_mask, pos::KNIGHT * attacker_color) {
         return false;
     }

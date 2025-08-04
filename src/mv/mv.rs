@@ -37,7 +37,6 @@ impl Mv {
     }
 
     pub fn from_str(mv_str: &str, p: &pos::Pos) -> Mv {
-        println!("Castling and en passant not implemented yet :(");
         let start = util::square_num(&mv_str[..2]);
         let end = util::square_num(&mv_str[2..4]);
         let mut flag = MvFlag::Quiet;
