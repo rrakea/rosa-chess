@@ -12,18 +12,9 @@ use std::time;
     node? )
 */
 
-// This will stop working in 292 billion years :(
-static mut START: u64 = 0;
-static mut TIME_TO_SEARCH: u64 = 0;
-
-pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8, u64) {
-    debug!("Starting search");
-    // Safe since none of the threads have started searching yet
-    // Wont be mutated till the next move is made
-    unsafe {
-        START = current_time();
-        TIME_TO_SEARCH = if time != 0 { time } else { 10 * 60 * 1000 };
-    }
+pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) {
+    let start = current_time();
+    let time_to_search = if time != 0 { time } else { 10 * 60 * 1000 };
 
     // Iterative deepening
     let mut depth = 1;
@@ -33,8 +24,8 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8,
         if depth == maxdepth {
             break;
         }
-        let searched_time = current_time() - unsafe { START };
-        if searched_time > unsafe { TIME_TO_SEARCH } {
+        let searched_time = current_time() - start;
+        if searched_time > time_to_search {
             break;
         }
 
@@ -48,7 +39,8 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) -> (u8,
     debug!("Search done");
     write_info(p, tt, depth, time, score);
 
-    (depth + 1, current_time() - unsafe { START })
+    let bestmove = &tt.get(&p.key).mv;
+    println!("bestmove {}", bestmove.notation());
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
@@ -193,7 +185,7 @@ fn current_time() -> u64 {
         .as_millis() as u64
 }
 
-pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
+pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT, use_tt: bool) -> u64 {
     if depth == 0 {
         return 1;
     }
@@ -205,20 +197,43 @@ pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
             Some(n) => n,
             None => continue,
         };
-        count += counting_search(&npos, depth - 1);
+        count += counting_search(&npos, depth - 1, tt, use_tt);
+    }
+    if use_tt {
+        let entry = tt.get(&p.key);
+        if entry.score == 0 {
+        } else {
+            if entry.key == p.key {
+                if entry.score != count as i32 {
+                    scream!("Entry found with incorect count")
+                } else {
+                    println!("TT hit, count: {count}");
+                }
+            } else {
+                // hash collision
+                tt.set(table::Entry {
+                    key: (p.key),
+                    score: (count as i32),
+                    mv: (Mv::null()),
+                    depth: (depth),
+                    node_type: (table::NodeType::Null),
+                });
+            }
+        }
     }
     count
 }
 
 pub fn division_search(p: &pos::Pos, depth: u8) {
     let mut total = 0;
+    let mut dud = table::TT::default();
     for mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
         let npos = mv::mv_apply::apply(p, &mv);
         let npos = match npos {
             Some(p) => p,
             None => continue,
         };
-        let count = counting_search(&npos, depth -1);
+        let count = counting_search(&npos, depth - 1, &mut dud, false);
         total += count;
         println!("{}: {}", mv.notation(), count);
     }

@@ -2,6 +2,7 @@ use crate::mv::mv::Mv;
 use crate::pos;
 use rand::RngCore;
 
+#[derive(Default)]
 pub struct TT {
     table: Vec<Entry>,
     size: u64,

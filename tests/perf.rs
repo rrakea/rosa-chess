@@ -11,8 +11,9 @@ fn init() {
 }
 
 fn count(p: &pos::Pos, expected: [u64; 6]) {
+    let tt = table::TT::new(10000);
     for (i, res) in expected.iter().enumerate() {
-        let count = search::counting_search(p, i as u8);
+        let count = search::counting_search(p, i as u8, tt, true);
         assert_eq!(count, *res);
     }
 }
