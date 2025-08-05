@@ -22,31 +22,10 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
     let mut ep_file = pos.en_passant_file();
     let mut is_ep = false;
 
-    // Remove the old ep file from the hash
-    if old_p.is_en_passant() {
-        pos.key.en_passant(ep_file);
-        ep_file = 0;
-    }
-
     let color = pos.active;
-    pos.active = -color;
-    pos.key.color();
-    let (start, end) = mv.squares();
+    pos.flip_color();
 
-    // Unset the castling rights since its easier to unset them once
-    // and then later set them again rather than update them everywhere they could change
-    if wk_castle {
-        pos.key.castle(1, true);
-    }
-    if wq_castle {
-        pos.key.castle(1, false)
-    }
-    if bk_castle {
-        pos.key.castle(-1, true)
-    }
-    if bq_castle {
-        pos.key.castle(-1, false)
-    }
+    let (start, end) = mv.squares();
 
     let mut op_end = end;
     if mv.is_ep() {
@@ -75,7 +54,6 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
         MvFlag::DoubleP => {
             ep_file = util::file(end);
             is_ep = true;
-            pos.key.en_passant(ep_file);
         }
 
         MvFlag::BProm | MvFlag::BPromCap => {
@@ -120,39 +98,21 @@ pub fn apply(old_p: &Pos, mv: &Mv) -> Option<Pos> {
         bq_castle = false;
     }
 
-    // This is active player agnostic
-    if wk_castle {
-        // The rook moved from starting square || the rook if captured
-        if (piece == pos::ROOK && start == 7) || end == 7 {
-            wk_castle = false;
-        } else {
-            //Castling is still legal
-            pos.key.castle(color, true);
-        }
+    // Could castle previously && The rook moved from starting square || the rook if captured
+    if wk_castle && ((piece == pos::ROOK && start == 7) || end == 7) {
+        wk_castle = false;
     }
 
-    if wq_castle {
-        if (piece == pos::ROOK && start == 0) || end == 0 {
-            wq_castle = false;
-        } else {
-            pos.key.castle(color, false);
-        }
+    if wq_castle && ((piece == pos::ROOK && start == 0) || end == 0) {
+        wq_castle = false;
     }
 
-    if bk_castle {
-        if (piece == pos::BROOK && start == 63) || end == 63 {
-            bk_castle = false;
-        } else {
-            pos.key.castle(color, true);
-        }
+    if bk_castle && ((piece == pos::BROOK && start == 63) || end == 63) {
+        bk_castle = false;
     }
 
-    if bq_castle {
-        if (piece == pos::BROOK && start == 56) || end == 56 {
-            bq_castle = false;
-        } else {
-            pos.key.castle(color, false);
-        }
+    if bq_castle && ((piece == pos::BROOK && start == 56) || end == 56) {
+        bq_castle = false;
     }
 
     pos.gen_new_data(

@@ -39,7 +39,7 @@ pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) {
     debug!("Search done");
     write_info(p, tt, depth, time, score);
 
-    let bestmove = &tt.get(&p.key).mv;
+    let bestmove = &tt.get(&p.hash()).mv;
     println!("bestmove {}", bestmove.notation());
 }
 
@@ -51,7 +51,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     }
 
     // Check the transposition table
-    let entry = tt.get(&p.key);
+    let entry = tt.get(&p.hash());
 
     let mut pvs_move = Mv::null();
     let mut replace_entry = false;
@@ -59,7 +59,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     if entry.node_type == table::NodeType::Null {
         // The entry is unanitialized
         replace_entry = true;
-    } else if entry.key != p.key {
+    } else if entry.key != p.hash() {
         // The entry is not the same pos as outs
         // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
@@ -158,7 +158,13 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     }
 
     if replace_entry {
-        tt.set(table::Entry::new(p.key, alpha, best_move, depth, node_type));
+        tt.set(table::Entry::new(
+            p.hash(),
+            alpha,
+            best_move,
+            depth,
+            node_type,
+        ));
     }
 
     alpha
@@ -166,7 +172,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
 
 fn write_info(pos: &pos::Pos, tt: &table::TT, depth: u8, time: u64, score: i32) {
     log::info!("Search with depth {} concluded", depth);
-    let res = tt.get(&pos.key);
+    let res = tt.get(&pos.hash());
     let info_string = format!(
         "info depth {} time {} pv {} score cp {} ",
         depth,
@@ -185,55 +191,71 @@ fn current_time() -> u64 {
         .as_millis() as u64
 }
 
-pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT, use_tt: bool) -> u64 {
+pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT) -> u64 {
     if depth == 0 {
         return 1;
     }
+
+    let entry = tt.get(&p.hash());
+
+    if entry.node_type != table::NodeType::Null && entry.key == p.hash() && entry.depth == depth {
+        // We found a valid entry
+        println!("{}", p.hash().val());
+        return entry.score as u64;
+    } else {
+        println!("Didnt hit")
+    }
+
     let mut count: u64 = 0;
     let mv_iter = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
+    let mut legal_move_found = false;
     for mv in mv_iter {
         let npos = mv::mv_apply::apply(p, &mv);
         let npos = match npos {
             Some(n) => n,
             None => continue,
         };
-        count += counting_search(&npos, depth - 1, tt, use_tt);
-    }
-    if use_tt {
-        let entry = tt.get(&p.key);
-        if entry.score == 0 {
-        } else {
-            if entry.key == p.key {
-                if entry.score != count as i32 {
-                    scream!("Entry found with incorect count")
-                } else {
-                    println!("TT hit, count: {count}");
-                }
-            } else {
-                // hash collision
-                tt.set(table::Entry {
-                    key: (p.key),
-                    score: (count as i32),
-                    mv: (Mv::null()),
-                    depth: (depth),
-                    node_type: (table::NodeType::Null),
-                });
-            }
+        legal_move_found = true;
+        let test_key = table::Key::new(&npos);
+        if npos.hash() != test_key {
+            println!("Mistake in apply after mv: {}", mv.prittify());
+        } else if npos.hash().val() == 0 || test_key.val() == 0 {
+            println!(
+                "0 Value Key! After move: {}; New hash: {:#018}, Old Hash: {:#018}",
+                mv.prittify(),
+                npos.hash().val(),
+                test_key.val()
+            );
         }
+
+        count += counting_search(&npos, depth - 1, tt);
     }
+
+    if !legal_move_found {
+        count = 1;
+    }
+
+    tt.set(table::Entry {
+        key: (p.hash()),
+        score: (count as i32),
+        mv: (Mv::null()),
+        depth: (depth),
+        node_type: (table::NodeType::Exact),
+    });
+
     count
 }
 
 pub fn division_search(p: &pos::Pos, depth: u8) {
     let mut total = 0;
-    let mut dud = table::TT::default();
+    let mut tt = table::TT::new(10000);
     for mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
         let npos = mv::mv_apply::apply(p, &mv);
         let npos = match npos {
             Some(p) => p,
             None => continue,
         };
-        let count = counting_search(&npos, depth - 1, &mut dud, false);
+        let count = counting_search(&npos, depth - 1, &mut tt);
         total += count;
         println!("{}: {}", mv.notation(), count);
     }

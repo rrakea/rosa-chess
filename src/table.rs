@@ -72,51 +72,44 @@ pub struct Key(u64);
 impl Key {
     pub fn new(p: &pos::Pos) -> Key {
         let mut key = Key(0);
-        for (i, val) in p.piece_iter().enumerate() {
-            key.0 ^= match val {
-                pos::PAWN => unsafe { PAWN[i] },
-                pos::KNIGHT => unsafe { KNIGHT[i] },
-                pos::BISHOP => unsafe { BISHOP[i] },
-                pos::ROOK => unsafe { ROOK[i] },
-                pos::QUEEN => unsafe { QUEEN[i] },
-                pos::KING => unsafe { KING[i] },
-
-                pos::BPAWN => unsafe { BPAWN[i] },
-                pos::BKNIGHT => unsafe { BKNIGHT[i] },
-                pos::BBISHOP => unsafe { BBISHOP[i] },
-                pos::BROOK => unsafe { BROOK[i] },
-                pos::BQUEEN => unsafe { BQUEEN[i] },
-                pos::BKING => unsafe { BKING[i] },
-
-                // x ^ 0 = x
-                0 => 0,
-                _ => scream!("Invalid Piece value new key call: {}", val),
-            };
+        for (sq, piece) in p.piece_iter().enumerate() {
+            key.piece(sq as u8, piece);
         }
+        //println!("After pieces: {}", key.val());
 
         if p.active == -1 {
             key.color();
+            //println!("Color: {}", key.val());
         }
 
         let wc = p.castling(1);
         let bc = p.castling(-1);
         if wc.0 {
             key.castle(1, true);
+            //println!("WC: {}", key.val());
         }
         if wc.1 {
-            key.castle(1, false)
+            key.castle(1, false);
+            //println!("WQ: {}", key.val());
         }
         if bc.0 {
             key.castle(-1, true);
+            //println!("BK{}", key.val());
         }
         if bc.1 {
             key.castle(-1, false);
+            //println!("BQ{}", key.val());
         }
 
         if p.is_en_passant() {
             key.en_passant(p.en_passant_file());
+            //println!("EP{}", key.val());
         }
 
+        //println!("END{}", key.val());
+        if key.val() == 0 {
+            panic!();
+        }
         key
     }
 
@@ -189,39 +182,24 @@ static mut CASTLE: [u64; 4] = [0; 4];
 
 pub fn init_zobrist_keys() {
     let mut rng = rand::rng();
-    let mut keys = [[0; 64]; 12];
-    for i in 0..12 {
-        for j in 0..64 {
-            keys[i][j] = rng.next_u64();
-        }
-    }
+
     unsafe {
-        PAWN = keys[0];
-        KNIGHT = keys[1];
-        BISHOP = keys[2];
-        ROOK = keys[3];
-        QUEEN = keys[4];
-        KING = keys[5];
+        PAWN = [rng.next_u64(); 64];
+        KNIGHT = [rng.next_u64(); 64];
+        BISHOP = [rng.next_u64(); 64];
+        ROOK = [rng.next_u64(); 64];
+        QUEEN = [rng.next_u64(); 64];
+        KING = [rng.next_u64(); 64];
 
-        BPAWN = keys[6];
-        BKNIGHT = keys[7];
-        BBISHOP = keys[8];
-        BROOK = keys[9];
-        BQUEEN = keys[10];
-        BKING = keys[11];
+        BPAWN = [rng.next_u64(); 64];
+        BKNIGHT = [rng.next_u64(); 64];
+        BBISHOP = [rng.next_u64(); 64];
+        BROOK = [rng.next_u64(); 64];
+        BQUEEN = [rng.next_u64(); 64];
+        BKING = [rng.next_u64(); 64];
     }
 
-    let mut ep = [0; 8];
-    for i in 0..8 {
-        ep[i] = rng.next_u64();
-    }
-    unsafe { EN_PASSANT = ep }
-
-    let mut castle = [0; 4];
-    for i in 0..4 {
-        castle[i] = rng.next_u64();
-    }
-    unsafe { CASTLE = castle };
-
+    unsafe { EN_PASSANT = [rng.next_u64(); 8] }
+    unsafe { CASTLE = [rng.next_u64(); 4] }
     unsafe { BLACK = rng.next_u64() }
 }

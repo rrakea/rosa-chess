@@ -35,7 +35,7 @@ pub struct Pos {
     // Using the consts defined above
     sq: [i8; 64],
 
-    pub key: table::Key,
+    key: table::Key,
 
     // Extra Data
     // Encoded like this: castling:  b queen, b king, w queen, b king; en_passant file;
@@ -80,6 +80,10 @@ impl Pos {
 
     pub fn en_passant_file(&self) -> u8 {
         self.data & 0b0000_0111
+    }
+
+    pub fn hash(&self) -> table::Key{
+        self.key
     }
 
     // -> kingside, queenside
@@ -157,6 +161,11 @@ impl Pos {
         board
     }
 
+    pub fn flip_color(&mut self ) {
+        self.active *= -1;
+        self.key.color();
+    }
+
     pub fn gen_new_key(&mut self) {
         self.key = table::Key::new(self)
     }
@@ -176,22 +185,39 @@ impl Pos {
         w_castle: (bool, bool),
         b_castle: (bool, bool),
     ) {
+        // Unset the old ep key
+        if self.is_en_passant() {
+            self.key.en_passant(self.en_passant_file());
+        }
+
         let mut data: u8 = 0;
         if is_ep {
             data |= 0b0000_1000;
             data |= ep_file;
+            self.key.en_passant(ep_file);
         }
+
+        // Since we cant regain castling rights we only have to
+        // unset the key if we previously had them
         if w_castle.0 {
             data |= 0b0001_0000;
+        } else if self.castling(1).0 {
+            self.key.castle(1, true);
         }
         if w_castle.1 {
             data |= 0b0010_0000;
+        } else if self.castling(1).1 {
+            self.key.castle(1, false);
         }
         if b_castle.0 {
             data |= 0b0100_0000;
+        } else if self.castling(-1).0 {
+            self.key.castle(-1, true);
         }
         if b_castle.1 {
             data |= 0b1000_0000;
+        } else if self.castling(-1).1 {
+            self.key.castle(-1, false);
         }
         self.data = data;
     }

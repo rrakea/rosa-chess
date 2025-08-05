@@ -266,17 +266,16 @@ pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
     }
 
     let bishop_mask = magic::bishop_mask(sq, p);
-    if check_for_piece(p, bishop_mask, pos::BISHOP * attacker_color) {
+    if check_for_piece(p, bishop_mask, pos::BISHOP * attacker_color)
+        || check_for_piece(p, bishop_mask, pos::QUEEN * attacker_color)
+    {
         return false;
     }
 
     let rook_mask = magic::rook_mask(sq, p);
-    if check_for_piece(p, rook_mask, pos::ROOK * attacker_color) {
-        return false;
-    }
-
-    let queen_mask = rook_mask | bishop_mask;
-    if check_for_piece(p, queen_mask, pos::QUEEN * attacker_color) {
+    if check_for_piece(p, rook_mask, pos::ROOK * attacker_color)
+        || check_for_piece(p, rook_mask, pos::QUEEN * attacker_color)
+    {
         return false;
     }
 

@@ -9,11 +9,12 @@ use std::io::{self, BufRead};
 pub fn start() {
     let stdin = io::stdin();
 
-    let mut p: pos::Pos = fen::starting_pos();
     let tt_size = config::DEFAULT_TABLE_SIZE_MB;
     let mut tt = table::TT::new(tt_size);
+
     table::init_zobrist_keys();
     mv::magic_init::init_magics();
+    let mut p: pos::Pos = fen::starting_pos();
 
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
