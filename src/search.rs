@@ -198,41 +198,20 @@ pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT) -> u64 {
 
     let entry = tt.get(&p.hash());
 
-    if entry.node_type != table::NodeType::Null && entry.key == p.hash() && entry.depth == depth {
+    if entry.node_type == table::NodeType::Exact && entry.key == p.hash() && entry.depth == depth {
         // We found a valid entry
-        println!("{}", p.hash().val());
         return entry.score as u64;
-    } else {
-        println!("Didnt hit")
     }
 
     let mut count: u64 = 0;
     let mv_iter = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
-    let mut legal_move_found = false;
     for mv in mv_iter {
         let npos = mv::mv_apply::apply(p, &mv);
         let npos = match npos {
             Some(n) => n,
             None => continue,
         };
-        legal_move_found = true;
-        let test_key = table::Key::new(&npos);
-        if npos.hash() != test_key {
-            println!("Mistake in apply after mv: {}", mv.prittify());
-        } else if npos.hash().val() == 0 || test_key.val() == 0 {
-            println!(
-                "0 Value Key! After move: {}; New hash: {:#018}, Old Hash: {:#018}",
-                mv.prittify(),
-                npos.hash().val(),
-                test_key.val()
-            );
-        }
-
         count += counting_search(&npos, depth - 1, tt);
-    }
-
-    if !legal_move_found {
-        count = 1;
     }
 
     tt.set(table::Entry {
