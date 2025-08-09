@@ -84,7 +84,7 @@ pub fn start() {
                             search::division_search(&p, depth);
                         }
                         _ => {
-                            let time = process_go(cmd_parts);
+                            let time = process_go(cmd_parts, p.active);
                             stop = Some(search::thread_search(&p, time));
                         }
                     }
@@ -131,9 +131,6 @@ pub fn start() {
     }
 }
 
-static mut COLOR: i8 = 1;
-static mut INC: u64 = 0;
-
 fn print_options() {
     println!(
         "option name Hash type spin default {} min {} max {}",
@@ -149,16 +146,13 @@ fn print_options() {
     }
 }
 
-fn process_go(cmd: Vec<&str>) -> time::Duration {
+fn process_go(cmd: Vec<&str>, color: i8) -> time::Duration {
     let mut index = 1;
 
     let mut wtime = 0;
     let mut btime = 0;
     let mut winc = 0;
     let mut binc = 0;
-    let mut movetime = 0;
-    let mut infinite = false;
-    let mut ponder = false;
 
     while index < cmd.len() {
         let cmd_part = cmd[index];
@@ -180,18 +174,21 @@ fn process_go(cmd: Vec<&str>) -> time::Duration {
                 index += 1;
                 binc = check_next(&cmd, index)
             }
-            "movetime" => {
-                index += 1;
-                movetime = check_next(&cmd, index)
-            }
-            "ponder" => ponder = true,
-            "infinite" => infinite = true,
+            "movetime" => return Duration::from_millis(check_next(&cmd, index)),
+            "ponder" | "infinite" => return Duration::from_millis(0),
             _ => log::warn!("Go command part not understood: {cmd_part}"),
         }
         index += 1;
     }
+    if wtime + btime + winc + binc == 0 {
+        return Duration::from_millis(0);
+    }
 
-    let time = calc_time(movetime, wtime, btime, winc, binc, infinite, ponder);
+    let time = if color == 1 {
+        (wtime / 20) + (winc / 2)
+    } else {
+        (btime / 20) + (binc / 2)
+    };
 
     Duration::from_millis(time)
 }
@@ -203,34 +200,5 @@ fn check_next(cmd: &[&str], index: usize) -> u64 {
             log::error!("Value after command not int, {e}");
             0
         }
-    }
-}
-
-fn calc_time(
-    movetime: u64,
-    wtime: u64,
-    btime: u64,
-    winc: u64,
-    binc: u64,
-    infinte: bool,
-    ponder: bool,
-) -> u64 {
-    if infinte || ponder {
-        return 0;
-    }
-    if movetime != 0 {
-        return movetime;
-    }
-
-    if wtime + btime + winc + binc == 0 {
-        return 0;
-    }
-
-    if unsafe { COLOR == 1 } {
-        unsafe { INC = winc };
-        (wtime / 20) + (winc / 2)
-    } else {
-        unsafe { INC = binc };
-        (btime / 20) + (binc / 2)
     }
 }

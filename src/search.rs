@@ -62,30 +62,24 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     }
 
     // Check the transposition table
-    let entry = TT.get(&p.key());
-
-    let mut pvs_move = Mv::null();
+    let pvs_move;
     let mut replace_entry = false;
 
-    if entry.node_type == tt::NodeType::Null {
-        // The entry is unanitialized
-        replace_entry = true;
-    } else if entry.key != p.key() {
-        // The entry is not the same pos as outs
-        // Dont replace if the entry is higher in the tree
-        if entry.depth > depth {
-            replace_entry = true;
-        }
-    } else {
+    {
+        let entry = TT.get(&p.key());
+        // If it is unanitialized the move is null
+        // -> Get filtered out later
         pvs_move = entry.mv;
-        // The entry is usable
-        if entry.depth < depth {
-            // Cant trust the eval; Still use the best move
-            replace_entry = true;
-        } else {
+
+        // We dont have a seperate age value
+        if entry.depth > depth {
+            replace_entry = true
+        }
+
+        // Didnt get a hash collision
+        if entry.key == p.key() {
             match entry.node_type {
                 tt::NodeType::Exact => {
-                    // The entries analysis is better than ours
                     return entry.score;
                 }
                 tt::NodeType::Upper => {
@@ -102,7 +96,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
                         alpha = entry.score;
                     }
                 }
-                _ => {} // Unreachable
+                _ => (),
             }
         }
     }
