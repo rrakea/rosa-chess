@@ -7,6 +7,7 @@ use crate::tt;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
+use std::time;
 
 /*
     Idea: We check if our position is in the TT at the start of a search
@@ -17,23 +18,28 @@ use std::thread;
 
 pub static TT: tt::TT = tt::TT::new();
 
-pub fn thread_search(p: &pos::Pos) -> Arc<RwLock<bool>> {
+pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>> {
     let stop = Arc::new(RwLock::new(false));
 
     let pclone = p.clone();
     let sclone = Arc::clone(&stop);
-    thread::spawn(move || search(pclone, sclone));
+    thread::spawn(move || search(pclone, max_time, sclone));
     stop
 }
 
-pub fn search(p: pos::Pos, stop: Arc<RwLock<bool>>) {
+pub fn search(p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
     // Iterative deepening
     let mut depth = 1;
     let mut score = 0;
+    let start = time::Instant::now();
     loop {
         log::info!("Starting search at depth: {}", depth);
 
         if *stop.read().unwrap() {
+            break;
+        }
+
+        if max_time.is_zero() && time::Instant::now() - start >= max_time {
             break;
         }
 

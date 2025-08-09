@@ -7,12 +7,14 @@ use crate::tt;
 
 use std::io::{self, BufRead};
 use std::sync::{Arc, RwLock};
+use std::time;
+use std::time::Duration;
 
 pub fn start() {
     let stdin = io::stdin();
 
-
     tt::init_zobrist_keys();
+    search::TT.resize(config::DEFAULT_TABLE_SIZE_MB * config::MB);
     mv::magic_init::init_magics();
     let mut p: pos::Pos = fen::starting_pos(Vec::new());
     let mut stop: Option<Arc<RwLock<bool>>> = None;
@@ -68,7 +70,7 @@ pub fn start() {
 
             "go" => {
                 if cmd_parts.len() == 1 {
-                    stop = Some(search::thread_search(&p));
+                    stop = Some(search::thread_search(&p, time::Duration::ZERO));
                 } else {
                     match cmd_parts[1] {
                         "perft" => {
@@ -82,8 +84,8 @@ pub fn start() {
                             search::division_search(&p, depth);
                         }
                         _ => {
-                            let (maxdepth, time) = process_go(cmd_parts);
-                            stop = Some(search::thread_search(&p));
+                            let time = process_go(cmd_parts);
+                            stop = Some(search::thread_search(&p, time));
                         }
                     }
                 }
@@ -147,10 +149,9 @@ fn print_options() {
     }
 }
 
-fn process_go(cmd: Vec<&str>) -> (u8, u64) {
+fn process_go(cmd: Vec<&str>) -> time::Duration {
     let mut index = 1;
 
-    let mut maxdepth = 0;
     let mut wtime = 0;
     let mut btime = 0;
     let mut winc = 0;
@@ -179,10 +180,6 @@ fn process_go(cmd: Vec<&str>) -> (u8, u64) {
                 index += 1;
                 binc = check_next(&cmd, index)
             }
-            "depth" => {
-                index += 1;
-                maxdepth = check_next(&cmd, index) as u8;
-            }
             "movetime" => {
                 index += 1;
                 movetime = check_next(&cmd, index)
@@ -196,7 +193,7 @@ fn process_go(cmd: Vec<&str>) -> (u8, u64) {
 
     let time = calc_time(movetime, wtime, btime, winc, binc, infinite, ponder);
 
-    (maxdepth, time)
+    Duration::from_millis(time)
 }
 
 fn check_next(cmd: &[&str], index: usize) -> u64 {
