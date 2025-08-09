@@ -1,27 +1,40 @@
 use crate::mv::mv::Mv;
 use crate::pos;
 use rand::RngCore;
+use std::cell::UnsafeCell;
 
 #[derive(Default)]
 pub struct TT {
-    table: Vec<Entry>,
-    size: u64,
+    table: UnsafeCell<Vec<Entry>>,
 }
 
+unsafe impl Sync for TT {}
+
 impl TT {
-    pub fn new(size: u64) -> TT {
-        let table: Vec<Entry> = vec![Entry::default(); size as usize];
-        TT { table, size }
+    pub const fn new() -> TT {
+        TT {
+            table: UnsafeCell::new(Vec::new()),
+        }
     }
 
-    pub fn get(&self, key: &Key) -> &Entry {
-        let index = key.val() % self.size;
-        &self.table[index as usize]
+    pub fn resize(&self, size: u64) {
+        unsafe {
+            (*self.table.get()).resize(size as usize, Entry::default());
+        }
     }
 
-    pub fn set(&mut self, entry: Entry) {
-        let index = entry.key.val() % self.size;
-        self.table[index as usize] = entry;
+    pub fn get(&self, key: &Key) -> Entry {
+        unsafe {
+            let index = (key.val() % (*self.table.get()).len() as u64) as usize;
+            (&(*self.table.get())).get(index).unwrap().clone()
+        }
+    }
+
+    pub fn set(&self, entry: Entry) {
+        unsafe {
+            let index = (entry.key.val() % (*self.table.get()).len() as u64) as usize;
+            (&mut (*self.table.get()))[index] = entry;
+        }
     }
 }
 
@@ -72,7 +85,7 @@ pub struct Key(u64);
 impl Key {
     pub fn new(p: &pos::Pos) -> Key {
         let mut key = Key(0);
-        
+
         for (sq, piece) in p.piece_iter().enumerate() {
             key.piece(sq as u8, piece);
         }

@@ -2,8 +2,11 @@ use crate::eval::eval;
 use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
-use crate::table;
-use std::time;
+use crate::tt;
+
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::thread;
 
 /*
     Idea: We check if our position is in the TT at the start of a search
@@ -12,54 +15,56 @@ use std::time;
     node? )
 */
 
-pub fn search(p: &pos::Pos, time: u64, maxdepth: u8, tt: &mut table::TT) {
-    let start = current_time();
-    let time_to_search = if time != 0 { time } else { 10 * 60 * 1000 };
+pub static TT: tt::TT = tt::TT::new();
 
+pub fn thread_search(p: &pos::Pos) -> Arc<RwLock<bool>> {
+    let stop = Arc::new(RwLock::new(false));
+
+    let pclone = p.clone();
+    let sclone = Arc::clone(&stop);
+    thread::spawn(move || search(pclone, sclone));
+    stop
+}
+
+pub fn search(p: pos::Pos, stop: Arc<RwLock<bool>>) {
     // Iterative deepening
     let mut depth = 1;
     let mut score = 0;
     loop {
-        debug!("Starting search at depth: {}", depth);
-        if depth == maxdepth {
-            break;
-        }
-        let searched_time = current_time() - start;
-        if searched_time > time_to_search {
+        log::info!("Starting search at depth: {}", depth);
+
+        if *stop.read().unwrap() {
             break;
         }
 
-        score = negascout(p, depth, i32::MIN + 1, i32::MAX - 1, tt);
+        score = negascout(&p, depth, i32::MIN + 1, i32::MAX - 1);
 
-        write_info(p, tt, depth, time, score);
+        write_info(TT.get(&p.key()).mv, depth, score, false);
 
         depth += 1;
     }
 
     debug!("Search done");
-    write_info(p, tt, depth, time, score);
-
-    let bestmove = &tt.get(&p.hash()).mv;
-    println!("bestmove {}", bestmove.notation());
+    write_info(TT.get(&p.key()).mv, depth, score, true);
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
-fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut table::TT) -> i32 {
+fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     // Search is done
     if depth == 0 {
         return eval(p);
     }
 
     // Check the transposition table
-    let entry = tt.get(&p.hash());
+    let entry = TT.get(&p.key());
 
     let mut pvs_move = Mv::null();
     let mut replace_entry = false;
 
-    if entry.node_type == table::NodeType::Null {
+    if entry.node_type == tt::NodeType::Null {
         // The entry is unanitialized
         replace_entry = true;
-    } else if entry.key != p.hash() {
+    } else if entry.key != p.key() {
         // The entry is not the same pos as outs
         // Dont replace if the entry is higher in the tree
         if entry.depth > depth {
@@ -73,18 +78,18 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
             replace_entry = true;
         } else {
             match entry.node_type {
-                table::NodeType::Exact => {
+                tt::NodeType::Exact => {
                     // The entries analysis is better than ours
                     return entry.score;
                 }
-                table::NodeType::Upper => {
+                tt::NodeType::Upper => {
                     if entry.score >= beta {
                         return entry.score;
                     } else {
                         beta = entry.score;
                     }
                 }
-                table::NodeType::Lower => {
+                tt::NodeType::Lower => {
                     if entry.score <= alpha {
                         return entry.score;
                     } else {
@@ -97,7 +102,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     }
 
     let mut best_move = Mv::null();
-    let mut node_type = table::NodeType::Upper;
+    let mut node_type = tt::NodeType::Upper;
 
     // Iterator
     let gen_mvs = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
@@ -122,24 +127,24 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
         if i == 0 {
             // Principle variation search
             // PV Node
-            score = -negascout(&npos, depth - 1, -beta, -alpha, tt);
+            score = -negascout(&npos, depth - 1, -beta, -alpha);
         } else {
             // Null window search
-            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha, tt);
+            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha);
             if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(&npos, depth - 1, -beta, -alpha, tt);
+                score = -negascout(&npos, depth - 1, -beta, -alpha);
             }
         }
         if score > alpha {
             alpha = score;
             best_move = m;
-            node_type = table::NodeType::Exact;
+            node_type = tt::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
             if alpha >= beta {
                 // Cut Node
-                node_type = table::NodeType::Lower;
+                node_type = tt::NodeType::Lower;
                 break; // Prune :)
             }
         }
@@ -158,47 +163,35 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, tt: &mut ta
     }
 
     if replace_entry {
-        tt.set(table::Entry::new(
-            p.hash(),
-            alpha,
-            best_move,
-            depth,
-            node_type,
-        ));
+        TT.set(tt::Entry::new(p.key(), alpha, best_move, depth, node_type));
     }
 
     alpha
 }
 
-fn write_info(pos: &pos::Pos, tt: &table::TT, depth: u8, time: u64, score: i32) {
+fn write_info(best: Mv, depth: u8, score: i32, write_best: bool) {
     log::info!("Search with depth {} concluded", depth);
-    let res = tt.get(&pos.hash());
     let info_string = format!(
-        "info depth {} time {} pv {} score cp {} ",
+        "info depth {} pv {} score cp {} ",
         depth,
-        time,
-        res.mv.notation(),
+        best.notation(),
         score
     );
     log::info!("Command send: {}", info_string);
     println!("{}", info_string);
+    if write_best {
+        println!("bestmove {}", best.notation())
+    }
 }
 
-fn current_time() -> u64 {
-    time::SystemTime::now()
-        .duration_since(time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
-}
-
-pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT) -> u64 {
+pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
     if depth == 0 {
         return 1;
     }
 
-    let entry = tt.get(&p.hash());
+    let entry = TT.get(&p.key());
 
-    if entry.node_type == table::NodeType::Exact && entry.key == p.hash() && entry.depth == depth {
+    if entry.node_type == tt::NodeType::Exact && entry.key == p.key() && entry.depth == depth {
         // We found a valid entry
         return entry.score as u64;
     }
@@ -211,15 +204,15 @@ pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT) -> u64 {
             Some(n) => n,
             None => continue,
         };
-        count += counting_search(&npos, depth - 1, tt);
+        count += counting_search(&npos, depth - 1);
     }
 
-    tt.set(table::Entry {
-        key: (p.hash()),
+    TT.set(tt::Entry {
+        key: (p.key()),
         score: (count as i32),
         mv: (Mv::null()),
         depth: (depth),
-        node_type: (table::NodeType::Exact),
+        node_type: (tt::NodeType::Exact),
     });
 
     count
@@ -227,14 +220,14 @@ pub fn counting_search(p: &pos::Pos, depth: u8, tt: &mut table::TT) -> u64 {
 
 pub fn division_search(p: &pos::Pos, depth: u8) {
     let mut total = 0;
-    let mut tt = table::TT::new(10000);
+    TT.resize(10000);
     for mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
         let npos = mv::mv_apply::apply(p, &mv);
         let npos = match npos {
             Some(p) => p,
             None => continue,
         };
-        let count = counting_search(&npos, depth - 1, &mut tt);
+        let count = counting_search(&npos, depth - 1);
         total += count;
         println!("{}: {}", mv.notation(), count);
     }

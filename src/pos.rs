@@ -1,4 +1,4 @@
-use crate::{board::Board, table};
+use crate::{board::Board, tt};
 // Iternal representation of the current position.
 // Using a hybrid approach of both bitboards and square centric
 
@@ -35,7 +35,7 @@ pub struct Pos {
     // Using the consts defined above
     sq: [i8; 64],
 
-    key: table::Key,
+    key: tt::Key,
 
     // Extra Data
     // Encoded like this: castling:  b queen, b king, w queen, b king; en_passant file;
@@ -66,7 +66,7 @@ impl Pos {
             data: 0,
             active,
             full: Board::new(0),
-            key: table::Key::default(),
+            key: tt::Key::default(),
         };
         newp.gen_new_full();
         newp.gen_new_data(is_ep, ep_file, w_castle, b_castle);
@@ -82,7 +82,7 @@ impl Pos {
         self.data & 0b0000_0111
     }
 
-    pub fn hash(&self) -> table::Key{
+    pub fn key(&self) -> tt::Key{
         self.key
     }
 
@@ -167,7 +167,7 @@ impl Pos {
     }
 
     pub fn gen_new_key(&mut self) {
-        self.key = table::Key::new(self)
+        self.key = tt::Key::new(self)
     }
 
     pub fn gen_new_full(&mut self) {

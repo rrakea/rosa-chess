@@ -26,7 +26,8 @@ pub fn eval(p: &pos::Pos) -> i32 {
             if piece * p.active > 0 {
                 eval += eval_const::piece_eval(sq, piece, p.active, endgame);
             } else {
-                eval -= eval_const::piece_eval(sq, piece, p.active, endgame);            }
+                eval -= eval_const::piece_eval(sq, piece, p.active, endgame);
+            }
         }
     }
 

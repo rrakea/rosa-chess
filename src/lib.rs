@@ -11,7 +11,7 @@ pub mod mv;
 pub mod piece;
 pub mod pos;
 pub mod search;
-pub mod table;
+pub mod tt;
 
 
 pub fn start() {

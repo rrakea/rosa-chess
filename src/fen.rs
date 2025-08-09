@@ -2,18 +2,23 @@ use crate::mv::mv::Mv;
 use crate::mv::mv_apply;
 use crate::pos;
 
-const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const START_FEN: [&str; 6] = [
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
+    "w",
+    "KQkq",
+    "-",
+    "0",
+    "1",
+];
 
-pub fn starting_pos() -> pos::Pos {
-    fen(STARTING_FEN.to_string())
+pub fn starting_pos(moves: Vec<&str>) -> pos::Pos {
+    fen(START_FEN.to_vec(), moves)
 }
 
 // If you pass this a wrong FEN it WILL do bullshit
-pub fn fen(fen: String) -> pos::Pos {
+pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
     let mut sq: [i8; 64] = [0; 64];
-    let split_fen: Vec<&str> = fen.split(" ").collect();
-
-    let ranks = split_fen[0].rsplit("/");
+    let ranks = fen[0].rsplit("/");
     // For some reason fen goes from rank 8 to rank 1
     for (rank, rank_str) in ranks.enumerate() {
         let mut current_sq: usize = 0;
@@ -45,15 +50,15 @@ pub fn fen(fen: String) -> pos::Pos {
     }
 
     let mut active = 1;
-    if split_fen[1] == "b" {
+    if fen[1] == "b" {
         active = -1;
     }
 
     let mut w_castle = (false, false);
     let mut b_castle = (false, false);
 
-    if split_fen[2] != "-" {
-        for castle in split_fen[2].chars() {
+    if fen[2] != "-" {
+        for castle in fen[2].chars() {
             match castle {
                 'K' => w_castle.0 = true,
                 'Q' => w_castle.1 = true,
@@ -66,25 +71,18 @@ pub fn fen(fen: String) -> pos::Pos {
 
     let mut is_ep = false;
     let mut ep_file = 0;
-    if split_fen[3] != "-" {
+    if fen[3] != "-" {
         is_ep = true;
-        let file = split_fen[3].chars().nth(0).unwrap();
+        let file = fen[3].chars().nth(0).unwrap();
         ep_file = file as u8 - b'a';
     }
 
     // split_fen[4] and 5 specify move clocks, which we dont use yet
     let mut pos = pos::Pos::new(sq, active, is_ep, ep_file, w_castle, b_castle);
 
-    let mut adding_moves = false;
-    for part in split_fen {
-        if part == "moves" {
-            adding_moves = true;
-            continue;
-        }
-        if adding_moves {
-            let mv = Mv::from_str(part, &pos);
-            pos = mv_apply::apply(&pos, &mv).expect("Applied move to position not legal");
-        }
+    for mv in moves {
+        let mv = Mv::from_str(mv, &pos);
+        pos = mv_apply::apply(&pos, &mv).expect("Applied move to position not legal");
     }
 
     pos

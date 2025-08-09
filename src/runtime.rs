@@ -3,18 +3,19 @@ use crate::fen;
 use crate::mv;
 use crate::pos;
 use crate::search;
-use crate::table;
+use crate::tt;
+
 use std::io::{self, BufRead};
+use std::sync::{Arc, RwLock};
 
 pub fn start() {
     let stdin = io::stdin();
 
-    let tt_size = config::DEFAULT_TABLE_SIZE_MB;
-    let mut tt = table::TT::new(tt_size);
 
-    table::init_zobrist_keys();
+    tt::init_zobrist_keys();
     mv::magic_init::init_magics();
-    let mut p: pos::Pos = fen::starting_pos();
+    let mut p: pos::Pos = fen::starting_pos(Vec::new());
+    let mut stop: Option<Arc<RwLock<bool>>> = None;
 
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
@@ -31,10 +32,26 @@ pub fn start() {
             "isready" => println!("reakyok"),
 
             "position" => {
-                if cmd_parts[1] == "startpos" {
-                    p = fen::starting_pos();
-                } else if cmd_parts[1] == "fen" {
-                    p = fen::fen(cmd_parts[2..].join(" "));
+                if cmd_parts.len() == 1 {
+                    continue;
+                }
+                let split = cmd.split_once(" moves ");
+                let fen: Vec<&str>;
+                let mut moves = Vec::new();
+                match split {
+                    Some((f, m)) => {
+                        fen = f.split_ascii_whitespace().collect();
+                        moves = m.split_ascii_whitespace().collect();
+                    }
+                    None => {
+                        fen = cmd_parts[2..].to_vec();
+                    }
+                }
+
+                match cmd_parts[1] {
+                    "startpos" => p = fen::starting_pos(moves),
+                    "fen" => p = fen::fen(fen, moves),
+                    _ => continue,
                 }
             }
 
@@ -42,22 +59,35 @@ pub fn start() {
                 std::process::exit(0);
             }
 
-            "go" => match cmd_parts[1] {
-                "perft" => {
-                    let depth = if cmd_parts.len() <= 2 {
-                        6
-                    } else {
-                        cmd_parts[2]
-                            .parse()
-                            .expect("Depth value in perft command not num")
-                    };
-                    search::division_search(&p, depth);
+            "stop" => {
+                if let Some(stop) = &stop {
+                    let mut s = stop.write().unwrap();
+                    *s = true
                 }
-                _ => {
-                    let (maxdepth, time) = process_go(cmd_parts);
-                    search::search(&p, time, maxdepth, &mut tt);
+            }
+
+            "go" => {
+                if cmd_parts.len() == 1 {
+                    stop = Some(search::thread_search(&p));
+                } else {
+                    match cmd_parts[1] {
+                        "perft" => {
+                            let depth = if cmd_parts.len() <= 2 {
+                                6
+                            } else {
+                                cmd_parts[2]
+                                    .parse()
+                                    .expect("Depth value in perft command not num")
+                            };
+                            search::division_search(&p, depth);
+                        }
+                        _ => {
+                            let (maxdepth, time) = process_go(cmd_parts);
+                            stop = Some(search::thread_search(&p));
+                        }
+                    }
                 }
-            },
+            }
 
             "moves" => {
                 println!("Warning: Does not check legality");
@@ -91,7 +121,6 @@ pub fn start() {
             }
 
             "ponderhit" => {}
-            "stop" => {}
             "setoption" => {}
             _ => {
                 log::warn!("UCI setup command not understood: {cmd}");
