@@ -1,4 +1,4 @@
-use crate::eval::eval;
+use crate::eval::simple_eval;
 use crate::mv;
 use crate::mv::mv::Mv;
 use crate::pos;
@@ -39,7 +39,7 @@ pub fn search(p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
             break;
         }
 
-        if max_time.is_zero() && time::Instant::now() - start >= max_time {
+        if !max_time.is_zero() && time::Instant::now() - start >= max_time {
             break;
         }
 
@@ -48,70 +48,96 @@ pub fn search(p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
         write_info(TT.get(&p.key()).mv, depth, score, false);
 
         depth += 1;
+        println!("Hits: {}", unsafe { HIT_COUNTER });
+        println!("Collisions: {}", unsafe { COLLISION });
+        println!("Null hits: {}", unsafe { NULL_HIT });
+        println!("Pos: {}", unsafe { POS_COUNTER });
+        println!("Ratio: {}%", unsafe {
+            HIT_COUNTER as f64 / POS_COUNTER as f64
+        })
     }
 
     debug!("Search done");
     write_info(TT.get(&p.key()).mv, depth, score, true);
 }
 
+static mut HIT_COUNTER: u64 = 0;
+static mut COLLISION: u64 = 0;
+static mut NULL_HIT: u64 = 0;
+static mut POS_COUNTER: u64 = 0;
+
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
+    unsafe {
+        POS_COUNTER += 1;
+    }
     // Search is done
     if depth == 0 {
-        return eval(p);
+        return simple_eval(p);
     }
 
     // Check the transposition table
-    let pvs_move;
+    let mut pv_move = Mv::null();
     let mut replace_entry = false;
 
     {
         let entry = TT.get(&p.key());
-        // If it is unanitialized the move is null
-        // -> Get filtered out later
-        pvs_move = entry.mv;
 
-        // We dont have a seperate age value
-        if entry.depth > depth {
-            replace_entry = true
+        // The entry is "worth" less than what we are going to write
+        if depth > entry.depth {
+            replace_entry = true;
         }
 
-        // Didnt get a hash collision
-        if entry.key == p.key() {
-            match entry.node_type {
-                tt::NodeType::Exact => {
-                    return entry.score;
-                }
-                tt::NodeType::Upper => {
-                    if entry.score >= beta {
+        // The entry is usable
+        if !entry.is_null() && entry.key == p.key() {
+            unsafe {
+                HIT_COUNTER += 1;
+            }
+            pv_move = entry.mv;
+            // If the depth is worse we cant use the score
+            if depth <= entry.depth {
+                match entry.node_type {
+                    tt::NodeType::Exact => {
                         return entry.score;
-                    } else {
-                        beta = entry.score;
                     }
-                }
-                tt::NodeType::Lower => {
-                    if entry.score <= alpha {
-                        return entry.score;
-                    } else {
-                        alpha = entry.score;
+                    tt::NodeType::Upper => {
+                        if entry.score >= beta {
+                            return entry.score;
+                        } else {
+                            beta = entry.score;
+                        }
                     }
+                    tt::NodeType::Lower => {
+                        if entry.score <= alpha {
+                            return entry.score;
+                        } else {
+                            alpha = entry.score;
+                        }
+                    }
+                    _ => (),
                 }
-                _ => (),
+            }
+        } else if entry.is_null() {
+            unsafe {
+                NULL_HIT += 1;
+            }
+        } else {
+            unsafe {
+                COLLISION += 1;
             }
         }
     }
 
-    let mut best_move = Mv::null();
     let mut node_type = tt::NodeType::Upper;
 
     // Iterator
     let gen_mvs = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
-    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(|mv| *mv != pvs_move);
-    let mv_iter = std::iter::once(pvs_move)
+    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(move |mv| *mv != pv_move);
+    let mv_iter = std::iter::once(pv_move)
         .chain(ordered_mvs)
         .filter(|mv| !mv.is_null());
 
-    let mut legal_move_exists = true;
+    let mut legal_move_exists = false;
     for (i, m) in mv_iter.enumerate() {
         let outcome = mv::mv_apply::apply(p, &m);
         let npos = match outcome {
@@ -138,7 +164,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
         }
         if score > alpha {
             alpha = score;
-            best_move = m;
+            pv_move = m;
             node_type = tt::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
@@ -163,7 +189,8 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     }
 
     if replace_entry {
-        TT.set(tt::Entry::new(p.key(), alpha, best_move, depth, node_type));
+        //debug!("Writing to TT");
+        TT.set(tt::Entry::new(p.key(), alpha, pv_move, depth, node_type));
     }
 
     alpha

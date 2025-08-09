@@ -36,6 +36,24 @@ impl TT {
             (&mut (*self.table.get()))[index] = entry;
         }
     }
+
+    pub fn size(&self) -> u64 {
+        unsafe { (*self.table.get()).len() as u64 }
+    }
+
+    pub fn usage(&self) -> (u64, u64, u64){
+        let mut entry_count = 0;
+        let mut null_count = 0;
+        for index in unsafe { 0..(*self.table.get()).len() } {
+            let node_type = unsafe { (&(*self.table.get())).get(index).unwrap().node_type };
+            if node_type == NodeType::Null {
+                null_count += 1;
+            } else {
+                entry_count += 1;
+            }
+        }
+        (entry_count, null_count, self.size())
+    }
 }
 
 /*
@@ -49,7 +67,7 @@ impl TT {
     => 16 Bytes (-> No padding)
 */
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Entry {
     pub key: Key,
     pub score: i32,
@@ -58,9 +76,8 @@ pub struct Entry {
     pub node_type: NodeType,
 }
 
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, PartialEq, Copy)]
 pub enum NodeType {
-    #[default]
     Null,
     Upper,
     Lower,
@@ -75,6 +92,21 @@ impl Entry {
             mv,
             depth,
             node_type,
+        }
+    }
+    pub fn is_null(&self) -> bool {
+        self.node_type == NodeType::Null
+    }
+}
+
+impl Default for Entry {
+    fn default() -> Self {
+        Entry {
+            key: Key::new_from(0),
+            score: 0,
+            mv: Mv::null(),
+            depth: 0,
+            node_type: NodeType::Null,
         }
     }
 }
@@ -125,6 +157,10 @@ impl Key {
             panic!();
         }
         key
+    }
+
+    pub fn new_from(val: u64) -> Key {
+        Key(val)
     }
 
     pub fn val(&self) -> u64 {

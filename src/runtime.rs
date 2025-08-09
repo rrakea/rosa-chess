@@ -111,6 +111,11 @@ pub fn start() {
                 println!("{}", &p.prittify());
             }
 
+            "stats" => {
+                let (valid, null, size) = search::TT.usage();
+                println!("Valid: {valid}, Null: {null}, Total: {size}");
+            }
+
             "attacked" => {
                 println!(
                     "{}",
