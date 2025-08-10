@@ -1,7 +1,9 @@
 use crate::config;
+use crate::debug;
 use crate::fen;
 use crate::mv;
 use crate::search;
+
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 use rosa_lib::tt;
@@ -22,17 +24,20 @@ pub fn start() {
 
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
+        if debug::print_uci_commands() {
+            println!("UCI Command: {cmd}")
+        }
+
         let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
-        println!("Command Recieved: {cmd}");
         match cmd_parts[0].to_lowercase().as_str() {
             "uci" => {
                 println!("id name {} {}", config::NAME, config::VERSION);
                 println!("id author {}", config::AUTHOR);
                 print_options();
-                println!("ociok");
+                println!("uciok");
             }
 
-            "isready" => println!("reakyok"),
+            "isready" => println!("readyok"),
 
             "position" => {
                 if cmd_parts.len() == 1 {
@@ -131,7 +136,9 @@ pub fn start() {
             "ponderhit" => {}
             "setoption" => {}
             _ => {
-                println!("UCI setup command not understood: {cmd}");
+                if debug::print_uci_commands() {
+                    println!("UCI setup command not understood: {cmd}");
+                }
             }
         }
     }
@@ -200,10 +207,10 @@ fn process_go(cmd: Vec<&str>, color: i8) -> time::Duration {
 }
 
 fn check_next(cmd: &[&str], index: usize) -> u64 {
-    match cmd[index + 1].parse() {
+    match cmd[index].parse() {
         Ok(o) => o,
         Err(e) => {
-            println!("Value after command not int, {e}");
+            println!("Value after command not int, {e}, part: {}", cmd[index + 1]);
             0
         }
     }

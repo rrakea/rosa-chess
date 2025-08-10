@@ -1,3 +1,4 @@
+use crate::debug;
 use crate::eval::simple_eval;
 use crate::mv;
 
@@ -44,35 +45,57 @@ pub fn search(p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
 
         score = negascout(&p, depth, i32::MIN + 1, i32::MAX - 1);
 
-        write_info(TT.get(&p.key()).mv, depth, score, false);
+        write_info(
+            TT.get(&p.key()).mv,
+            depth,
+            max_time.as_millis() as u64,
+            score,
+            false,
+        );
 
         depth += 1;
-        println!("Hits: {}", unsafe { HIT_COUNTER });
-        println!("Collisions: {}", unsafe { COLLISION });
-        println!("Null hits: {}", unsafe { NULL_HIT });
-        println!("Pos: {}", unsafe { POS_COUNTER });
-        println!("Ratio: {}%", unsafe {
-            HIT_COUNTER as f64 / POS_COUNTER as f64
-        })
+
+        if debug::print_tt_hits() {
+            println!("Hits: {}", unsafe { HIT_COUNTER });
+            println!("Collisions: {}", unsafe { COLLISION });
+            println!("Null hits: {}", unsafe { NULL_HIT });
+            println!("Pos: {}", unsafe { POS_COUNTER });
+            println!("Ratio: {}%", unsafe {
+                HIT_COUNTER as f64 / POS_COUNTER as f64
+            })
+        }
+
+        if debug::print_prunes() {
+            println!("Beta: {}", unsafe { BETA_PRUNE });
+        }
     }
 
-    println!("Search done");
-    write_info(TT.get(&p.key()).mv, depth, score, true);
+    write_info(
+        TT.get(&p.key()).mv,
+        depth,
+        max_time.as_millis() as u64,
+        score,
+        true,
+    );
 }
 
 static mut HIT_COUNTER: u64 = 0;
 static mut COLLISION: u64 = 0;
 static mut NULL_HIT: u64 = 0;
 static mut POS_COUNTER: u64 = 0;
+static mut BETA_PRUNE: u64 = 0;
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
-    unsafe {
-        POS_COUNTER += 1;
-    }
     // Search is done
     if depth == 0 {
         return simple_eval(p);
+    }
+
+    if debug::print_tt_hits() {
+        unsafe {
+            POS_COUNTER += 1;
+        }
     }
 
     // Check the transposition table
@@ -89,9 +112,12 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
 
         // The entry is usable
         if !entry.is_null() && entry.key == p.key() {
-            unsafe {
-                HIT_COUNTER += 1;
+            if debug::print_tt_hits() {
+                unsafe {
+                    HIT_COUNTER += 1;
+                }
             }
+
             pv_move = entry.mv;
             // If the depth is worse we cant use the score
             if depth <= entry.depth {
@@ -116,13 +142,13 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
                     _ => (),
                 }
             }
-        } else if entry.is_null() {
+        } else if debug::print_tt_hits() {
             unsafe {
-                NULL_HIT += 1;
-            }
-        } else {
-            unsafe {
-                COLLISION += 1;
+                if entry.is_null() {
+                    NULL_HIT += 1;
+                } else {
+                    COLLISION += 1;
+                }
             }
         }
     }
@@ -169,6 +195,11 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
             // Beta cutoff can only occur on a change of alpha
             if alpha >= beta {
                 // Cut Node
+                if debug::print_prunes() {
+                    unsafe {
+                        BETA_PRUNE += 1;
+                    }
+                }
                 node_type = tt::NodeType::Lower;
                 break; // Prune :)
             }
@@ -176,7 +207,6 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     }
 
     if !legal_move_exists {
-        println!("Found checkmate at depth: {depth}");
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
         if mv::mv_gen::square_not_attacked(p, king_pos, -p.active) {
             // Checkmate
@@ -195,11 +225,12 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     alpha
 }
 
-fn write_info(best: Mv, depth: u8, score: i32, write_best: bool) {
+fn write_info(best: Mv, depth: u8, time: u64, score: i32, write_best: bool) {
     let info_string = format!(
-        "info depth {} pv {} score cp {} ",
+        "info depth {} pv {} time {} score cp {} ",
         depth,
         best.notation(),
+        time,
         score
     );
     println!("{}", info_string);
