@@ -10,7 +10,8 @@ where
 {
     MoveOrder {
         iter: mv_iter,
-        buffer: Vec::new(),
+        // Chess positions have around 35 moves on average -> we dont spend the time growing
+        buffer: Vec::with_capacity(30),
         buf_index: 0,
         exhausted: false,
     }

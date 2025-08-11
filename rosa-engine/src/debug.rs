@@ -1,4 +1,4 @@
-const PRINT_TT: bool = true;
+const PRINT_TT: bool = false;
 const PRINT_UCI: bool = false;
 const PRINT_PRUNES: bool = true;
 

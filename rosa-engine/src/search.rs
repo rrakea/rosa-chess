@@ -83,6 +83,7 @@ static mut HIT_COUNTER: u64 = 0;
 static mut COLLISION: u64 = 0;
 static mut NULL_HIT: u64 = 0;
 static mut POS_COUNTER: u64 = 0;
+
 static mut BETA_PRUNE: u64 = 0;
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
@@ -126,14 +127,14 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
                         return entry.score;
                     }
                     tt::NodeType::Upper => {
-                        if entry.score >= beta {
+                        if entry.score <= alpha {
                             return entry.score;
                         } else {
                             beta = entry.score;
                         }
                     }
                     tt::NodeType::Lower => {
-                        if entry.score <= alpha {
+                        if entry.score >= beta {
                             return entry.score;
                         } else {
                             alpha = entry.score;
@@ -162,20 +163,18 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
         .chain(ordered_mvs)
         .filter(|mv| !mv.is_null());
 
-    let mut legal_move_exists = false;
-    for (i, m) in mv_iter.enumerate() {
+    let mut first_iteration = true;
+    for m in mv_iter {
         let outcome = mv::mv_apply::apply(p, &m);
         let npos = match outcome {
             Some(o) => o,
             // Impossible move
             None => continue,
         };
-        //println!("Searching move: {} at depth: {}", m.prittify(), depth);
-        //println!("PVS move: {}", pvs_move.prittify());
-        legal_move_exists = true;
 
         let mut score;
-        if i == 0 {
+        if first_iteration {
+            first_iteration = false;
             // Principle variation search
             // PV Node
             score = -negascout(&npos, depth - 1, -beta, -alpha);
@@ -193,7 +192,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
             node_type = tt::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
-            if alpha >= beta {
+            if score >= beta {
                 // Cut Node
                 if debug::print_prunes() {
                     unsafe {
@@ -206,14 +205,15 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
         }
     }
 
-    if !legal_move_exists {
+    // We never encountered a valid move
+    if first_iteration {
         let king_pos = p.piece(pos::KING * p.active).get_ones_single();
         if mv::mv_gen::square_not_attacked(p, king_pos, -p.active) {
-            // Checkmate
-            return i32::MIN + 1;
-        } else {
             // Stalemate
             return 0;
+        } else {
+            // Checkmate
+            return i32::MIN + 2;
         }
     }
 

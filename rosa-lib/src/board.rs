@@ -10,7 +10,7 @@ impl Board {
         self.0
     }
 
-    pub fn get_ones(&self) -> Vec<u8> {
+    pub fn get_ones_old(&self) -> Vec<u8> {
         let mut bb = self.val();
         let mut ones: Vec<u8> = Vec::new();
         let mut lsb;
@@ -20,6 +20,21 @@ impl Board {
             ones.push(lsb as u8);
             bb &= bb - 1;
         }
+        ones
+    }
+
+    pub fn get_ones(&self) -> Vec<u8> {
+        let mut bb = self.val();
+        let count = bb.count_ones();
+        let mut ones: Vec<u8> = Vec::with_capacity(count as usize);
+        let mut lsb;
+
+        for _i in 0..count {
+            lsb = bb.trailing_zeros();
+            ones.push(lsb as u8);
+            bb &= bb - 1;
+        }
+
         ones
     }
 
