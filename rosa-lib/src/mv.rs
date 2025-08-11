@@ -1,12 +1,6 @@
 use crate::pos;
 use crate::util;
-/*
 
-Functions for working with moves encoded as u16
-These encodings are purely usefull for manipulating the bitboards after words
-
-Encoding inspired by Chess Programming Wiki:
-*/
 #[repr(u16)]
 #[derive(Debug, PartialEq)]
 pub enum MvFlag {
@@ -28,7 +22,7 @@ pub enum MvFlag {
     QPromCap = 15,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Ord, PartialOrd)]
 pub struct Mv(u16);
 
 impl Mv {
@@ -75,7 +69,7 @@ impl Mv {
         if piece == pos::PAWN * p.active {
             if mv_diff == 16 {
                 flag = MvFlag::DoubleP;
-            } else if op_piece == 0 && (mv_diff == 7 || mv_diff == 9){
+            } else if op_piece == 0 && (mv_diff == 7 || mv_diff == 9) {
                 flag = MvFlag::Ep;
             }
         }
@@ -86,11 +80,17 @@ impl Mv {
                 (1, -2) => flag = MvFlag::WQCastle,
                 (-1, 2) => flag = MvFlag::BKCastle,
                 (-1, -2) => flag = MvFlag::BQCastle,
-                _ => ()
+                _ => (),
             };
         }
 
         Mv::new(start, end, flag)
+    }
+
+    // Determins if we immediatly return this move while move ordering
+    // or if we continue searching
+    pub fn cutoff(&self) -> bool {
+        false
     }
 
     pub fn null() -> Mv {

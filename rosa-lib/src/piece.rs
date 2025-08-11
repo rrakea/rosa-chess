@@ -31,4 +31,8 @@ impl Piece {
     pub fn val(&self) -> i8 {
         *self as i8
     }
+
+    // King & Pawn last because promotion
+    // only get 4 bits to encode
+    pub fn to_mask(&self) -> u32 {}
 }
