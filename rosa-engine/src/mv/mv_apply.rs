@@ -1,8 +1,8 @@
 use super::mv_gen;
 
 use rosa_lib::mv::*;
-use rosa_lib::pos::Pos;
 use rosa_lib::pos;
+use rosa_lib::pos::Pos;
 use rosa_lib::util;
 
 const BOTTOM_LEFT_SQ: u8 = 0;
