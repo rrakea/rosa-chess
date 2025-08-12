@@ -34,5 +34,7 @@ impl Piece {
 
     // King & Pawn last because promotion
     // only get 4 bits to encode
-    pub fn to_mask(&self) -> u32 {}
+    pub fn to_mask(&self) -> u32 {
+        0
+    }
 }
