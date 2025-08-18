@@ -1,4 +1,4 @@
-use rosa_lib::long_mv::*;
+use rosa_lib::mv::*;
 use rosa_lib::pos::{self, Pos};
 use rosa_lib::util;
 
@@ -45,7 +45,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
     }
 
     match mv.special() {
-        SpecialMoveFlag::DOUBLE => {
+        Special::DOUBLE => {
             if make {
                 is_ep = true;
                 ep_file = util::file(end);
@@ -55,7 +55,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        SpecialMoveFlag::EP => {
+        Special::EP => {
             end = match color {
                 1 => end - 8,
                 -1 => end + 8,
@@ -63,26 +63,26 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        SpecialMoveFlag::PROM => {
+        Special::PROM => {
             let prom_piece = mv.prom_piece();
             p.piece_toggle(prom_piece, end);
         }
 
-        SpecialMoveFlag::CASTLE => {
+        Special::CASTLE => {
             match mv.castle() {
-                CastleType::WK => {
+                Castle::WK => {
                     p.piece_toggle(pos::ROOK, BOTTOM_RIGHT_SQ);
                     p.piece_toggle(pos::ROOK, BOTTOM_RIGHT_SQ - 2);
                 }
-                CastleType::WQ => {
+                Castle::WQ => {
                     p.piece_toggle(pos::ROOK, BOTTOM_LEFT_SQ);
                     p.piece_toggle(pos::ROOK, BOTTOM_LEFT_SQ + 3);
                 }
-                CastleType::BK => {
+                Castle::BK => {
                     p.piece_toggle(pos::BROOK, TOP_RIGHT_SQ);
                     p.piece_toggle(pos::BROOK, TOP_RIGHT_SQ - 2);
                 }
-                CastleType::BQ => {
+                Castle::BQ => {
                     p.piece_toggle(pos::BROOK, TOP_LEFT_SQ);
                     p.piece_toggle(pos::BROOK, TOP_LEFT_SQ + 3);
                 }

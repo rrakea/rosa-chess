@@ -1,6 +1,7 @@
 use crate::config;
 use crate::debug;
 use crate::fen;
+use crate::make;
 use crate::mv;
 use crate::search;
 
@@ -108,9 +109,9 @@ pub fn start() {
                     continue;
                 }
                 let mv = cmd_parts[1];
-                let mv = Mv::from_str(mv, &p);
+                let mut mv = Mv::new_from_str(mv, &p);
                 println!("{}", mv.prittify());
-                p = mv::mv_apply::apply(&p, &mv).unwrap();
+                make::make(&mut p, &mut mv, true);
             }
 
             "print" | "p" | "d" => {
