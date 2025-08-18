@@ -52,11 +52,11 @@ fn gen_piece_mvs(
         possible_moves.into_iter().map(move |end_square| {
             let end_sq_piece = p.piece_at_sq(end_square);
             if can_quiet && end_sq_piece == 0 {
-                Mv::new(sq, end_square, MvFlag::Quiet)
+                Mv::new_def(sq, end_square, false)
             } else if can_cap && end_sq_piece != 0 && util::dif_colors(p.active, end_sq_piece) {
-                Mv::new(sq, end_square, MvFlag::Cap)
+                Mv::new_def(sq, end_square, true)
             } else {
-                Mv::null()
+                Mv::default()
             }
         })
     })
@@ -111,15 +111,15 @@ fn promotion_helper(start: u8, end: u8, is_cap: bool, legal: bool) -> impl Itera
 
     let mut mv = Vec::with_capacity(4);
     if is_cap {
-        mv.push(Mv::new(start, end, MvFlag::QPromCap));
-        mv.push(Mv::new(start, end, MvFlag::RPromCap));
-        mv.push(Mv::new(start, end, MvFlag::NPromCap));
-        mv.push(Mv::new(start, end, MvFlag::BPromCap));
+        mv.push(Mv::new_prom(start, end, true, pos::BISHOP));
+        mv.push(Mv::new_prom(start, end, true, pos::KNIGHT));
+        mv.push(Mv::new_prom(start, end, true, pos::ROOK));
+        mv.push(Mv::new_prom(start, end, true, pos::PAWN));
     } else {
-        mv.push(Mv::new(start, end, MvFlag::QProm));
-        mv.push(Mv::new(start, end, MvFlag::RProm));
-        mv.push(Mv::new(start, end, MvFlag::NProm));
-        mv.push(Mv::new(start, end, MvFlag::BProm));
+        mv.push(Mv::new_prom(start, end, false, pos::BISHOP));
+        mv.push(Mv::new_prom(start, end, false, pos::KNIGHT));
+        mv.push(Mv::new_prom(start, end, false, pos::ROOK));
+        mv.push(Mv::new_prom(start, end, false, pos::PAWN));
     }
     mv.into_iter()
 }
@@ -149,14 +149,14 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         && p.piece_at_sq(left as u8) == pos::PAWN * p.active
         && util::no_wrap(left as u8, end as u8)
     {
-        mv.push(Mv::new(left as u8, end as u8, MvFlag::Ep));
+        mv.push(Mv::new_ep(left as u8, end as u8));
     }
 
     if (0..64).contains(&right)
         && p.piece_at_sq(right as u8) == pos::PAWN * p.active
         && util::no_wrap(right as u8, end as u8)
     {
-        mv.push(Mv::new(right as u8, end as u8, MvFlag::Ep));
+        mv.push(Mv::new_ep(right as u8, end as u8));
     }
 
     mv.into_iter()
@@ -178,12 +178,11 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
         && square_not_attacked(p, king_pos, -p.active)
         && square_not_attacked(p, king_pos + 1, -p.active)
     {
-        let code = if p.active == 1 {
-            MvFlag::WKCastle
+        if p.active == 1 {
+            mv.push(Mv::new_castle(Castle::WK));
         } else {
-            MvFlag::BKCastle
+            mv.push(Mv::new_castle(Castle::BK));
         };
-        mv.push(Mv::new(king_pos, king_pos + 2, code))
     }
 
     // Queen side
@@ -194,12 +193,11 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
         && square_not_attacked(p, king_pos, -p.active)
         && square_not_attacked(p, king_pos - 1, -p.active)
     {
-        let code = if p.active == 1 {
-            MvFlag::WQCastle
+        if p.active == 1 {
+            mv.push(Mv::new_castle(Castle::WQ));
         } else {
-            MvFlag::BQCastle
+            mv.push(Mv::new_castle(Castle::BQ));
         };
-        mv.push(Mv::new(king_pos, king_pos - 2, code));
     }
     // Doing this feels wierd, but since we dont really have any for loops
     // etc in this we cant really do it better
@@ -219,9 +217,9 @@ fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
         let two_move = (sq as i8 + (16 * p.active)) as u8;
 
         if p.piece_at_sq(one_move) == 0 && p.piece_at_sq(two_move) == 0 {
-            Mv::new(sq, two_move, MvFlag::DoubleP)
+            Mv::new_double(sq, two_move)
         } else {
-            Mv::null()
+            Mv::default()
         }
     })
 }

@@ -104,7 +104,7 @@ impl Default for Entry {
         Entry {
             key: Key::new_from(0),
             score: 0,
-            mv: Mv::null(),
+            mv: Mv::default(),
             depth: 0,
             node_type: NodeType::Null,
         }
