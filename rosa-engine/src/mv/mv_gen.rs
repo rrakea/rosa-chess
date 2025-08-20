@@ -50,11 +50,11 @@ fn gen_piece_mvs(
     piece_positions.into_iter().flat_map(move |sq| {
         let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
         possible_moves.into_iter().map(move |end_square| {
-            let end_sq_piece = p.piece_at_sq(end_square);
-            if can_quiet && end_sq_piece == 0 {
-                Mv::new_def(sq, end_square, false)
-            } else if can_cap && end_sq_piece != 0 && util::dif_colors(p.active, end_sq_piece) {
-                Mv::new_def(sq, end_square, true)
+            let victim = p.piece_at_sq(end_square);
+            if can_quiet && victim == 0 {
+                Mv::new_quiet(sq, end_square)
+            } else if can_cap && victim != 0 && util::dif_colors(p.active, victim) {
+                Mv::new_cap(sq, end_square, piece, victim)
             } else {
                 Mv::default()
             }
@@ -87,7 +87,9 @@ fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
     start_sqs.into_iter().flat_map(|start_sq| {
         let end_quiet = (start_sq as i8 + 8 * p.active) as u8;
         let cap_right = (start_sq as i8 + 9 * p.active) as u8;
+        let right_victim = p.piece_at_sq(cap_right);
         let cap_left = (start_sq as i8 + 7 * p.active) as u8;
+        let left_victim = p.piece_at_sq(cap_left);
 
         let can_quiet = p.piece_at_sq(end_quiet) == 0;
         let can_cap_left = util::no_wrap(start_sq, cap_left)
@@ -96,30 +98,30 @@ fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
         let can_cap_right = util::no_wrap(start_sq, cap_right)
             && p.piece_at_sq(cap_right) != 0
             && util::dif_colors(p.piece_at_sq(cap_right), p.piece_at_sq(start_sq));
-
+     
         iter::empty()
-            .chain(promotion_helper(start_sq, end_quiet, false, can_quiet))
-            .chain(promotion_helper(start_sq, cap_left, true, can_cap_left))
-            .chain(promotion_helper(start_sq, cap_right, true, can_cap_right))
+            .chain(promotion_helper(start_sq, end_quiet, false, 0, can_quiet))
+            .chain(promotion_helper(start_sq, cap_left, true, left_victim, can_cap_left))
+            .chain(promotion_helper(start_sq, cap_right, true, right_victim, can_cap_right))
     })
 }
 
-fn promotion_helper(start: u8, end: u8, is_cap: bool, legal: bool) -> impl Iterator<Item = Mv> {
+fn promotion_helper(start: u8, end: u8, is_cap: bool, victim: i8, legal: bool) -> impl Iterator<Item = Mv> {
     if !legal {
         return Vec::new().into_iter();
     }
 
     let mut mv = Vec::with_capacity(4);
     if is_cap {
-        mv.push(Mv::new_prom(start, end, true, pos::BISHOP));
-        mv.push(Mv::new_prom(start, end, true, pos::KNIGHT));
-        mv.push(Mv::new_prom(start, end, true, pos::ROOK));
-        mv.push(Mv::new_prom(start, end, true, pos::PAWN));
+        mv.push(Mv::new_prom(start, end, true, pos::BISHOP, victim));
+        mv.push(Mv::new_prom(start, end, true, pos::KNIGHT, victim));
+        mv.push(Mv::new_prom(start, end, true, pos::ROOK, victim));
+        mv.push(Mv::new_prom(start, end, true, pos::PAWN, victim));
     } else {
-        mv.push(Mv::new_prom(start, end, false, pos::BISHOP));
-        mv.push(Mv::new_prom(start, end, false, pos::KNIGHT));
-        mv.push(Mv::new_prom(start, end, false, pos::ROOK));
-        mv.push(Mv::new_prom(start, end, false, pos::PAWN));
+        mv.push(Mv::new_prom(start, end, false, pos::BISHOP, victim));
+        mv.push(Mv::new_prom(start, end, false, pos::KNIGHT, victim));
+        mv.push(Mv::new_prom(start, end, false, pos::ROOK, victim));
+        mv.push(Mv::new_prom(start, end, false, pos::PAWN, victim));
     }
     mv.into_iter()
 }

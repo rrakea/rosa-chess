@@ -40,12 +40,14 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
     p.flip_color();
     if make {
         mv.set_old_castle_rights((wk_castle, wq_castle, bk_castle, bq_castle));
-        mv.set_old_ep_file(p.en_passant_file());
-        mv.set_old_is_ep(p.is_en_passant());
+        if p.is_en_passant() {
+            mv.set_old_is_ep();
+            mv.set_old_ep_file(p.en_passant_file());
+        }
     }
 
-    match mv.special() {
-        Special::DOUBLE => {
+    match mv.flag() {
+        Flag::DOUBLE => {
             if make {
                 is_ep = true;
                 ep_file = util::file(end);
@@ -55,7 +57,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        Special::EP => {
+        Flag::EP => {
             end = match color {
                 1 => end - 8,
                 -1 => end + 8,
@@ -63,12 +65,12 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        Special::PROM => {
+        Flag::PROM => {
             let prom_piece = mv.prom_piece();
             p.piece_toggle(prom_piece, end);
         }
 
-        Special::CASTLE => {
+        Flag::CASTLE => {
             match mv.castle() {
                 Castle::WK => {
                     p.piece_toggle(pos::ROOK, BOTTOM_RIGHT_SQ);
@@ -106,17 +108,9 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
         _ => (),
     }
 
-    // cap after special since you need to move the end
-    // with ep
+    // cap after special since you need to move the end with ep
     if mv.is_cap() {
-        if make {
-            // En passant is the only move where end sq != captured piece sq
-            let op_piece = p.piece_at_sq(end);
-            p.piece_toggle(op_piece, end);
-            mv.set_captured_piece(op_piece);
-        } else {
-            p.piece_toggle(mv.captured_piece(), end);
-        }
+        p.piece_toggle(mv.captured_piece(), end);
     }
 
     if make {

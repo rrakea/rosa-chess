@@ -1,125 +1,106 @@
 use crate::pos::Pos;
 
 /*
-    If we encode moves as i32 we can use more flags
-    for move ordering purposes
+    Move encoding as u32
+    Move ordering is done by value, so the most important
+    bits like captured piece and promoted piece should
+    be the most significant bits
 
-    Move ordering will just use the integer value, so
-    the more important flags should be represented as
-    large as possible
+    We currently have 2 bits left over for buffer
 
-    At the same time all the unmake flags should be
-    represented + as much make stuff we can pack in
-    The stuff that we have to save for unmake is:
-        - Castling rights (3 bits, maybe 4)
-        - Ep (Yes/no: 1 bit, File: 3 bits)
-        - Captured piece (3 bits - No king)
-        - Was prom
-
-    Ideas:
-    - Start + end sq
-    - Winning Capture
-    - Losing Capture
-    - Value in piece square table
-    - Check flag (very diffucult to do efficiently with
-        our setup)
-    -
-
+                    Old ep file
+                      |
+          Prom        |
+          Piece       |
+      Cap   |         |   Old
+     offset |         |  Castle  Start   End
+        |   |         |    |       |      |
+        |   |         |    |       |      |
+      |--| ||         |-| |--| |-----||-----|
     0b0000_0000_0000_0000_0000_0000_0000_0000
+             || |--| |
+             |   |   |
+          Buffer |   |
+                 |   |
+               Flag  |
+                     |
+                     |
+                    Old
+                    is ep
+*/
 
-    >                                 xx xxxx Start sq
-    >                          xxxx xx        End sq
-    >                      xxx                Ep file
-    >                     x                   Is ep
-    >                xxxx                     Changes in castling rights
-    >             xx                          Which castle
-    >            x                            Is castle
-    >           x                             Is double pawn
-    >        xx                               Prom piece
-    >    x xx                                 Captured piece
-    >   x                                     Losing Cap
-    >  x                                      Winning cap
-    > x                                       Promotion
+const START: u32 = 0b_0000_0000_0000_0000_0000_1111_1100_0000;
+const END: u32 = 0b_0000_0000_0000_0000_0000_0000_0011_1111;
+const OLD_CASTLE: u32 = 0b_0000_0000_0000_0000_1111_0000_0000_0000;
+const WKC: u32 = 0b_0000_0000_0000_0000_0001_0000_0000_0000;
+const WQC: u32 = 0b_0000_0000_0000_0000_0010_0000_0000_0000;
+const BKC: u32 = 0b_0000_0000_0000_0000_0100_0000_0000_0000;
+const BQC: u32 = 0b_0000_0000_0000_0000_1000_0000_0000_0000;
+const OLD_EP_FILE: u32 = 0b_0000_0000_0000_0111_0000_0000_0000_0000;
+const OLD_IS_EP: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
+const FLAG: u32 = 0b_0000_0000_1111_0000_0000_0000_0000_0000;
+const BUFFER: u32 = 0b_0000_0011_0000_0000_0000_0000_0000_0000;
+const PROM_PIECE: u32 = 0b_0000_1100_0000_0000_0000_0000_0000_0000;
+const CAP_OFFSET: u32 = 0b_1111_0000_0000_0000_0000_0000_0000_0000;
 
-    -> In this setup we would the top 8 bits for ordering
-    -> A cutoff would be trigger when the top 2 bits are flipped
-    -> There is quite some redundancie here if we something would be
-        more efficient for make/unmake
+const START_OFFSET: u32 = 6;
+const OLD_EP_FILE_OFFSET: u32 = 16;
+const FLAG_OFFSET: u32 = 20;
+const PROM_OFFSET: u32 = 26;
+const CAP_OFFSET_OFFSET: u32 = 28;
 
-    Forced: => 20
-    Start: 6
-    End: 6
-    Old castle rights: 4
-    Old is ep: 1
-    Old ep file: 3
-
-    Mutually Exclusive flags: => 2
-    Ep, Prom, Castle, Double -> 2 bits
-
-    Data for flags: => 2
-    Ep: 1
-    Prom: 2
-    Castle: 2
-    Double: 0
-
-    Left: Is_cap, cap_piece, cap_prio -> 8 bits left
-    Is Cap: 1
-    Is win: 1
-    Prio upgrade: 3 ( also capped piece)
-
-
-    On en passant:
-        make needs to know if a mv was ep
-        to delecte a pawn from the correct sq
-        -> set in move gen
-
-        make needs to know if a mv was double
-        to set the ep square in pos
-        -> set in move gen
-        (you could also deduce this potentially)
-
-        unmake needs to know about the pos before
-
-        };
-        if it was a double and if yes where to set
-        the correct ep in the prev position
-        -> need to set this in make
-
-        unmake also needs to know if the move was an ep,
-        since you have to shift the reappearing pawn
-        -> set in make
+/*
+    Capture offset:
+    We meassure the capturing piece value and the captured piece
+    value to improve move ordering
+    -> Not by absulute value but by ranking
+    => A pawn capturing a knight is a +1, a rook +2 and a queen +3
+    The extreme values are -5 for qxp and +5 pxq
+    Q, R, B, N, K, P
+    There also needs to be a capture flag, since we cant know
+    if it is a pxp or just a quiet move else
 */
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mv(u32);
 
-pub enum Castle {
-    WK,
-    WQ,
-    BK,
-    BQ,
-}
-
-pub enum Special {
-    DOUBLE,
-    EP,
-    PROM,
-    CASTLE,
-    NULL,
+#[derive(PartialEq)]
+#[repr(u8)]
+pub enum Flag {
+    Quiet = 1,
+    Cap = 2,
+    Ep = 3,
+    Double = 4,
+    WKC = 5,
+    WQC = 6,
+    BKC = 7,
+    BQK = 8,
+    Prom = 9,
+    PromCap = 10,
 }
 
 impl Mv {
-    pub fn new_def(start: u8, end: u8, is_cap: bool) -> Mv {
+    pub fn new_quiet(start: u8, end: u8) -> Mv {
+        let mut val: u32 = 0;
+        val |= end as u32;
+        val |= (start as u32) << START_OFFSET;
+        Mv(val)
+    }
+
+    pub fn new_cap(start: u8, end: u8, capturer: i8, victim: i8) -> Mv {
+        let mut mv = Mv::new_quiet(start, end);
+        mv.set_flag(Flag::Cap);
+        mv
+    }
+
+    pub fn new_prom(start: u8, end: u8, is_cap: bool, piece: i8, victim: i8) -> Mv {
         Mv(0)
     }
 
-    pub fn new_prom(start: u8, end: u8, is_cap: bool, piece: i8) -> Mv {
+    pub fn new_castle(castle_type: u8) -> Mv {
         Mv(0)
     }
 
-    pub fn new_castle(castle_type: Castle) -> Mv {
-        Mv(0)
-    }
     pub fn new_ep(start: u8, end: u8) -> Mv {
         Mv(0)
     }
@@ -131,55 +112,89 @@ impl Mv {
     }
 
     pub fn is_null(&self) -> bool {
-        true
+        self.0 == 0
     }
 
     pub fn sq(&self) -> (u8, u8) {
-        (0, 0)
+        ((self.0 & START) as u8, (self.0 & END) as u8)
     }
+
     pub fn is_prom(&self) -> bool {
-        true
+        self.flag() == Flag::Prom
     }
 
     pub fn is_cap(&self) -> bool {
-        true
-    }
-    pub fn old_is_ep(&self) -> bool {
-        true
-    }
-    pub fn set_old_is_ep(&self, was: bool) {}
-    pub fn is_double(&self) -> bool {
-        true
-    }
-    pub fn is_ep(&self) -> bool {
-        true
-    }
-    pub fn is_castle(&self) -> bool {
-        true
-    }
-    pub fn castle(&self) -> Castle {
-        Castle::WK
-    }
-    pub fn prom_piece(&self) -> i8 {
-        0
-    }
-    pub fn special(&self) -> Special {
-        Special::NULL
+        matches!(self.flag(), Flag::Cap | Flag::PromCap)
     }
 
-    pub fn captured_piece(&self) -> i8 {
-        0
+    pub fn old_is_ep(&self) -> bool {
+        (self.0 | OLD_IS_EP) != 0
     }
-    pub fn set_captured_piece(&self, piece: i8) {}
-    pub fn set_old_castle_rights(&self, rights: (bool, bool, bool, bool)) {}
+
+    pub fn set_old_is_ep(&mut self) {
+        self.0 |= OLD_IS_EP
+    }
+
+    pub fn is_ep(&self) -> bool {
+        self.flag() == Flag::Ep
+    }
+
+    pub fn is_castle(&self) -> bool {
+        matches!(self.flag(), Flag::WKC | Flag::BKC | Flag::WQC | Flag::BQK)
+    }
+
+    pub fn prom_piece(&self) -> i8 {
+        // We safe a knight as 0, as pos::piece its 2 => +2
+        ((self.0 | PROM_PIECE) >> PROM_OFFSET) as i8 + 2
+    }
+
+    pub fn flag(&self) -> Flag {
+        unsafe { std::mem::transmute(((self.0 | FLAG) >> FLAG_OFFSET) as u8) }
+    }
+
+    pub fn set_flag(&mut self, flag: Flag) {
+        self.0 |= (flag as u32) << FLAG_OFFSET
+    }
+
+    pub fn captured_piece(&self, capturer: i8) -> i8 {
+        let offset = self.0 >> CAP_OFFSET_OFFSET;
+        let capturer = i8::abs(capturer);
+    }
+
+    pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {
+        let mut val = 0;
+        let (wk, wq, bk, bq) = rights;
+        if wk {
+            val |= WKC;
+        }
+        if wq {
+            val |= WQC;
+        }
+        if bk {
+            val |= BKC;
+        }
+        if bq {
+            val |= BQC;
+        }
+        self.0 |= val
+    }
+
     pub fn old_castle_rights(&self, color: i8) -> (bool, bool) {
-        (true, true)
+        if color == 1 {
+            (self.0 | WKC > 0, self.0 | WQC > 0)
+        } else {
+            (self.0 | BKC > 0, self.0 | BQC > 0)
+        }
     }
+
     pub fn old_ep_file(&self) -> u8 {
-        0
+        (self.0 | OLD_EP_FILE >> OLD_EP_FILE_OFFSET) as u8
     }
-    pub fn set_is_ep(&self, is: bool) {}
-    pub fn set_old_ep_file(&self, file: u8) {}
+
+    pub fn set_old_ep_file(&mut self, file: u8) {
+        self.0 |= (file as u32) << OLD_EP_FILE_OFFSET
+    }
+
     pub fn prittify(&self) -> String {
         String::new()
     }
