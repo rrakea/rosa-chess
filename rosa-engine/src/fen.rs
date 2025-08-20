@@ -1,4 +1,4 @@
-use crate::mv::mv_apply;
+use crate::make;
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 
@@ -81,8 +81,11 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
     let mut pos = pos::Pos::new(sq, active, is_ep, ep_file, w_castle, b_castle);
 
     for mv in moves {
-        let mv = Mv::from_str(mv, &pos);
-        pos = mv_apply::apply(&pos, &mv).expect("Applied move to position not legal");
+        let mut mv = Mv::new_from_str(mv, &pos);
+        let res = make::make(&mut pos, &mut mv, true);
+        if res {
+            panic!("Move not legal to make")
+        }
     }
 
     pos

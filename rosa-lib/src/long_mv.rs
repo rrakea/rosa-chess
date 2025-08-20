@@ -1,48 +1,4 @@
-use crate::piece::Piece;
 
-/*
-    If we encode moves as i32 we can use more flags
-    for move ordering purposes
-
-    Move ordering will just use the integer value, so
-    the more important flags should be represented as
-    large as possible
-
-    At the same time all the unmake flags should be
-    represented + as much make stuff we can pack in
-    The stuff that we have to save for unmake is:
-        - Castling rights (3 bits, maybe 4)
-        - Ep (Yes/no: 1 bit, File: 3 bits)
-        - Captured piece (3 bits - No king)
-        - Was prom
-
-    Ideas:
-    - Start + end sq
-    - Winning Capture
-    - Losing Capture
-    - Value in piece square table
-    - Check flag (very diffucult to do efficiently with
-        our setup)
-    -
-
-    0b0000_0000_0000_0000_0000_0000_0000_0000
-
-    >                                 xx xxxx Start sq
-    >                          xxxx xx        End sq
-    >                      xxx                Ep file
-    >                     x                   Is ep
-    >                xxxx                     Change castling rights
-    >           xxxx                          Prom piece
-    >    x xxxx                               Captured piece
-    >   x                                     Losing Cap
-    >  x                                      Winning cap
-    > x                                       Promotion
-
-    -> In this setup we would the top 8 bits for ordering
-    -> A cutoff would be trigger when the top 2 bits are flipped
-    -> There is quite some redundancie here if we something would be
-        more efficient for make/unmake
-*/
 const START: u32 = 0b_0000_0000_0000_0000_0000_0000_0011_1111;
 const END: u32 = 0b_0000_0000_0000_0000_0000_1111_1100_0000;
 const EP_FILE: u32 = 0b_0000_0000_0000_0000_0111_0000_0000_0000;
@@ -66,7 +22,11 @@ const BQ_CASTLE: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
 
 const CAP: u32 = 0b_0110_0000_0000_0000_0000_0000_0000_0000;
 
+<<<<<<< HEAD
 #[derive(PartialEq, PartialOrd, Eq, Ord)]
+=======
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+>>>>>>> e04039cec685c1a43c6b2cf9028b6b9517bda1dd
 pub struct LongMv(u32);
 
 impl LongMv {
@@ -143,12 +103,20 @@ impl LongMv {
         self.has(CAP)
     }
 
+    pub fn is_castle(&self) -> bool {
+        false
+    }
+
     pub fn is_prom(&self) -> bool {
         self.has(IS_PROM)
     }
 
     pub fn is_win_cap(&self) -> bool {
         self.has(WIN_CAP)
+    }
+
+    pub fn is_double(&self) -> bool {
+        false
     }
 
     pub fn is_lose_cap(&self) -> bool {
@@ -167,11 +135,19 @@ impl LongMv {
         (self.start(), self.end())
     }
 
+<<<<<<< HEAD
     pub fn ep_code(&self) -> u8 {
         ((self.val() | EP_FILE) >> EP_FILE_OFFSET) as u8
     }
 
     pub fn castle_changes(&self) -> (bool, bool, bool, bool) {
+=======
+    pub fn ep_file(&self) -> u8 {
+        0
+    }
+
+    pub fn old_castle_rights(&self) -> (bool, bool, bool, bool) {
+>>>>>>> e04039cec685c1a43c6b2cf9028b6b9517bda1dd
         (
             self.has(WK_CASTLE),
             self.has(WQ_CASTLE),
@@ -180,15 +156,46 @@ impl LongMv {
         )
     }
 
-    pub fn captured_piece(&self) -> Piece {
-        Piece::from_i8(((self.val() | CAP_PIECE) >> CAP_PIECE_OFFSET) as i8)
+    pub fn castle(&self) -> u8 {
+        0
     }
 
-    pub fn prom_piece(&self) -> Piece {
-        Piece::from_i8(((self.val() | PROM_PIECE) >> PROM_PIECE_OFFSET) as i8)
+    pub fn captured_piece(&self) -> i8 {
+        ((self.val() | CAP_PIECE) >> CAP_PIECE_OFFSET) as i8
+    }
+
+    pub fn prom_piece(&self) -> i8 {
+        ((self.val() | PROM_PIECE) >> PROM_PIECE_OFFSET) as i8
     }
 
     fn has(&self, mask: u32) -> bool {
         self.val() | mask > 0
     }
+
+    pub fn set_to_win_cap(&mut self) {
+        self.0 &= !LOSE_CAP;
+        self.0 |= WIN_CAP;
+    }
+
+    pub fn set_captured_piece(&mut self, piece: i8) {
+        match piece {
+            _ => (),
+        }
+    }
+
+    pub fn set_old_castling_right(&mut self, rights: (bool, bool, bool, bool)) {
+        if rights.0 {
+            self.0 &= !WK_CASTLE;
+        }
+        if rights.1 {
+            self.0 &= !WQ_CASTLE;
+        }
+        if rights.2 {
+            self.0 &= !BK_CASTLE;
+        }
+        if rights.3 {
+            self.0 &= !BQ_CASTLE;
+        }
+    }
 }
+

@@ -69,7 +69,9 @@ impl Pos {
             key: tt::Key::default(),
         };
         newp.gen_new_full();
-        newp.gen_new_data(is_ep, ep_file, w_castle, b_castle);
+        newp.gen_new_data(
+            is_ep, ep_file, w_castle.0, w_castle.1, b_castle.0, b_castle.1,
+        );
         newp.gen_new_key();
         newp
     }
@@ -113,6 +115,7 @@ impl Pos {
         } else {
             self.sq[sq as usize] = piece;
         }
+        self.full.toggle(sq);
         self.boards[calc_index(piece)].toggle(sq);
         self.key.piece(sq, piece);
     }
@@ -170,7 +173,7 @@ impl Pos {
         self.key = tt::Key::new(self)
     }
 
-    pub fn gen_new_full(&mut self) {
+    fn gen_new_full(&mut self) {
         let mut full = 0;
         for board in self.boards {
             full |= board.val();
@@ -182,8 +185,10 @@ impl Pos {
         &mut self,
         is_ep: bool,
         ep_file: u8,
-        w_castle: (bool, bool),
-        b_castle: (bool, bool),
+        wk_castle: bool,
+        wq_castle: bool,
+        bk_castle: bool,
+        bq_castle: bool,
     ) {
         // Unset the old ep key
         if self.is_en_passant() {
@@ -199,22 +204,22 @@ impl Pos {
 
         // Since we cant regain castling rights we only have to
         // unset the key if we previously had them
-        if w_castle.0 {
+        if wk_castle {
             data |= 0b0001_0000;
         } else if self.castling(1).0 {
             self.key.castle(1, true);
         }
-        if w_castle.1 {
+        if wq_castle {
             data |= 0b0010_0000;
         } else if self.castling(1).1 {
             self.key.castle(1, false);
         }
-        if b_castle.0 {
+        if bk_castle {
             data |= 0b0100_0000;
         } else if self.castling(-1).0 {
             self.key.castle(-1, true);
         }
-        if b_castle.1 {
+        if bq_castle {
             data |= 0b1000_0000;
         } else if self.castling(-1).1 {
             self.key.castle(-1, false);

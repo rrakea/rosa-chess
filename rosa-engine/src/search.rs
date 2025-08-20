@@ -1,5 +1,6 @@
 use crate::debug;
 use crate::eval::simple_eval;
+use crate::make::make;
 use crate::mv;
 
 use rosa_lib::mv::Mv;
@@ -29,7 +30,7 @@ pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>
     stop
 }
 
-pub fn search(p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
+pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
     // Iterative deepening
     let mut depth = 1;
     let mut score = 0;
@@ -43,7 +44,7 @@ pub fn search(p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
             break;
         }
 
-        score = negascout(&p, depth, i32::MIN + 1, i32::MAX - 1);
+        score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
 
         write_info(
             TT.get(&p.key()).mv,
@@ -87,7 +88,7 @@ static mut POS_COUNTER: u64 = 0;
 static mut BETA_PRUNE: u64 = 0;
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
-fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
+fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     // Search is done
     if depth == 0 {
         return simple_eval(p);
@@ -100,7 +101,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     }
 
     // Check the transposition table
-    let mut pv_move = Mv::null();
+    let mut pv_move = Mv::default();
     let mut replace_entry = false;
 
     {
@@ -157,7 +158,7 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     let mut node_type = tt::NodeType::Upper;
 
     // Iterator
-    let gen_mvs = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
+    let gen_mvs = mv::mv_gen::gen_mvs(p);
     let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(move |mv| *mv != pv_move);
     let mv_iter = std::iter::once(pv_move)
         .chain(ordered_mvs)
@@ -165,25 +166,23 @@ fn negascout(p: &pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
 
     let mut first_iteration = true;
     for m in mv_iter {
-        let outcome = mv::mv_apply::apply(p, &m);
-        let npos = match outcome {
-            Some(o) => o,
-            // Impossible move
-            None => continue,
-        };
+        let legal = make(p, &mut m, true);
+        if !legal {
+            continue;
+        }
 
         let mut score;
         if first_iteration {
             first_iteration = false;
             // Principle variation search
             // PV Node
-            score = -negascout(&npos, depth - 1, -beta, -alpha);
+            score = -negascout(p, depth - 1, -beta, -alpha);
         } else {
             // Null window search
-            score = -negascout(&npos, depth - 1, -alpha - 1, -alpha);
+            score = -negascout(p, depth - 1, -alpha - 1, -alpha);
             if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(&npos, depth - 1, -beta, -alpha);
+                score = -negascout(p, depth - 1, -beta, -alpha);
             }
         }
         if score > alpha {
@@ -239,7 +238,7 @@ fn write_info(best: Mv, depth: u8, time: u64, score: i32, write_best: bool) {
     }
 }
 
-pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
+pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     if depth == 0 {
         return 1;
     }
@@ -253,19 +252,18 @@ pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
 
     let mut count: u64 = 0;
     let mv_iter = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
-    for mv in mv_iter {
-        let npos = mv::mv_apply::apply(p, &mv);
-        let npos = match npos {
-            Some(n) => n,
-            None => continue,
-        };
-        count += counting_search(&npos, depth - 1);
+    for mut mv in mv_iter {
+        let legal = make(&mut p, &mut mv, true);
+        if !legal {
+            continue;
+        }
+        count += counting_search(p, depth - 1);
     }
 
     TT.set(tt::Entry {
         key: (p.key()),
         score: (count as i32),
-        mv: (Mv::null()),
+        mv: (Mv::default()),
         depth: (depth),
         node_type: (tt::NodeType::Exact),
     });
@@ -273,16 +271,12 @@ pub fn counting_search(p: &pos::Pos, depth: u8) -> u64 {
     count
 }
 
-pub fn division_search(p: &pos::Pos, depth: u8) {
+pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
-    for mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
-        let npos = mv::mv_apply::apply(p, &mv);
-        let npos = match npos {
-            Some(p) => p,
-            None => continue,
-        };
-        let count = counting_search(&npos, depth - 1);
+    for mut mv in mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null()) {
+        make(p, &mut mv, true);
+        let count = counting_search(p, depth - 1);
         total += count;
         println!("{}: {}", mv.notation(), count);
     }

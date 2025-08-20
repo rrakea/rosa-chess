@@ -1,5 +1,4 @@
 pub mod board;
-pub mod long_mv;
 pub mod eval_const;
 pub mod mv;
 pub mod piece;

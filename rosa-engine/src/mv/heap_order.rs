@@ -1,18 +1,18 @@
-use rosa_lib::long_mv::LongMv;
+use rosa_lib::mv::Mv;
 
 use std::collections::BinaryHeap;
 
 pub struct HeapOrder<I>
 where
-    I: Iterator<Item = LongMv>,
+    I: Iterator<Item = Mv>,
 {
     iter: I,
-    heap: BinaryHeap<LongMv>,
+    heap: BinaryHeap<Mv>,
 }
 
 pub fn order<I>(mv_iter: I) -> HeapOrder<I>
 where
-    I: Iterator<Item = LongMv>,
+    I: Iterator<Item = Mv>,
 {
     HeapOrder {
         iter: mv_iter,
@@ -22,21 +22,16 @@ where
 
 impl<I> Iterator for HeapOrder<I>
 where
-    I: Iterator<Item = LongMv>,
+    I: Iterator<Item = Mv>,
 {
-    type Item = LongMv;
+    type Item = Mv;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let LongMv = self.iter.next();
-            match LongMv {
+            let Mv = self.iter.next();
+            match Mv {
                 Some(m) => {
-                    if m.cutoff() {
-                        return Some(m);
-                    } else {
-                        self.heap.push(m);
-                        continue;
-                    }
+                    self.heap.push(m);
                 }
                 None => break,
             }

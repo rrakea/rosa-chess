@@ -1,178 +1,190 @@
-use crate::pos;
-use crate::util;
+use crate::pos::Pos;
 
-#[repr(u16)]
-#[derive(Debug, PartialEq)]
-pub enum MvFlag {
-    Quiet = 0,
-    Cap = 1,
-    WKCastle = 2,
-    WQCastle = 3,
-    BKCastle = 4,
-    BQCastle = 5,
-    DoubleP = 6,
-    Ep = 7,
-    NProm = 8,
-    BProm = 9,
-    RProm = 10,
-    QProm = 11,
-    NPromCap = 12,
-    BPromCap = 13,
-    RPromCap = 14,
-    QPromCap = 15,
+/*
+    If we encode moves as i32 we can use more flags
+    for move ordering purposes
+
+    Move ordering will just use the integer value, so
+    the more important flags should be represented as
+    large as possible
+
+    At the same time all the unmake flags should be
+    represented + as much make stuff we can pack in
+    The stuff that we have to save for unmake is:
+        - Castling rights (3 bits, maybe 4)
+        - Ep (Yes/no: 1 bit, File: 3 bits)
+        - Captured piece (3 bits - No king)
+        - Was prom
+
+    Ideas:
+    - Start + end sq
+    - Winning Capture
+    - Losing Capture
+    - Value in piece square table
+    - Check flag (very diffucult to do efficiently with
+        our setup)
+    -
+
+    0b0000_0000_0000_0000_0000_0000_0000_0000
+
+    >                                 xx xxxx Start sq
+    >                          xxxx xx        End sq
+    >                      xxx                Ep file
+    >                     x                   Is ep
+    >                xxxx                     Changes in castling rights
+    >             xx                          Which castle
+    >            x                            Is castle
+    >           x                             Is double pawn
+    >        xx                               Prom piece
+    >    x xx                                 Captured piece
+    >   x                                     Losing Cap
+    >  x                                      Winning cap
+    > x                                       Promotion
+
+    -> In this setup we would the top 8 bits for ordering
+    -> A cutoff would be trigger when the top 2 bits are flipped
+    -> There is quite some redundancie here if we something would be
+        more efficient for make/unmake
+
+    Forced: => 20
+    Start: 6
+    End: 6
+    Old castle rights: 4
+    Old is ep: 1
+    Old ep file: 3
+
+    Mutually Exclusive flags: => 2
+    Ep, Prom, Castle, Double -> 2 bits
+
+    Data for flags: => 2
+    Ep: 1
+    Prom: 2
+    Castle: 2
+    Double: 0
+
+    Left: Is_cap, cap_piece, cap_prio -> 8 bits left
+    Is Cap: 1
+    Is win: 1
+    Prio upgrade: 3 ( also capped piece)
+
+
+    On en passant:
+        make needs to know if a mv was ep
+        to delecte a pawn from the correct sq
+        -> set in move gen
+
+        make needs to know if a mv was double
+        to set the ep square in pos
+        -> set in move gen
+        (you could also deduce this potentially)
+
+        unmake needs to know about the pos before
+
+        };
+        if it was a double and if yes where to set
+        the correct ep in the prev position
+        -> need to set this in make
+
+        unmake also needs to know if the move was an ep,
+        since you have to shift the reappearing pawn
+        -> set in make
+*/
+
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Mv(u32);
+
+pub enum Castle {
+    WK,
+    WQ,
+    BK,
+    BQ,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Ord, PartialOrd)]
-pub struct Mv(u16);
+pub enum Special {
+    DOUBLE,
+    EP,
+    PROM,
+    CASTLE,
+    NULL,
+}
 
 impl Mv {
-    pub fn new(start: u8, end: u8, flag: MvFlag) -> Mv {
-        Mv(start as u16 | (end as u16) << 6 | (flag as u16) << 12)
-    }
-
-    pub fn from_str(mv_str: &str, p: &pos::Pos) -> Mv {
-        let start = util::square_num(&mv_str[..2]);
-        let end = util::square_num(&mv_str[2..4]);
-        let mut flag = MvFlag::Quiet;
-        let piece = p.piece_at_sq(start);
-        let op_piece = p.piece_at_sq(end);
-        let mv_diff = (end - start) as i8 * p.active;
-
-        if op_piece != 0 {
-            flag = MvFlag::Cap;
-        }
-
-        if piece == pos::PAWN * p.active && (util::rank(end) == 0 || util::rank(end) == 7) {
-            let prom_piece = mv_str
-                .chars()
-                .nth(4)
-                .expect("Promotion does not specify piece");
-            if op_piece != 0 {
-                flag = match prom_piece {
-                    'q' => MvFlag::QPromCap,
-                    'n' => MvFlag::NPromCap,
-                    'b' => MvFlag::BPromCap,
-                    'r' => MvFlag::RPromCap,
-                    _ => panic!("Promotion piece not valid"),
-                };
-            } else {
-                flag = match prom_piece {
-                    'q' => MvFlag::QProm,
-                    'n' => MvFlag::NProm,
-                    'b' => MvFlag::BProm,
-                    'r' => MvFlag::RProm,
-                    _ => panic!("Promotion piece not valid"),
-                };
-            }
-        }
-
-        if piece == pos::PAWN * p.active {
-            if mv_diff == 16 {
-                flag = MvFlag::DoubleP;
-            } else if op_piece == 0 && (mv_diff == 7 || mv_diff == 9) {
-                flag = MvFlag::Ep;
-            }
-        }
-
-        if piece == pos::KING * p.active {
-            match (p.active, mv_diff) {
-                (1, 2) => flag = MvFlag::WKCastle,
-                (1, -2) => flag = MvFlag::WQCastle,
-                (-1, 2) => flag = MvFlag::BKCastle,
-                (-1, -2) => flag = MvFlag::BQCastle,
-                _ => (),
-            };
-        }
-
-        Mv::new(start, end, flag)
-    }
-
-    // Determins if we immediatly return this move while move ordering
-    // or if we continue searching
-    pub fn cutoff(&self) -> bool {
-        false
-    }
-
-    pub fn null() -> Mv {
+    pub fn new_def(start: u8, end: u8, is_cap: bool) -> Mv {
         Mv(0)
     }
 
-    pub fn squares(&self) -> (u8, u8) {
-        (self.start(), self.end())
+    pub fn new_prom(start: u8, end: u8, is_cap: bool, piece: i8) -> Mv {
+        Mv(0)
     }
 
-    pub fn start(&self) -> u8 {
-        (self.0 & 0b0000_0000_0011_1111) as u8
+    pub fn new_castle(castle_type: Castle) -> Mv {
+        Mv(0)
     }
-
-    pub fn end(&self) -> u8 {
-        ((self.0 & 0b0000_1111_1100_0000) >> 6) as u8
+    pub fn new_ep(start: u8, end: u8) -> Mv {
+        Mv(0)
     }
-
-    pub fn flag(&self) -> MvFlag {
-        unsafe { std::mem::transmute(self.0 >> 12) }
+    pub fn new_double(start: u8, end: u8) -> Mv {
+        Mv(0)
+    }
+    pub fn new_from_str(str: &str, p: &Pos) -> Mv {
+        Mv(0)
     }
 
     pub fn is_null(&self) -> bool {
-        self.start() == self.end()
+        true
+    }
+
+    pub fn sq(&self) -> (u8, u8) {
+        (0, 0)
+    }
+    pub fn is_prom(&self) -> bool {
+        true
     }
 
     pub fn is_cap(&self) -> bool {
-        match self.flag() {
-            MvFlag::Cap
-            | MvFlag::Ep
-            | MvFlag::NPromCap
-            | MvFlag::BPromCap
-            | MvFlag::RPromCap
-            | MvFlag::QPromCap => true,
-            _ => false,
-        }
+        true
     }
-
-    pub fn is_prom(&self) -> bool {
-        match self.flag() {
-            MvFlag::NProm
-            | MvFlag::BProm
-            | MvFlag::RProm
-            | MvFlag::QProm
-            | MvFlag::NPromCap
-            | MvFlag::BPromCap
-            | MvFlag::RPromCap
-            | MvFlag::QPromCap => true,
-            _ => false,
-        }
+    pub fn old_is_ep(&self) -> bool {
+        true
     }
-
-    pub fn is_castle(&self) -> bool {
-        match self.flag() {
-            MvFlag::WKCastle | MvFlag::WQCastle | MvFlag::BKCastle | MvFlag::BQCastle => true,
-            _ => false,
-        }
+    pub fn set_old_is_ep(&self, was: bool) {}
+    pub fn is_double(&self) -> bool {
+        true
     }
-
     pub fn is_ep(&self) -> bool {
-        self.flag() == MvFlag::Ep
+        true
+    }
+    pub fn is_castle(&self) -> bool {
+        true
+    }
+    pub fn castle(&self) -> Castle {
+        Castle::WK
+    }
+    pub fn prom_piece(&self) -> i8 {
+        0
+    }
+    pub fn special(&self) -> Special {
+        Special::NULL
+    }
+
+    pub fn captured_piece(&self) -> i8 {
+        0
+    }
+    pub fn set_captured_piece(&self, piece: i8) {}
+    pub fn set_old_castle_rights(&self, rights: (bool, bool, bool, bool)) {}
+    pub fn old_castle_rights(&self, color: i8) -> (bool, bool) {
+        (true, true)
+    }
+    pub fn old_ep_file(&self) -> u8 {
+        0
+    }
+    pub fn set_is_ep(&self, is: bool) {}
+    pub fn set_old_ep_file(&self, file: u8) {}
+    pub fn prittify(&self) -> String {
+        String::new()
     }
 
     pub fn notation(&self) -> String {
-        let (start, end) = self.squares();
-        let start = util::square_name(start);
-        let end = util::square_name(end);
-
-        let mut prom_str = "";
-        if self.is_prom() {
-            prom_str = match self.flag() {
-                MvFlag::QProm | MvFlag::QPromCap => "q",
-                MvFlag::RProm | MvFlag::RPromCap => "r",
-                MvFlag::BProm | MvFlag::BPromCap => "b",
-                MvFlag::NProm | MvFlag::NPromCap => "n",
-                _ => "",
-            }
-        }
-        start + end.as_str() + prom_str
-    }
-
-    pub fn prittify(&self) -> String {
-        format!("{}, {:?}", self.notation(), self.flag())
+        String::new()
     }
 }
