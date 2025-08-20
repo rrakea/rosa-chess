@@ -66,6 +66,7 @@ const BQ_CASTLE: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
 
 const CAP: u32 = 0b_0110_0000_0000_0000_0000_0000_0000_0000;
 
+#[derive(PartialEq, PartialOrd, Eq, Ord)]
 pub struct LongMv(u32);
 
 impl LongMv {
@@ -164,6 +165,10 @@ impl LongMv {
 
     pub fn sq(&self) -> (u8, u8) {
         (self.start(), self.end())
+    }
+
+    pub fn ep_code(&self) -> u8 {
+        ((self.val() | EP_FILE) >> EP_FILE_OFFSET) as u8
     }
 
     pub fn castle_changes(&self) -> (bool, bool, bool, bool) {
