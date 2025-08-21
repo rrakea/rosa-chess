@@ -2,6 +2,7 @@ use crate::debug;
 use crate::eval::simple_eval;
 use crate::make::make;
 use crate::mv;
+use crate::mv::mv_order::order_mvs;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
@@ -158,14 +159,16 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     let mut node_type = tt::NodeType::Upper;
 
     // Iterator
-    let gen_mvs = mv::mv_gen::gen_mvs(p);
-    let ordered_mvs = mv::mv_order::order_mvs(gen_mvs).filter(move |mv| *mv != pv_move);
+    let gen_mvs = mv::mv_gen::gen_mvs(p)
+        .order_mvs(gen_mvs)
+        .filter(move |mv| *mv != pv_move);
+
     let mv_iter = std::iter::once(pv_move)
         .chain(ordered_mvs)
         .filter(|mv| !mv.is_null());
 
     let mut first_iteration = true;
-    for m in mv_iter {
+    for mut m in mv_iter {
         let legal = make(p, &mut m, true);
         if !legal {
             continue;
@@ -253,7 +256,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     let mut count: u64 = 0;
     let mv_iter = mv::mv_gen::gen_mvs(p).filter(|mv| !mv.is_null());
     for mut mv in mv_iter {
-        let legal = make(&mut p, &mut mv, true);
+        let legal = make(p, &mut mv, true);
         if !legal {
             continue;
         }

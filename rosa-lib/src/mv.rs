@@ -159,6 +159,7 @@ impl Mv {
     pub fn captured_piece(&self, capturer: i8) -> i8 {
         let offset = self.0 >> CAP_OFFSET_OFFSET;
         let capturer = i8::abs(capturer);
+        0
     }
 
     pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {

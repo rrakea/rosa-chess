@@ -110,7 +110,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
 
     // cap after special since you need to move the end with ep
     if mv.is_cap() {
-        p.piece_toggle(mv.captured_piece(), end);
+        p.piece_toggle(mv.captured_piece(piece), end);
     }
 
     if make {
