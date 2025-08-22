@@ -57,8 +57,6 @@ const CAP_OFFSET_OFFSET: u32 = 28;
     => A pawn capturing a knight is a +1, a rook +2 and a queen +3
     The extreme values are -5 for qxp and +5 pxq
     Q, R, B, N, K, P
-    There also needs to be a capture flag, since we cant know
-    if it is a pxp or just a quiet move else
 */
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -128,7 +126,7 @@ impl Mv {
     }
 
     pub fn old_is_ep(&self) -> bool {
-        (self.0 | OLD_IS_EP) != 0
+        (self.0 & OLD_IS_EP) != 0
     }
 
     pub fn set_old_is_ep(&mut self) {
@@ -182,9 +180,9 @@ impl Mv {
 
     pub fn old_castle_rights(&self, color: i8) -> (bool, bool) {
         if color == 1 {
-            (self.0 | WKC > 0, self.0 | WQC > 0)
+            (self.0 & WKC > 0, self.0 & WQC > 0)
         } else {
-            (self.0 | BKC > 0, self.0 | BQC > 0)
+            (self.0 & BKC > 0, self.0 & BQC > 0)
         }
     }
 
@@ -203,4 +201,10 @@ impl Mv {
     pub fn notation(&self) -> String {
         String::new()
     }
+}
+
+fn attacker_index(attack: i8, victim: i8) -> u8{
+    let attack = i8::abs(attack);
+    let victim = i8::abs(victim);
+    
 }

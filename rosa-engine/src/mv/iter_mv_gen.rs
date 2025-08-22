@@ -1,49 +1,74 @@
 use super::constants;
 use super::magic;
 
+use std::iter;
+
 use rosa_lib::board::Board;
-use rosa_lib::mv::Mv;
-use rosa_lib::pos::{self, Pos};
+use rosa_lib::mv::*;
+use rosa_lib::pos;
+use rosa_lib::pos::Pos;
 use rosa_lib::util;
 
-pub fn gen_mvs(p: &Pos) -> Vec<Mv> {
-    // 35 is an average amount of moves to expect in a position
-    let mut mv_vec = Vec::with_capacity(35);
-    gen_piece_mvs(p, &mut mv_vec, pos::QUEEN, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::QUEEN, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::ROOK, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::BISHOP, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::KNIGHT, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::KING, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::PAWN, true, false);
-    gen_piece_mvs(p, &mut mv_vec, pos::PAWN, false, true);
-    gen_castle(p);
-    gen_pawn_double(p);
-    gen_ep(p);
-    mv_vec
+/*
+        
+*/
+
+// This generates pseudo legal moves
+// i.e. moves that could leave the king in check
+// (It does check if castles are legal)
+// The Moves are ordered roughly in the order of how good they are
+// More precise ordering is inside mv_order
+// This is more for ordering inside the categories/ ordering the
+// large amount of non remarkable moves
+// This can contain null moves, which have to be filtered out later
+pub fn gen_mvs(p: &Pos) -> impl Iterator<Item = Mv> {
+    (promotions(p))
+        // Cap Pawn moves
+        .chain(gen_piece_mvs(p, pos::PAWN, true, false))
+        .chain(gen_ep(p))
+        .chain(gen_piece_mvs(p, pos::QUEEN, true, true))
+        .chain(gen_piece_mvs(p, pos::ROOK, true, true))
+        .chain(gen_piece_mvs(p, pos::BISHOP, true, true))
+        .chain(gen_piece_mvs(p, pos::KNIGHT, true, true))
+        .chain(gen_castle(p))
+        .chain(gen_piece_mvs(p, pos::KING, true, true))
+        .chain(gen_pawn_double(p))
+        // Queit Pawn moves
+        .chain(gen_piece_mvs(p, pos::PAWN, false, true))
 }
 
-pub fn gen_caps(p: &Pos) -> Vec<Mv> {
-    let mut mv_vec = Vec::with_capacity(10);
-    mv_vec
-}
-
-pub fn gen_piece_mvs(p: &Pos, mv_vec: &mut Vec<Mv>, mut piece: i8, can_cap: bool, can_quiet: bool) {
+// The main function, that does all the work
+// It recieves the positions, and the relevant piece.
+// This function tries to be as lazy as possible
+// i.e. it lazily goes over every square and lazily generates
+// all the possible moves from that square
+// since this is likely to be broken off early due to pruning
+fn gen_piece_mvs(
+    p: &Pos,
+    mut piece: i8,
+    can_cap: bool,
+    can_quiet: bool,
+) -> impl Iterator<Item = Mv> {
     piece *= p.active;
     let piece_positions = p.piece(piece).get_ones();
-    for sq in piece_positions {
-        let possible_moves = get_movemask(p, piece, sq, can_cap);
-        for end_square in possible_moves.get_ones() {
+    piece_positions.into_iter().flat_map(move |sq| {
+        let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
+        possible_moves.into_iter().map(move |end_square| {
             let victim = p.piece_at_sq(end_square);
             if can_quiet && victim == 0 {
-                mv_vec.push(Mv::new_quiet(sq, end_square));
+                Mv::new_quiet(sq, end_square)
             } else if can_cap && victim != 0 && util::dif_colors(p.active, victim) {
-                mv_vec.push(Mv::new_cap(sq, end_square, piece, victim));
+                Mv::new_cap(sq, end_square, piece, victim)
+            } else {
+                Mv::default()
             }
-        }
-    }
+        })
+    })
 }
 
+// Gets a movemask for the piece and sq
+// A Board where all the squares a piece could move from the sq
+// are flipped to 1
 fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
     let raw_board = match piece {
         pos::KING | pos::BKING | pos::KNIGHT | pos::BKNIGHT => constants::get_mask(piece, sq),
@@ -55,6 +80,54 @@ fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
         _ => panic!("Invalid piece in call: {}", piece),
     };
     Board::new(raw_board)
+}
+
+fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
+    let rank = if p.active == 1 { 6 } else { 1 };
+    let pawn_bb = p.piece(pos::PAWN * p.active);
+    // Only pawns that are on the last rank
+    let relevant_rank = Board::new(pawn_bb.val() & constants::RANK_MASKS[rank]);
+    let start_sqs = relevant_rank.get_ones();
+    start_sqs.into_iter().flat_map(|start_sq| {
+        let end_quiet = (start_sq as i8 + 8 * p.active) as u8;
+        let cap_right = (start_sq as i8 + 9 * p.active) as u8;
+        let right_victim = p.piece_at_sq(cap_right);
+        let cap_left = (start_sq as i8 + 7 * p.active) as u8;
+        let left_victim = p.piece_at_sq(cap_left);
+
+        let can_quiet = p.piece_at_sq(end_quiet) == 0;
+        let can_cap_left = util::no_wrap(start_sq, cap_left)
+            && p.piece_at_sq(cap_left) != 0
+            && util::dif_colors(p.piece_at_sq(cap_left), p.piece_at_sq(start_sq));
+        let can_cap_right = util::no_wrap(start_sq, cap_right)
+            && p.piece_at_sq(cap_right) != 0
+            && util::dif_colors(p.piece_at_sq(cap_right), p.piece_at_sq(start_sq));
+     
+        iter::empty()
+            .chain(promotion_helper(start_sq, end_quiet, false, 0, can_quiet))
+            .chain(promotion_helper(start_sq, cap_left, true, left_victim, can_cap_left))
+            .chain(promotion_helper(start_sq, cap_right, true, right_victim, can_cap_right))
+    })
+}
+
+fn promotion_helper(start: u8, end: u8, is_cap: bool, victim: i8, legal: bool) -> impl Iterator<Item = Mv> {
+    if !legal {
+        return Vec::new().into_iter();
+    }
+
+    let mut mv = Vec::with_capacity(4);
+    if is_cap {
+        mv.push(Mv::new_prom(start, end, true, pos::BISHOP, victim));
+        mv.push(Mv::new_prom(start, end, true, pos::KNIGHT, victim));
+        mv.push(Mv::new_prom(start, end, true, pos::ROOK, victim));
+        mv.push(Mv::new_prom(start, end, true, pos::PAWN, victim));
+    } else {
+        mv.push(Mv::new_prom(start, end, false, pos::BISHOP, victim));
+        mv.push(Mv::new_prom(start, end, false, pos::KNIGHT, victim));
+        mv.push(Mv::new_prom(start, end, false, pos::ROOK, victim));
+        mv.push(Mv::new_prom(start, end, false, pos::PAWN, victim));
+    }
+    mv.into_iter()
 }
 
 fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
@@ -136,6 +209,9 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
     // etc in this we cant really do it better
     mv.into_iter()
 }
+
+// We could almost optimize this, but sadly we have to check whether there is
+// a piece in between
 fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
     let bb = p.piece(pos::PAWN * p.active);
     let rank = if p.active == 1 { 1 } else { 6 };

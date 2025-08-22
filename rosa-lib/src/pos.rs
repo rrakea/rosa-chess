@@ -17,14 +17,11 @@ pub const BROOK: i8 = -4;
 pub const BQUEEN: i8 = -5;
 pub const BKING: i8 = -6;
 
-pub const PIECE_VAL_ARRAY: [i8; 12] = [
-    PAWN, BISHOP, KNIGHT, ROOK, QUEEN, KING, BPAWN, BBISHOP, BKNIGHT, BROOK, BQUEEN, BKING,
-];
-
 #[derive(Clone, Debug)]
 pub struct Pos {
     // Bitboard centric layout
     // The boardarray is build like this:
+
     // 0 -> wpawn, 1 -> wbishop..
     // 6 -> bpawn, 7 -> bbishop..
     boards: [Board; 12],
@@ -235,11 +232,5 @@ fn calc_index(piece: i8) -> usize {
     }
     // Since our pieces start at 1 but the array at 0
     index -= 1;
-    if index < 0 || index >= 12 {
-        panic!(
-            "Wrong index in calc_index(), index: {}, piece: {}",
-            index, piece
-        );
-    }
     index as usize
 }

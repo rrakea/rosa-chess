@@ -20,6 +20,7 @@ pub fn eval(p: &pos::Pos) -> i32 {
 
     let endgame = w_endgame && b_endgame;
 
+    /*
     for piece in pos::PIECE_VAL_ARRAY {
         for sq in p.piece(piece).get_ones() {
             // Same color
@@ -30,6 +31,7 @@ pub fn eval(p: &pos::Pos) -> i32 {
             }
         }
     }
+    */
 
     eval
 }
