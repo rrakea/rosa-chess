@@ -1,21 +1,7 @@
-use crate::{board::Board, tt};
-// Iternal representation of the current position.
-// Using a hybrid approach of both bitboards and square centric
-
-// w/b for color & p/n/b/r/q/k for the pieces using the common abbreviations
-pub const PAWN: i8 = 1;
-pub const BISHOP: i8 = 2;
-pub const KNIGHT: i8 = 3;
-pub const ROOK: i8 = 4;
-pub const QUEEN: i8 = 5;
-pub const KING: i8 = 6;
-
-pub const BPAWN: i8 = -1;
-pub const BBISHOP: i8 = -2;
-pub const BKNIGHT: i8 = -3;
-pub const BROOK: i8 = -4;
-pub const BQUEEN: i8 = -5;
-pub const BKING: i8 = -6;
+use crate::board::Board;
+use crate::clr::Clr;
+use crate::piece::{Piece, PieceNull};
+use crate::tt;
 
 #[derive(Clone, Debug)]
 pub struct Pos {
@@ -30,7 +16,7 @@ pub struct Pos {
 
     // Square centric representation
     // Using the consts defined above
-    sq: [i8; 64],
+    sq: [PieceNull; 64],
 
     key: tt::Key,
 
@@ -39,13 +25,13 @@ pub struct Pos {
     data: u8,
 
     // Active player (1 -> white; -1 -> black)
-    pub active: i8,
+    pub active: Clr,
 }
 
 impl Pos {
     pub fn new(
-        sq: [i8; 64],
-        active: i8,
+        sq: [PieceNull; 64],
+        active: Clr,
         is_ep: bool,
         ep_file: u8,
         w_castle: (bool, bool),
@@ -53,10 +39,12 @@ impl Pos {
     ) -> Pos {
         let mut boards = [Board::new(0); 12];
         for (sq, piece) in sq.into_iter().enumerate() {
-            if piece != 0 {
-                boards[calc_index(piece)].toggle(sq as u8);
+            match piece {
+                PieceNull::Piece(p) => boards[calc_index(p)].toggle(sq as u8),
+                PieceNull::Null => (),
             }
         }
+
         let mut newp = Pos {
             boards,
             sq,
@@ -86,27 +74,24 @@ impl Pos {
     }
 
     // -> kingside, queenside
-    pub fn castling(&self, color: i8) -> (bool, bool) {
-        if color == 1 {
+    pub fn castling(&self, clr: Clr) -> (bool, bool) {
+        if clr.is_white() {
             (self.data & 0b0001_0000 > 0, self.data & 0b0010_0000 > 0)
         } else {
             (self.data & 0b0100_0000 > 0, self.data & 0b1000_0000 > 0)
         }
     }
 
-    pub fn piece(&self, piece: i8) -> &Board {
+    pub fn piece(&self, piece: Piece) -> &Board {
         let index = calc_index(piece);
         &self.boards[index]
     }
 
-    pub fn piece_at_sq(&self, sq: u8) -> i8 {
+    pub fn piece_at_sq(&self, sq: u8) -> PieceNull {
         self.sq[sq as usize]
     }
 
-    pub fn piece_toggle(&mut self, piece: i8, sq: u8) {
-        if piece == 0 {
-            return;
-        }
+    pub fn piece_toggle(&mut self, piece: Piece, sq: u8) {
         if self.sq[sq as usize] == piece {
             self.sq[sq as usize] = 0;
         } else {
@@ -225,7 +210,10 @@ impl Pos {
     }
 }
 
-fn calc_index(piece: i8) -> usize {
+fn calc_index(piece: Piece) -> usize {
+    if piece.is_null() {
+        return 0;
+    }
     let mut index = piece;
     if index < 0 {
         index = -index + 6;

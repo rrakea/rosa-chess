@@ -1,5 +1,4 @@
-use crate::pos::Pos;
-use crate::util;
+use crate::pos::{self, Pos};
 
 /*
     Move encoding as u32
@@ -89,11 +88,24 @@ impl Mv {
     pub fn new_cap(start: u8, end: u8, capturer: i8, victim: i8) -> Mv {
         let mut mv = Mv::new_quiet(start, end);
         mv.set_flag(Flag::Cap);
+        let attacker = cap_repr(capturer, victim);
+        mv.0 |= attacker << CAP_OFFSET_OFFSET;
         mv
     }
 
     pub fn new_prom(start: u8, end: u8, is_cap: bool, piece: i8, victim: i8) -> Mv {
-        Mv(0)
+        let mut mv = if is_cap {
+            let mut mv = Mv::new_cap(start, end, pos::PAWN, victim);
+            mv.set_flag(Flag::PromCap);
+            mv
+        } else {
+            let mut mv = Mv::new_quiet(start, end);
+            mv.set_flag(Flag::Prom);
+            mv
+        };
+        let prom_piece = prom_repr(piece);
+        mv.0 |= prom_piece << PROM_OFFSET;
+        mv
     }
 
     pub fn new_castle(castle_type: u8) -> Mv {
@@ -101,11 +113,17 @@ impl Mv {
     }
 
     pub fn new_ep(start: u8, end: u8) -> Mv {
-        Mv(0)
+        let mut mv = Mv::new_cap(start, end, pos::PAWN, pos::PAWN);
+        mv.set_flag(Flag::Ep);
+        mv
     }
+
     pub fn new_double(start: u8, end: u8) -> Mv {
-        Mv(0)
+        let mut mv = Mv::new_quiet(start, end);
+        mv.set_flag(Flag::Double);
+        mv
     }
+
     pub fn new_from_str(str: &str, p: &Pos) -> Mv {
         Mv(0)
     }
@@ -201,12 +219,16 @@ impl Mv {
 
     pub fn notation(&self) -> String {
         let (start, end) = self.sq();
-        let util::file
+        String::new()
     }
 }
 
-fn attacker_index(attack: i8, victim: i8) -> u8{
+fn cap_repr(attack: i8, victim: i8) -> u32 {
     let attack = i8::abs(attack);
     let victim = i8::abs(victim);
-    
+    0
+}
+
+fn prom_repr(piece: i8) -> u32 {
+    (i8::abs(piece) - 1) as u32
 }

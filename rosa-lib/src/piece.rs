@@ -1,7 +1,7 @@
 use super::clr::Clr;
 
 #[repr(i8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum Piece {
     WPawn = 1,
     WKnight = 2,
@@ -18,22 +18,10 @@ pub enum Piece {
     BKing = -6,
 }
 
-#[repr(i8)]
-#[derive(Clone, Copy)]
-pub enum Piece2 {
-    WPawn(bool),
-    WKnight(bool),
-    WBishop(bool),
-    WRook(bool),
-    WQueen(bool),
-    WKing(bool),
-
-    BPawn(bool),
-    BKnight(bool),
-    BBishop(bool),
-    BRook(bool),
-    BQueen(bool),
-    BKing(bool),
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq)]
+pub enum PieceNull {
+    Null,
+    Piece(Piece)
 }
 
 impl Piece {
@@ -56,7 +44,6 @@ impl Piece {
     }
 
     pub fn clr(&self) -> Clr {
-        println!("{}", std::mem::size_of::<Piece>());
         if self.val() > 0 {
             Clr::white()
         } else {
@@ -64,13 +51,19 @@ impl Piece {
         }
     }
 
-    pub fn to_clr(&mut self, clr: Clr) -> Piece {
-        let res = match (clr.content(), self.clr().content()) {
-            (true, true) => self.val(),
-            (false, false) => self.val(),
-            (true, false) => -self.val(),
-            (false, true) => -self.val(),
-        };
-        Piece::from_i8(res)
+    pub fn to_clr(&self, clr: Clr) -> Piece {
+        if clr != self.clr() {
+            Piece::from_i8(-self.val())
+        } else {
+            *self
+        }
+    }
+
+    pub fn norm(&self) -> Piece {
+        self.to_clr(Clr::white())
+    }
+
+    pub fn is_null(&self) -> bool {
+        *self != Piece::Null
     }
 }

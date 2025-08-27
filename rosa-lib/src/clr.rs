@@ -1,11 +1,12 @@
+#[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Debug)]
 pub struct Clr(bool);
 
 impl Clr {
-    pub fn content(&self) -> bool {
+    pub fn as_bool(&self) -> bool {
         self.0
     }
 
-    pub fn val(&self) -> i8 {
+    pub fn as_i8(&self) -> i8 {
         match self.0 {
             true => -1,
             false => 1,
@@ -19,4 +20,12 @@ impl Clr {
     pub fn black() -> Clr {
         Clr(false)
     }
-}
+
+    pub fn is_white(&self) -> bool {
+        self.0
+    }
+
+    pub fn is_black(&self) -> bool {
+        !self.0
+    }
+ }

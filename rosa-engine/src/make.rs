@@ -47,7 +47,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
     }
 
     match mv.flag() {
-        Flag::DOUBLE => {
+        Flag::Double => {
             if make {
                 is_ep = true;
                 ep_file = util::file(end);
@@ -57,7 +57,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        Flag::EP => {
+        Flag::Ep => {
             end = match color {
                 1 => end - 8,
                 -1 => end + 8,
@@ -65,12 +65,12 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        Flag::PROM => {
+        Flag::Prom => {
             let prom_piece = mv.prom_piece();
             p.piece_toggle(prom_piece, end);
         }
 
-        Flag::CASTLE => {
+        Flag::PromCap => {
             match mv.castle() {
                 Castle::WK => {
                     p.piece_toggle(pos::ROOK, BOTTOM_RIGHT_SQ);

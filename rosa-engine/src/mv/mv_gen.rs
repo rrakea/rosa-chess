@@ -6,29 +6,26 @@ use rosa_lib::mv::Mv;
 use rosa_lib::pos::{self, Pos};
 use rosa_lib::util;
 
-pub fn gen_mvs(p: &Pos) -> Vec<Mv> {
+use std::collections::BinaryHeap;
+
+pub fn gen_mvs(p: &Pos) -> BinaryHeap<Mv> {
     // 35 is an average amount of moves to expect in a position
-    let mut mv_vec = Vec::with_capacity(35);
-    gen_piece_mvs(p, &mut mv_vec, pos::QUEEN, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::QUEEN, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::ROOK, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::BISHOP, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::KNIGHT, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::KING, true, true);
-    gen_piece_mvs(p, &mut mv_vec, pos::PAWN, true, false);
-    gen_piece_mvs(p, &mut mv_vec, pos::PAWN, false, true);
-    gen_castle(p);
-    gen_pawn_double(p);
-    gen_ep(p);
-    mv_vec
+    let mut mvs = BinaryHeap::with_capacity(35);
+    gen_piece_mvs(p, &mut mvs, pos::QUEEN, true, true);
+    gen_piece_mvs(p, &mut mvs, pos::QUEEN, true, true);
+    gen_piece_mvs(p, &mut mvs, pos::ROOK, true, true);
+    gen_piece_mvs(p, &mut mvs, pos::BISHOP, true, true);
+    gen_piece_mvs(p, &mut mvs, pos::KNIGHT, true, true);
+    gen_piece_mvs(p, &mut mvs, pos::KING, true, true);
+    gen_piece_mvs(p, &mut mvs, pos::PAWN, true, false);
+    gen_piece_mvs(p, &mut mvs, pos::PAWN, false, true);
+    gen_castle(p, &mut mvs);
+    gen_pawn_double(p, &mut mvs);
+    gen_ep(p, &mut mvs);
+    mvs
 }
 
-pub fn gen_caps(p: &Pos) -> Vec<Mv> {
-    let mut mv_vec = Vec::with_capacity(10);
-    mv_vec
-}
-
-pub fn gen_piece_mvs(p: &Pos, mv_vec: &mut Vec<Mv>, mut piece: i8, can_cap: bool, can_quiet: bool) {
+pub fn gen_piece_mvs(p: &Pos, mvs: &mut BinaryHeap<Mv>, mut piece: i8, can_cap: bool, can_quiet: bool) {
     piece *= p.active;
     let piece_positions = p.piece(piece).get_ones();
     for sq in piece_positions {
@@ -36,9 +33,9 @@ pub fn gen_piece_mvs(p: &Pos, mv_vec: &mut Vec<Mv>, mut piece: i8, can_cap: bool
         for end_square in possible_moves.get_ones() {
             let victim = p.piece_at_sq(end_square);
             if can_quiet && victim == 0 {
-                mv_vec.push(Mv::new_quiet(sq, end_square));
+                mvs.push(Mv::new_quiet(sq, end_square));
             } else if can_cap && victim != 0 && util::dif_colors(p.active, victim) {
-                mv_vec.push(Mv::new_cap(sq, end_square, piece, victim));
+                mvs.push(Mv::new_cap(sq, end_square, piece, victim));
             }
         }
     }
@@ -57,11 +54,9 @@ fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
     Board::new(raw_board)
 }
 
-fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
-    let mut mv = Vec::new();
-
+fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     if !p.is_en_passant() {
-        return mv.into_iter();
+        return;
     }
 
     let file = p.en_passant_file() as i8;
@@ -82,22 +77,18 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
         && p.piece_at_sq(left as u8) == pos::PAWN * p.active
         && util::no_wrap(left as u8, end as u8)
     {
-        mv.push(Mv::new_ep(left as u8, end as u8));
+        mvs.push(Mv::new_ep(left as u8, end as u8));
     }
 
     if (0..64).contains(&right)
         && p.piece_at_sq(right as u8) == pos::PAWN * p.active
         && util::no_wrap(right as u8, end as u8)
     {
-        mv.push(Mv::new_ep(right as u8, end as u8));
+        mvs.push(Mv::new_ep(right as u8, end as u8));
     }
-
-    mv.into_iter()
 }
 
-fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
-    let mut mv = Vec::new();
-
+fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let can_castle = p.castling(p.active);
     let king_bb = p.piece(pos::KING * p.active);
     let king_pos = king_bb.get_ones_single();
@@ -112,9 +103,9 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
         && square_not_attacked(p, king_pos + 1, -p.active)
     {
         if p.active == 1 {
-            mv.push(Mv::new_castle(Castle::WK));
+            mvs.push(Mv::new_castle(0));
         } else {
-            mv.push(Mv::new_castle(Castle::BK));
+            mvs.push(Mv::new_castle(2));
         };
     }
 
@@ -127,31 +118,27 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
         && square_not_attacked(p, king_pos - 1, -p.active)
     {
         if p.active == 1 {
-            mv.push(Mv::new_castle(Castle::WQ));
+            mvs.push(Mv::new_castle(1));
         } else {
-            mv.push(Mv::new_castle(Castle::BQ));
+            mvs.push(Mv::new_castle(3));
         };
     }
-    // Doing this feels wierd, but since we dont really have any for loops
-    // etc in this we cant really do it better
-    mv.into_iter()
 }
-fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
+
+fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let bb = p.piece(pos::PAWN * p.active);
     let rank = if p.active == 1 { 1 } else { 6 };
 
     let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
 
-    second_rank.get_ones().into_iter().map(|sq| {
+    for sq in second_rank.get_ones() {
         let one_move = (sq as i8 + (8 * p.active)) as u8;
         let two_move = (sq as i8 + (16 * p.active)) as u8;
 
         if p.piece_at_sq(one_move) == 0 && p.piece_at_sq(two_move) == 0 {
-            Mv::new_double(sq, two_move)
-        } else {
-            Mv::default()
+            mvs.push(Mv::new_double(sq, two_move));
         }
-    })
+    }
 }
 
 pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: i8) -> bool {
