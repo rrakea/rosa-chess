@@ -1,4 +1,5 @@
 use crate::pos::Pos;
+use crate::util;
 
 /*
     Move encoding as u32
@@ -199,7 +200,8 @@ impl Mv {
     }
 
     pub fn notation(&self) -> String {
-        String::new()
+        let (start, end) = self.sq();
+        let util::file
     }
 }
 
