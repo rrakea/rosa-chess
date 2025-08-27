@@ -8,4 +8,3 @@ pub const MIN_TABLE_SIZE_MB: u64 = 1;
 pub const DEFAULT_TABLE_SIZE_MB: u64 = 128;
 pub const PONDER: bool = true;
 pub const SHOW_CURRENT_LINE: bool = true;
-
