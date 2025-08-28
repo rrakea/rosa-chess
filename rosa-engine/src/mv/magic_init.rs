@@ -1,6 +1,6 @@
 use super::{constants, magic};
-use rosa_lib::board;
 use crate::mv::constants::*;
+use rosa_lib::board;
 use rosa_lib::util;
 
 pub fn init_magics() {
