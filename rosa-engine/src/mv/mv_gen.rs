@@ -132,8 +132,8 @@ fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
 
     for sq in second_rank.get_ones() {
-        let one_move = (sq as i8 + (8 * p.active)) as u8;
-        let two_move = (sq as i8 + (16 * p.active)) as u8;
+        let one_move = (sq as i8 + (8 * p.active.as_i8())) as u8;
+        let two_move = (sq as i8 + (16 * p.active.as_i8())) as u8;
 
         if p.piece_at_sq(one_move) == 0 && p.piece_at_sq(two_move) == 0 {
             mvs.push(Mv::new_double(sq, two_move));
