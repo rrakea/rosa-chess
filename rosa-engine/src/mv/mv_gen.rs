@@ -20,6 +20,7 @@ pub fn gen_mvs(p: &Pos) -> BinaryHeap<Mv> {
     gen_piece_mvs(p, &mut mvs, Piece::King, true, true);
     gen_piece_mvs(p, &mut mvs, Piece::Pawn, true, false);
     gen_piece_mvs(p, &mut mvs, Piece::Pawn, false, true);
+    gen_prom(p, &mut mvs);
     gen_castle(p, &mut mvs);
     gen_pawn_double(p, &mut mvs);
     gen_ep(p, &mut mvs);
@@ -60,13 +61,47 @@ fn get_movemask(p: &Pos, piece: ClrPiece, sq: u8, can_cap: bool) -> Board {
         ClrPiece::WKing | ClrPiece::BKing | ClrPiece::WKnight | ClrPiece::BKnight => {
             constants::get_mask(piece, sq)
         }
-        ClrPiece::WPawn => constants::get_pawn_mask(Clr::White, sq, can_cap) & !constants::RANK_MASKS[7],
-        ClrPiece::BPawn => constants::get_pawn_mask(Clr::Black, sq, can_cap) & !constants::RANK_MASKS[0],
+        ClrPiece::WPawn => {
+            constants::get_pawn_mask(Clr::White, sq, can_cap) & !constants::RANK_MASKS[7]
+        }
+        ClrPiece::BPawn => {
+            constants::get_pawn_mask(Clr::Black, sq, can_cap) & !constants::RANK_MASKS[0]
+        }
         ClrPiece::WRook | ClrPiece::BRook => magic::rook_mask(sq, p),
         ClrPiece::WBishop | ClrPiece::BBishop => magic::bishop_mask(sq, p),
         ClrPiece::WQueen | ClrPiece::BQueen => magic::queen_mask(sq, p),
     };
     Board::new(raw_board)
+}
+
+fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
+    let rank = if p.clr.is_white() { 6 } else { 1 };
+    let pawn_bb = p.piece(Piece::Pawn.clr(p.clr));
+    // Only pawns that are on the last rank
+    let relevant_rank = Board::new(pawn_bb.val() & constants::RANK_MASKS[rank]);
+    for start_sq in relevant_rank.get_ones() {
+        let end_quiet = (start_sq as i8 + 8 * p.clr.as_sign()) as u8;
+        let cap_right = (start_sq as i8 + 9 * p.clr.as_sign()) as u8;
+        let cap_left = (start_sq as i8 + 7 * p.clr.as_sign()) as u8;
+
+        if p.piece_at_sq(end_quiet).is_none() {
+            mvs.extend(Mv::mass_new_prom(start_sq, end_quiet));
+        }
+
+        if let Some(victim) = p.piece_at_sq(cap_left)
+            && victim.clr() != p.clr
+            && util::no_wrap(start_sq, cap_left)
+        {
+            mvs.extend(Mv::mass_new_prom_cap(start_sq, end_quiet, victim.de_clr()));
+        }
+
+        if let Some(victim) = p.piece_at_sq(cap_right)
+            && victim.clr() != p.clr
+            && util::no_wrap(start_sq, cap_right)
+        {
+            mvs.extend(Mv::mass_new_prom_cap(start_sq, end_quiet, victim.de_clr()));
+        }
+    }
 }
 
 fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
@@ -112,8 +147,8 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     // We can skip checking the last square, since that is where the kings ends up
     // -> It is searched again in checking for legal moves
     if can_castle.0
-        && p.piece_at_sq(king_pos + 1) == None
-        && p.piece_at_sq(king_pos + 2) == None
+        && p.piece_at_sq(king_pos + 1).is_none()
+        && p.piece_at_sq(king_pos + 2).is_none()
         && square_not_attacked(p, king_pos, p.clr.flip())
         && square_not_attacked(p, king_pos + 1, p.clr.flip())
     {
@@ -126,9 +161,9 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
 
     // Queen side
     if can_castle.1
-        && p.piece_at_sq(king_pos - 1) == None
-        && p.piece_at_sq(king_pos - 2) == None
-        && p.piece_at_sq(king_pos - 3) == None
+        && p.piece_at_sq(king_pos - 1).is_none()
+        && p.piece_at_sq(king_pos - 2).is_none()
+        && p.piece_at_sq(king_pos - 3).is_none()
         && square_not_attacked(p, king_pos, p.clr.flip())
         && square_not_attacked(p, king_pos - 1, p.clr.flip())
     {
@@ -147,10 +182,10 @@ fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
 
     for sq in second_rank.get_ones() {
-        let one_move = (sq as i8 + (8 * p.clr.as_i8())) as u8;
-        let two_move = (sq as i8 + (16 * p.clr.as_i8())) as u8;
+        let one_move = (sq as i8 + (8 * p.clr.as_sign())) as u8;
+        let two_move = (sq as i8 + (16 * p.clr.as_sign())) as u8;
 
-        if p.piece_at_sq(one_move) == None && p.piece_at_sq(two_move) == None {
+        if p.piece_at_sq(one_move).is_none() && p.piece_at_sq(two_move).is_none() {
             mvs.push(Mv::new_double(sq, two_move));
         }
     }

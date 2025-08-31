@@ -66,9 +66,9 @@ impl ClrPiece {
 
     pub fn clr(&self) -> Clr {
         if self.val() > 0 {
-            Clr::white()
+            Clr::White
         } else {
-            Clr::black()
+            Clr::Black
         }
     }
 

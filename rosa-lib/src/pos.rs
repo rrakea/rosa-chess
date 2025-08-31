@@ -148,22 +148,22 @@ impl Pos {
         if castle.wk {
             data |= 0b0001_0000;
         } else if old_castle.wk {
-            self.key.castle(1, true);
+            self.key.castle(Clr::White, true);
         }
         if castle.wq {
             data |= 0b0010_0000;
         } else if old_castle.wq {
-            self.key.castle(1, false);
+            self.key.castle(Clr::White, false);
         }
         if castle.bk {
             data |= 0b0100_0000;
         } else if old_castle.bk {
-            self.key.castle(-1, true);
+            self.key.castle(Clr::Black, true);
         }
         if castle.bq {
             data |= 0b1000_0000;
         } else if old_castle.bq {
-            self.key.castle(-1, false);
+            self.key.castle(Clr::Black, false);
         }
         self.data = data;
     }
@@ -206,7 +206,7 @@ impl std::fmt::Debug for Pos {
         }
         str += format!("{}\n", self.full).as_str();
         str += format!("Data: {:#010b}\n", self.data).as_str();
-        str += format!("Active: {}", self.clr).as_str();
+        str += format!("Color: {}", self.clr).as_str();
 
         write!(f, "{}", str)
     }

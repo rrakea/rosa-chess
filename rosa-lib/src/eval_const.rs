@@ -1,4 +1,4 @@
-use crate::piece::ClrPiece;
+use crate::piece::Piece;
 
 /*
     All the values are based on this site in the chessprogramming wiki:
@@ -12,15 +12,14 @@ const BISHOP_EVAL: i32 = 340;
 const ROOK_EVAL: i32 = 500;
 const QUEEN_EVAL: i32 = 900;
 
-pub fn simple_piece_eval(sq: usize, piece: ClrPiece) -> i32 {
+pub fn piece_eval(sq: usize, piece: Piece) -> i32 {
     match piece {
-        ClrPiece::WPawn => PAWN_EVAL + PAWN_TABLE[sq],
-        ClrPiece::WKnight => KNIGHT_EVAL + KNIGHT_TABLE[sq],
-        ClrPiece::WBishop => BISHOP_EVAL + BISHOP_TABLE[sq],
-        ClrPiece::WRook => ROOK_EVAL + ROOK_TABLE[sq],
-        ClrPiece::WQueen => QUEEN_EVAL + QUEEN_TABLE[sq],
-        ClrPiece::WKing => KING_TABLE_MIDDLEGAME[sq],
-        _ => panic!("Invalid piece in eval: {}", piece),
+        Piece::Pawn => PAWN_EVAL + PAWN_TABLE[sq],
+        Piece::Knight => KNIGHT_EVAL + KNIGHT_TABLE[sq],
+        Piece::Bishop => BISHOP_EVAL + BISHOP_TABLE[sq],
+        Piece::Rook => ROOK_EVAL + ROOK_TABLE[sq],
+        Piece::Queen => QUEEN_EVAL + QUEEN_TABLE[sq],
+        Piece::King => KING_TABLE_MIDDLEGAME[sq],
     }
 }
 

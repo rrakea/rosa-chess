@@ -1,3 +1,4 @@
+use crate::clr::Clr;
 use crate::piece::*;
 use crate::pos::Pos;
 use crate::util;
@@ -74,7 +75,7 @@ pub enum Flag {
     WKC = 5,
     WQC = 6,
     BKC = 7,
-    BQK = 8,
+    BQC = 8,
     Prom = 9,
     PromCap = 10,
 }
@@ -101,6 +102,24 @@ impl Mv {
         mv
     }
 
+    pub fn mass_new_prom(start: u8, end: u8) -> [Mv; 4] {
+        [
+            Mv::new_prom(start, end, Piece::Knight),
+            Mv::new_prom(start, end, Piece::Bishop),
+            Mv::new_prom(start, end, Piece::Rook),
+            Mv::new_prom(start, end, Piece::Queen),
+        ]
+    }
+
+    pub fn mass_new_prom_cap(start: u8, end: u8, victim: Piece) -> [Mv; 4] {
+        [
+            Mv::new_prom_cap(start, end, Piece::Knight, victim),
+            Mv::new_prom_cap(start, end, Piece::Bishop, victim),
+            Mv::new_prom_cap(start, end, Piece::Rook, victim),
+            Mv::new_prom_cap(start, end, Piece::Queen, victim),
+        ]
+    }
+
     pub fn new_prom_cap(start: u8, end: u8, prom_piece: Piece, victim: Piece) -> Mv {
         let mut mv = Mv::new_cap(start, end, Piece::Pawn, victim);
         mv.set_flag(Flag::PromCap);
@@ -109,7 +128,29 @@ impl Mv {
     }
 
     pub fn new_castle(castle_type: u8) -> Mv {
-        Mv(0)
+        match castle_type {
+            0 => {
+                let mut mv = Mv::new_quiet(BOTTOM_RIGHT_SQ, BOTTOM_RIGHT_SQ - 2);
+                mv.set_flag(Flag::WKC);
+                mv
+            }
+            1 => {
+                let mut mv = Mv::new_quiet(BOTTOM_LEFT_SQ, BOTTOM_LEFT_SQ + 3);
+                mv.set_flag(Flag::WQC);
+                mv
+            }
+            2 => {
+                let mut mv = Mv::new_quiet(TOP_RIGHT_SQ, TOP_RIGHT_SQ - 2);
+                mv.set_flag(Flag::BKC);
+                mv
+            }
+            3 => {
+                let mut mv = Mv::new_quiet(TOP_LEFT_SQ, TOP_LEFT_SQ + 3);
+                mv.set_flag(Flag::BQC);
+                mv
+            }
+            _ => panic!(),
+        }
     }
 
     pub fn new_ep(start: u8, end: u8) -> Mv {
@@ -153,7 +194,7 @@ impl Mv {
     }
 
     pub fn is_castle(&self) -> bool {
-        matches!(self.flag(), Flag::WKC | Flag::BKC | Flag::WQC | Flag::BQK)
+        matches!(self.flag(), Flag::WKC | Flag::BKC | Flag::WQC | Flag::BQC)
     }
 
     pub fn prom_piece(&self) -> Piece {
@@ -169,10 +210,9 @@ impl Mv {
         self.0 |= (flag as u32) << FLAG_OFFSET
     }
 
-    pub fn captured_piece(&self, capturer: i8) -> i8 {
+    pub fn captured_piece(&self, capturer: Piece) -> Piece {
         let offset = self.0 >> CAP_OFFSET_OFFSET;
-        let capturer = i8::abs(capturer);
-        0
+        Piece::Pawn
     }
 
     pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {
@@ -193,8 +233,8 @@ impl Mv {
         self.0 |= val
     }
 
-    pub fn old_castle_rights(&self, color: i8) -> (bool, bool) {
-        if color == 1 {
+    pub fn old_castle_rights(&self, color: Clr) -> (bool, bool) {
+        if color.is_white() {
             (self.0 & WKC > 0, self.0 & WQC > 0)
         } else {
             (self.0 & BKC > 0, self.0 & BQC > 0)
@@ -233,3 +273,8 @@ impl std::fmt::Debug for Mv {
         write!(f, "{:#018b}", self.0)
     }
 }
+
+const BOTTOM_LEFT_SQ: u8 = 0;
+const BOTTOM_RIGHT_SQ: u8 = 7;
+const TOP_LEFT_SQ: u8 = 56;
+const TOP_RIGHT_SQ: u8 = 63;

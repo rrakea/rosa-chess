@@ -1,42 +1,36 @@
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Debug)]
-pub struct Clr(bool);
+pub enum Clr {
+    White,
+    Black,
+}
 
 impl Clr {
-    pub fn as_bool(&self) -> bool {
-        self.0
-    }
-
-    pub fn as_i8(&self) -> i8 {
-        match self.0 {
-            true => -1,
-            false => 1,
+    pub fn as_sign(&self) -> i8 {
+        match self {
+            Clr::White => 1,
+            Clr::Black => -1,
         }
     }
 
     pub fn flip(&self) -> Clr {
-        Clr(!self.0)
-    }
-
-    pub fn white() -> Clr {
-        Clr(true)
-    }
-
-    pub fn black() -> Clr {
-        Clr(false)
+        match self {
+            Clr::White => Clr::Black,
+            Clr::Black => Clr::White,
+        }
     }
 
     pub fn is_white(&self) -> bool {
-        self.0
+        *self == Clr::White
     }
 
     pub fn is_black(&self) -> bool {
-        !self.0
+        *self == Clr::Black
     }
 }
 
 impl std::fmt::Display for Clr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let clr = if self.0 { "w" } else { "b" };
+        let clr = if self.is_white() { "w" } else { "b" };
         write!(f, "{clr}")
     }
 }

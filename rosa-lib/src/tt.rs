@@ -1,3 +1,4 @@
+use crate::clr::Clr;
 use crate::mv::Mv;
 use crate::piece::*;
 use crate::pos;
@@ -133,16 +134,16 @@ impl Key {
 
         let castle = p.castle_data();
         if castle.wk {
-            key.castle(1, true);
+            key.castle(Clr::White, true);
         }
         if castle.wq {
-            key.castle(1, false);
+            key.castle(Clr::White, false);
         }
         if castle.bk {
-            key.castle(-1, true);
+            key.castle(Clr::Black, true);
         }
         if castle.bq {
-            key.castle(-1, false);
+            key.castle(Clr::Black, false);
         }
 
         if p.is_en_passant() {
@@ -194,13 +195,12 @@ impl Key {
         }
     }
 
-    pub fn castle(&mut self, active: i8, king_side: bool) {
-        self.0 ^= match (active, king_side) {
-            (1, true) => unsafe { CASTLE[0] },
-            (1, false) => unsafe { CASTLE[1] },
-            (-1, true) => unsafe { CASTLE[2] },
-            (-1, false) => unsafe { CASTLE[3] },
-            _ => panic!("Invalid value in castle_hash: {}, {}", active, king_side),
+    pub fn castle(&mut self, clr: Clr, king_side: bool) {
+        self.0 ^= match (clr, king_side) {
+            (Clr::White, true) => unsafe { CASTLE[0] },
+            (Clr::White, false) => unsafe { CASTLE[1] },
+            (Clr::Black, true) => unsafe { CASTLE[2] },
+            (Clr::Black, false) => unsafe { CASTLE[3] },
         }
     }
 }
