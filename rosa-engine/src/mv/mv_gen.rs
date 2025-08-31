@@ -60,8 +60,8 @@ fn get_movemask(p: &Pos, piece: ClrPiece, sq: u8, can_cap: bool) -> Board {
         ClrPiece::WKing | ClrPiece::BKing | ClrPiece::WKnight | ClrPiece::BKnight => {
             constants::get_mask(piece, sq)
         }
-        ClrPiece::WPawn => constants::get_pawn_mask(1, sq, can_cap) & !constants::RANK_MASKS[7],
-        ClrPiece::BPawn => constants::get_pawn_mask(-1, sq, can_cap) & !constants::RANK_MASKS[0],
+        ClrPiece::WPawn => constants::get_pawn_mask(Clr::White, sq, can_cap) & !constants::RANK_MASKS[7],
+        ClrPiece::BPawn => constants::get_pawn_mask(Clr::Black, sq, can_cap) & !constants::RANK_MASKS[0],
         ClrPiece::WRook | ClrPiece::BRook => magic::rook_mask(sq, p),
         ClrPiece::WBishop | ClrPiece::BBishop => magic::bishop_mask(sq, p),
         ClrPiece::WQueen | ClrPiece::BQueen => magic::queen_mask(sq, p),

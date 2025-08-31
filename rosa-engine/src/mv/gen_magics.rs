@@ -4,7 +4,8 @@ use crate::mv::magic_init;
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64;
 use rayon::prelude::*;
-use rosa_lib::pos;
+
+use rosa_lib::piece::*;
 
 const MAGIC_TRIES: u64 = 100_000_000;
 
@@ -25,11 +26,11 @@ static mut BISHOP_BLOCKERS: [[u64; MAX_BLOCKER_BISHOP]; 64] = [[0; MAX_BLOCKER_B
 pub fn gen_magics() {
     magic_init::init_premasks();
 
-    init_movemasks(pos::BISHOP);
-    init_movemasks(pos::ROOK);
+    init_movemasks(Piece::Bishop);
+    init_movemasks(Piece::Rook);
 
-    magic_generator(pos::BISHOP);
-    magic_generator(pos::ROOK);
+    magic_generator(Piece::Bishop);
+    magic_generator(Piece::Rook);
 
     for (sq, magic) in unsafe { ROOK_MAGIC }.iter().enumerate() {
         println!("ROOK: Sq: {sq}, Magic: {:#018x},", magic.0);
@@ -48,11 +49,11 @@ pub fn gen_magics() {
     }
 }
 
-fn magic_generator(piece: i8) {
+fn magic_generator(piece: Piece) {
     (0..64).into_par_iter().for_each(|sq| {
         let mut rng = Pcg64::from_os_rng();
         let move_mask = unsafe {
-            if piece == pos::ROOK {
+            if piece == Piece::Rook {
                 constants::ROOK_PREMASKS[sq]
             } else {
                 constants::BISHOP_PREMASKS[sq]
@@ -72,7 +73,7 @@ fn magic_generator(piece: i8) {
                 let magic = rng.random::<u64>() & rng.random::<u64>() & rng.random::<u64>();
 
                 let blockers = unsafe {
-                    if piece == pos::ROOK {
+                    if piece == Piece::Rook {
                         &ROOK_BLOCKERS[sq][..]
                     } else {
                         &BISHOP_BLOCKERS[sq][..]
@@ -88,7 +89,7 @@ fn magic_generator(piece: i8) {
                     let blocker_mask = move_mask & *blocker;
                     let index = magic::magic_index(magic, shift, blocker_mask);
                     let move_with_blocker = unsafe {
-                        if piece == pos::ROOK {
+                        if piece == Piece::Rook {
                             ROOK_MOVE_WITH_BLOCKERS[sq][blocker_index]
                         } else {
                             BISHOP_MOVE_WITH_BLOCKERS[sq][blocker_index]
@@ -113,7 +114,7 @@ fn magic_generator(piece: i8) {
                 // We have gone through all of the blockers and all works
                 // -> The magic works!
                 unsafe {
-                    if piece == pos::ROOK {
+                    if piece == Piece::Rook {
                         ROOK_MAGIC[sq] = (magic, shift);
                     } else {
                         BISHOP_MAGIC[sq] = (magic, shift);
@@ -126,7 +127,7 @@ fn magic_generator(piece: i8) {
 
             // If we havent update the magic this shift value
             // We assume there is no magic possible at this/ a smaller shift value
-            if (piece == pos::ROOK && unsafe { ROOK_MAGIC[sq].1 } != shift)
+            if (piece == Piece::Rook && unsafe { ROOK_MAGIC[sq].1 } != shift)
                 || unsafe { BISHOP_MAGIC[sq].1 } != shift
             {
                 break 'shifts;
@@ -135,10 +136,10 @@ fn magic_generator(piece: i8) {
     });
 }
 
-fn init_movemasks(piece: i8) {
+fn init_movemasks(piece: Piece) {
     for sq in 0..64 {
         let trunc_premask = unsafe {
-            if piece == pos::ROOK {
+            if piece == Piece::Rook {
                 constants::ROOK_PREMASKS_TRUNC[sq]
             } else {
                 constants::BISHOP_PREMASKS_TRUNC[sq]
@@ -160,7 +161,7 @@ fn init_movemasks(piece: i8) {
             unsafe {
                 // Safe the blockers for later so we dont have to calc this twice
                 // The arrays will be partially empty, we check for that and break early
-                if piece == pos::ROOK {
+                if piece == Piece::Rook{
                     ROOK_BLOCKERS[sq][blocker_index as usize] = blocker;
                 } else {
                     BISHOP_BLOCKERS[sq][blocker_index as usize] = blocker;
@@ -168,7 +169,7 @@ fn init_movemasks(piece: i8) {
             };
 
             // Calculate all the possible moves
-            let directions = if piece == pos::ROOK {
+            let directions = if piece == Piece::Rook{
                 constants::ROOK_OFFSETS
             } else {
                 constants::BISHOP_OFFSETS
@@ -178,7 +179,7 @@ fn init_movemasks(piece: i8) {
             let move_mask = magic_init::gen_move_mask(sq, &directions, 8, blocker, false);
 
             unsafe {
-                if piece == pos::ROOK {
+                if piece == Piece::Rook{
                     ROOK_MOVE_WITH_BLOCKERS[sq][blocker_index as usize] = move_mask;
                 } else {
                     BISHOP_MOVE_WITH_BLOCKERS[sq][blocker_index as usize] = move_mask;
