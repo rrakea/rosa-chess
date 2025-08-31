@@ -1,5 +1,7 @@
 use crate::mv::Mv;
+use crate::piece::*;
 use crate::pos;
+
 use rand::RngCore;
 use std::cell::UnsafeCell;
 
@@ -94,6 +96,7 @@ impl Entry {
             node_type,
         }
     }
+
     pub fn is_null(&self) -> bool {
         self.node_type == NodeType::Null
     }
@@ -119,40 +122,33 @@ impl Key {
         let mut key = Key(0);
 
         for (sq, piece) in p.piece_iter().enumerate() {
-            key.piece(sq as u8, piece);
+            if let Some(p) = piece {
+                key.piece(sq as u8, p);
+            }
         }
-        //println!("After pieces: {}", key.val());
 
-        if p.active == -1 {
+        if p.clr.is_black() {
             key.color();
-            //println!("Color: {}", key.val());
         }
 
-        let wc = p.castling(1);
-        let bc = p.castling(-1);
-        if wc.0 {
+        let castle = p.castle_data();
+        if castle.wk {
             key.castle(1, true);
-            //println!("WC: {}", key.val());
         }
-        if wc.1 {
+        if castle.wq {
             key.castle(1, false);
-            //println!("WQ: {}", key.val());
         }
-        if bc.0 {
+        if castle.bk {
             key.castle(-1, true);
-            //println!("BK{}", key.val());
         }
-        if bc.1 {
+        if castle.bq {
             key.castle(-1, false);
-            //println!("BQ{}", key.val());
         }
 
         if p.is_en_passant() {
             key.en_passant(p.en_passant_file());
-            //println!("EP{}", key.val());
         }
 
-        //println!("END{}", key.val());
         if key.val() == 0 {
             panic!();
         }
@@ -179,25 +175,22 @@ impl Key {
         self.0 ^= unsafe { EN_PASSANT[file as usize] }
     }
 
-    pub fn piece(&mut self, sq: u8, piece: i8) {
-        //println!("key.piece() sq: {sq}, piece: {piece}");
+    pub fn piece(&mut self, sq: u8, piece: ClrPiece) {
         let sq = sq as usize;
         self.0 ^= match piece {
-            pos::PAWN => unsafe { PAWN[sq] },
-            pos::KNIGHT => unsafe { KNIGHT[sq] },
-            pos::BISHOP => unsafe { BISHOP[sq] },
-            pos::ROOK => unsafe { ROOK[sq] },
-            pos::QUEEN => unsafe { QUEEN[sq] },
-            pos::KING => unsafe { KING[sq] },
+            ClrPiece::WPawn => unsafe { PAWN[sq] },
+            ClrPiece::WKnight => unsafe { KNIGHT[sq] },
+            ClrPiece::WBishop => unsafe { BISHOP[sq] },
+            ClrPiece::WRook => unsafe { ROOK[sq] },
+            ClrPiece::WQueen => unsafe { QUEEN[sq] },
+            ClrPiece::WKing => unsafe { KING[sq] },
 
-            pos::BPAWN => unsafe { BPAWN[sq] },
-            pos::BKNIGHT => unsafe { BKNIGHT[sq] },
-            pos::BBISHOP => unsafe { BBISHOP[sq] },
-            pos::BROOK => unsafe { BROOK[sq] },
-            pos::BQUEEN => unsafe { BQUEEN[sq] },
-            pos::BKING => unsafe { BKING[sq] },
-            0 => 0,
-            _ => panic!("Invalid piece code for getting a piece hash: {}", piece),
+            ClrPiece::BPawn => unsafe { BPAWN[sq] },
+            ClrPiece::BKnight => unsafe { BKNIGHT[sq] },
+            ClrPiece::BBishop => unsafe { BBISHOP[sq] },
+            ClrPiece::BRook => unsafe { BROOK[sq] },
+            ClrPiece::BQueen => unsafe { BQUEEN[sq] },
+            ClrPiece::BKing => unsafe { BKING[sq] },
         }
     }
 

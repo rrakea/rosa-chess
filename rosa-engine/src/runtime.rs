@@ -95,7 +95,7 @@ pub fn start() {
                             search::division_search(&p, depth);
                         }
                         _ => {
-                            let time = process_go(cmd_parts, p.active);
+                            let time = process_go(cmd_parts, p.clr);
                             stop = Some(search::thread_search(&p, time));
                         }
                     }
@@ -130,7 +130,7 @@ pub fn start() {
             "attacked" => {
                 println!(
                     "{}",
-                    !mv::mv_gen::square_not_attacked(&p, cmd_parts[1].parse().unwrap(), -p.active)
+                    !mv::mv_gen::square_not_attacked(&p, cmd_parts[1].parse().unwrap(), -p.clr)
                 );
             }
 

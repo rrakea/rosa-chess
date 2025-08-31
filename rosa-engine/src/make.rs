@@ -10,7 +10,7 @@ const TOP_LEFT_SQ: u8 = 56;
 const TOP_RIGHT_SQ: u8 = 63;
 
 pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
-    let color = p.active;
+    let color = p.clr;
     let (start, mut end) = mv.sq();
     let piece = p.piece_at_sq(start);
 
@@ -24,12 +24,12 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
     }
 
     let (mut wk_castle, mut wq_castle) = if make {
-        p.castling(1)
+        p.castle_data(1)
     } else {
         mv.old_castle_rights(1)
     };
     let (mut bk_castle, mut bq_castle) = if make {
-        p.castling(-1)
+        p.castle_data(-1)
     } else {
         mv.old_castle_rights(-1)
     };

@@ -1,9 +1,9 @@
 use crate::board::Board;
 use crate::clr::Clr;
-use crate::piece::{Piece, PieceNull};
+use crate::piece::*;
 use crate::tt;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Pos {
     // Bitboard centric layout
     // The boardarray is build like this:
@@ -16,7 +16,7 @@ pub struct Pos {
 
     // Square centric representation
     // Using the consts defined above
-    sq: [PieceNull; 64],
+    sq: [ClrPieceOption; 64],
 
     key: tt::Key,
 
@@ -24,24 +24,21 @@ pub struct Pos {
     // Encoded like this: castling:  b queen, b king, w queen, b king; en_passant file;
     data: u8,
 
-    // Active player (1 -> white; -1 -> black)
-    pub active: Clr,
+    pub clr: Clr,
 }
 
 impl Pos {
     pub fn new(
-        sq: [PieceNull; 64],
-        active: Clr,
+        sq: [ClrPieceOption; 64],
+        clr: Clr,
         is_ep: bool,
         ep_file: u8,
-        w_castle: (bool, bool),
-        b_castle: (bool, bool),
+        castle: CastleData,
     ) -> Pos {
         let mut boards = [Board::new(0); 12];
         for (sq, piece) in sq.into_iter().enumerate() {
-            match piece {
-                PieceNull::Piece(p) => boards[calc_index(p)].toggle(sq as u8),
-                PieceNull::Null => (),
+            if let Some(p) = piece {
+                boards[p.index()].toggle(sq as u8);
             }
         }
 
@@ -49,14 +46,13 @@ impl Pos {
             boards,
             sq,
             data: 0,
-            active,
+            clr,
             full: Board::new(0),
             key: tt::Key::default(),
         };
+
+        newp.gen_new_data(is_ep, ep_file, castle);
         newp.gen_new_full();
-        newp.gen_new_data(
-            is_ep, ep_file, w_castle.0, w_castle.1, b_castle.0, b_castle.1,
-        );
         newp.gen_new_key();
         newp
     }
@@ -74,80 +70,49 @@ impl Pos {
     }
 
     // -> kingside, queenside
-    pub fn castling(&self, clr: Clr) -> (bool, bool) {
-        if clr.is_white() {
-            (self.data & 0b0001_0000 > 0, self.data & 0b0010_0000 > 0)
-        } else {
-            (self.data & 0b0100_0000 > 0, self.data & 0b1000_0000 > 0)
+    pub fn castle_data(&self) -> CastleData {
+        CastleData {
+            wk: self.data & 0b0001_0000 > 0,
+            wq: self.data & 0b0010_0000 > 0,
+            bk: self.data & 0b0100_0000 > 0,
+            bq: self.data & 0b1000_0000 > 0,
         }
     }
 
-    pub fn piece(&self, piece: Piece) -> &Board {
-        let index = calc_index(piece);
-        &self.boards[index]
+    pub fn can_castle(&self, clr: Clr) -> (bool, bool) {
+        let data = self.castle_data();
+        if clr.is_white() {
+            (data.wk, data.wq)
+        } else {
+            (data.bk, data.bq)
+        }
     }
 
-    pub fn piece_at_sq(&self, sq: u8) -> PieceNull {
+    pub fn piece(&self, piece: ClrPiece) -> &Board {
+        &self.boards[piece.index()]
+    }
+
+    pub fn piece_at_sq(&self, sq: u8) -> ClrPieceOption {
         self.sq[sq as usize]
     }
 
-    pub fn piece_toggle(&mut self, piece: Piece, sq: u8) {
-        if self.sq[sq as usize] == piece {
-            self.sq[sq as usize] = 0;
-        } else {
-            self.sq[sq as usize] = piece;
-        }
+    pub fn piece_toggle(&mut self, piece: ClrPiece, sq: u8) {
+        self.sq[sq as usize] = match self.sq[sq as usize] {
+            ClrPieceOption::None => ClrPieceOption::Some(piece),
+            ClrPieceOption::Some(_p) => ClrPieceOption::None,
+        };
+
         self.full.toggle(sq);
-        self.boards[calc_index(piece)].toggle(sq);
+        self.boards[piece.index()].toggle(sq);
         self.key.piece(sq, piece);
     }
 
-    pub fn piece_iter(&self) -> impl Iterator<Item = i8> {
+    pub fn piece_iter(&self) -> impl Iterator<Item = ClrPieceOption> {
         self.sq.into_iter()
     }
 
-    pub fn prittify(&self) -> String {
-        let mut str = String::new();
-        for b in self.boards {
-            str += format!("{}\n", b.prittify()).as_str();
-        }
-        let color = if self.active == 1 { "w" } else { "b" };
-        str += format!("{}\n", self.full.prittify()).as_str();
-        str += format!("Sq array: {:?}\n", self.sq).as_str();
-        str += format!("Data: {:#010b}\n", self.data).as_str();
-        str += format!("Active: {color}").as_str();
-        str
-    }
-
-    pub fn prittify_sq_based(&self) -> String {
-        let mut ranks = Vec::new();
-        let mut buf = Vec::new();
-
-        for (sq, piece) in self.sq.iter().enumerate() {
-            if sq % 8 == 0 {
-                ranks.push(buf);
-                buf = Vec::new();
-            }
-            buf.push(piece);
-        }
-        ranks.push(buf);
-
-        let mut board = String::new();
-        for rank in ranks.iter().rev() {
-            for piece in rank {
-                if piece >= &&0 {
-                    board += " "
-                }
-                board += piece.to_string().as_str();
-                board += "|"
-            }
-            board += "\n"
-        }
-        board
-    }
-
     pub fn flip_color(&mut self) {
-        self.active *= -1;
+        self.clr.flip();
         self.key.color();
     }
 
@@ -163,15 +128,7 @@ impl Pos {
         self.full = Board::new(full);
     }
 
-    pub fn gen_new_data(
-        &mut self,
-        is_ep: bool,
-        ep_file: u8,
-        wk_castle: bool,
-        wq_castle: bool,
-        bk_castle: bool,
-        bq_castle: bool,
-    ) {
+    pub fn gen_new_data(&mut self, is_ep: bool, ep_file: u8, castle: CastleData) {
         // Unset the old ep key
         if self.is_en_passant() {
             self.key.en_passant(self.en_passant_file());
@@ -184,41 +141,80 @@ impl Pos {
             self.key.en_passant(ep_file);
         }
 
+        let old_castle = self.castle_data();
+
         // Since we cant regain castling rights we only have to
         // unset the key if we previously had them
-        if wk_castle {
+        if castle.wk {
             data |= 0b0001_0000;
-        } else if self.castling(1).0 {
+        } else if old_castle.wk {
             self.key.castle(1, true);
         }
-        if wq_castle {
+        if castle.wq {
             data |= 0b0010_0000;
-        } else if self.castling(1).1 {
+        } else if old_castle.wq {
             self.key.castle(1, false);
         }
-        if bk_castle {
+        if castle.bk {
             data |= 0b0100_0000;
-        } else if self.castling(-1).0 {
+        } else if old_castle.bk {
             self.key.castle(-1, true);
         }
-        if bq_castle {
+        if castle.bq {
             data |= 0b1000_0000;
-        } else if self.castling(-1).1 {
+        } else if old_castle.bq {
             self.key.castle(-1, false);
         }
         self.data = data;
     }
 }
 
-fn calc_index(piece: Piece) -> usize {
-    if piece.is_null() {
-        return 0;
+impl std::fmt::Display for Pos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut ranks = Vec::new();
+        let mut buf = Vec::new();
+
+        for (sq, piece) in self.sq.iter().enumerate() {
+            if sq % 8 == 0 {
+                ranks.push(buf);
+                buf = Vec::new();
+            }
+            buf.push(piece);
+        }
+        ranks.push(buf);
+
+        let mut board = String::new();
+        for rank in ranks.iter().rev() {
+            for piece in rank {
+                match piece {
+                    Some(p) => board += p.to_string().as_str(),
+                    None => board += " ",
+                }
+                board += "|"
+            }
+            board += "\n"
+        }
+        write!(f, "{}", board)
     }
-    let mut index = piece;
-    if index < 0 {
-        index = -index + 6;
+}
+
+impl std::fmt::Debug for Pos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut str = String::new();
+        for b in self.boards {
+            str += format!("{}\n", b).as_str();
+        }
+        str += format!("{}\n", self.full).as_str();
+        str += format!("Data: {:#010b}\n", self.data).as_str();
+        str += format!("Active: {}", self.clr).as_str();
+
+        write!(f, "{}", str)
     }
-    // Since our pieces start at 1 but the array at 0
-    index -= 1;
-    index as usize
+}
+
+pub struct CastleData {
+    pub wk: bool,
+    pub wq: bool,
+    pub bk: bool,
+    pub bq: bool,
 }

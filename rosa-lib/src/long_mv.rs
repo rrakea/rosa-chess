@@ -92,7 +92,7 @@ impl LongMv {
     }
 
     pub fn is_ep(&self) -> bool {
-        self.has(IS_EP)
+    self.has(IS_EP)
     }
 
     pub fn is_cap(&self) -> bool {

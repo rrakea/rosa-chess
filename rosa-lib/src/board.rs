@@ -59,8 +59,10 @@ impl Board {
     pub fn empty(&self) -> bool {
         self.0 != 0
     }
+}
 
-    pub fn prittify(&self) -> String {
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buf = Vec::new();
         let bit_str = format!("{:064b}", self.val());
         for rank in 0..8 {
@@ -70,6 +72,6 @@ impl Board {
             buf.push(row);
         }
 
-        format!("{}\n", buf.join("\n"))
+        write!(f, "{}\n", buf.join("\n"))
     }
 }

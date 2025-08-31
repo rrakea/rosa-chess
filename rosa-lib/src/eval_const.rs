@@ -1,4 +1,4 @@
-use crate::pos;
+use crate::piece::ClrPiece;
 
 /*
     All the values are based on this site in the chessprogramming wiki:
@@ -12,33 +12,14 @@ const BISHOP_EVAL: i32 = 340;
 const ROOK_EVAL: i32 = 500;
 const QUEEN_EVAL: i32 = 900;
 
-pub fn piece_eval(sq: u8, piece: i8, active: i8, endgame: bool) -> i32 {
-    let mut sq = sq as usize;
-    let piece = i8::abs(piece);
-    if active == -1 {
-        sq = 63 - sq;
-    }
-
-    match (piece, endgame) {
-        (pos::PAWN, _) => PAWN_EVAL + PAWN_TABLE[sq],
-        (pos::KNIGHT, _) => KNIGHT_EVAL + KNIGHT_TABLE[sq],
-        (pos::BISHOP, _) => BISHOP_EVAL + BISHOP_TABLE[sq],
-        (pos::ROOK, _) => ROOK_EVAL + ROOK_TABLE[sq],
-        (pos::QUEEN, _) => QUEEN_EVAL + QUEEN_TABLE[sq],
-        (pos::KING, false) => KING_TABLE_MIDDLEGAME[sq],
-        (pos::KING, true) => KING_TABLE_ENDGAME[sq],
-        _ => panic!("Invalid value in piece_eval() call: {}", piece),
-    }
-}
-
-pub fn simple_piece_eval(sq: usize, piece: i8) -> i32 {
+pub fn simple_piece_eval(sq: usize, piece: ClrPiece) -> i32 {
     match piece {
-        pos::PAWN => PAWN_EVAL + PAWN_TABLE[sq],
-        pos::KNIGHT => KNIGHT_EVAL + KNIGHT_TABLE[sq],
-        pos::BISHOP => BISHOP_EVAL + BISHOP_TABLE[sq],
-        pos::ROOK => ROOK_EVAL + ROOK_TABLE[sq],
-        pos::QUEEN => QUEEN_EVAL + QUEEN_TABLE[sq],
-        pos::KING => KING_TABLE_MIDDLEGAME[sq],
+        ClrPiece::WPawn => PAWN_EVAL + PAWN_TABLE[sq],
+        ClrPiece::WKnight => KNIGHT_EVAL + KNIGHT_TABLE[sq],
+        ClrPiece::WBishop => BISHOP_EVAL + BISHOP_TABLE[sq],
+        ClrPiece::WRook => ROOK_EVAL + ROOK_TABLE[sq],
+        ClrPiece::WQueen => QUEEN_EVAL + QUEEN_TABLE[sq],
+        ClrPiece::WKing => KING_TABLE_MIDDLEGAME[sq],
         _ => panic!("Invalid piece in eval: {}", piece),
     }
 }

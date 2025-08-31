@@ -1,6 +1,7 @@
+use rosa_lib::piece::*;
 use rosa_lib::pos;
 
-pub fn get_mask(piece: i8, sq: u8) -> u64 {
+pub fn get_mask(piece: ClrPiece, sq: u8) -> u64 {
     let sq = sq as usize;
     unsafe {
         match piece {

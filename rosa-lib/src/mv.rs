@@ -1,4 +1,6 @@
-use crate::pos::{self, Pos};
+use crate::piece::*;
+use crate::pos::Pos;
+use crate::util;
 
 /*
     Move encoding as u32
@@ -85,26 +87,24 @@ impl Mv {
         Mv(val)
     }
 
-    pub fn new_cap(start: u8, end: u8, capturer: i8, victim: i8) -> Mv {
+    pub fn new_cap(start: u8, end: u8, capturer: Piece, victim: Piece) -> Mv {
         let mut mv = Mv::new_quiet(start, end);
         mv.set_flag(Flag::Cap);
-        let attacker = cap_repr(capturer, victim);
-        mv.0 |= attacker << CAP_OFFSET_OFFSET;
+        mv.0 |= capturer.compress_cap(victim) << CAP_OFFSET_OFFSET;
         mv
     }
 
-    pub fn new_prom(start: u8, end: u8, is_cap: bool, piece: i8, victim: i8) -> Mv {
-        let mut mv = if is_cap {
-            let mut mv = Mv::new_cap(start, end, pos::PAWN, victim);
-            mv.set_flag(Flag::PromCap);
-            mv
-        } else {
-            let mut mv = Mv::new_quiet(start, end);
-            mv.set_flag(Flag::Prom);
-            mv
-        };
-        let prom_piece = prom_repr(piece);
-        mv.0 |= prom_piece << PROM_OFFSET;
+    pub fn new_prom(start: u8, end: u8, prom_piece: Piece) -> Mv {
+        let mut mv = Mv::new_quiet(start, end);
+        mv.set_flag(Flag::Prom);
+        mv.0 |= prom_piece.compress_prom() << PROM_OFFSET;
+        mv
+    }
+
+    pub fn new_prom_cap(start: u8, end: u8, prom_piece: Piece, victim: Piece) -> Mv {
+        let mut mv = Mv::new_cap(start, end, Piece::Pawn, victim);
+        mv.set_flag(Flag::PromCap);
+        mv.0 |= prom_piece.compress_prom() << PROM_OFFSET;
         mv
     }
 
@@ -113,7 +113,7 @@ impl Mv {
     }
 
     pub fn new_ep(start: u8, end: u8) -> Mv {
-        let mut mv = Mv::new_cap(start, end, pos::PAWN, pos::PAWN);
+        let mut mv = Mv::new_cap(start, end, Piece::Pawn, Piece::Pawn);
         mv.set_flag(Flag::Ep);
         mv
     }
@@ -126,10 +126,6 @@ impl Mv {
 
     pub fn new_from_str(str: &str, p: &Pos) -> Mv {
         Mv(0)
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.0 == 0
     }
 
     pub fn sq(&self) -> (u8, u8) {
@@ -160,9 +156,9 @@ impl Mv {
         matches!(self.flag(), Flag::WKC | Flag::BKC | Flag::WQC | Flag::BQK)
     }
 
-    pub fn prom_piece(&self) -> i8 {
+    pub fn prom_piece(&self) -> Piece {
         // We safe a knight as 0, as pos::piece its 2 => +2
-        ((self.0 | PROM_PIECE) >> PROM_OFFSET) as i8 + 2
+        Piece::decompress_prom(((self.0 | PROM_PIECE) >> PROM_OFFSET) + 2)
     }
 
     pub fn flag(&self) -> Flag {
@@ -212,23 +208,28 @@ impl Mv {
     pub fn set_old_ep_file(&mut self, file: u8) {
         self.0 |= (file as u32) << OLD_EP_FILE_OFFSET
     }
+}
 
-    pub fn prittify(&self) -> String {
-        String::new()
-    }
-
-    pub fn notation(&self) -> String {
+// To get it in the uci notation (e.g. e2e4, e7e8q)
+impl std::fmt::Display for Mv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (start, end) = self.sq();
-        String::new()
+        let start = util::square_name(start);
+        let end = util::square_name(end);
+
+        let prom_str = if self.is_prom() {
+            self.prom_piece().to_string()
+        } else {
+            String::new()
+        };
+
+        write!(f, "{}{}{}", start, end, prom_str)
     }
 }
 
-fn cap_repr(attack: i8, victim: i8) -> u32 {
-    let attack = i8::abs(attack);
-    let victim = i8::abs(victim);
-    0
-}
-
-fn prom_repr(piece: i8) -> u32 {
-    (i8::abs(piece) - 1) as u32
+// To get a binary representation
+impl std::fmt::Debug for Mv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#018b}", self.0)
+    }
 }

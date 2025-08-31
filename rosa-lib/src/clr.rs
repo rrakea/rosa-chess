@@ -13,6 +13,10 @@ impl Clr {
         }
     }
 
+    pub fn flip(&self) -> Clr {
+        Clr(!self.0)
+    }
+
     pub fn white() -> Clr {
         Clr(true)
     }
@@ -28,4 +32,11 @@ impl Clr {
     pub fn is_black(&self) -> bool {
         !self.0
     }
- }
+}
+
+impl std::fmt::Display for Clr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let clr = if self.0 { "w" } else { "b" };
+        write!(f, "{clr}")
+    }
+}

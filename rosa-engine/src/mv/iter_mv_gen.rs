@@ -49,7 +49,7 @@ fn gen_piece_mvs(
     can_cap: bool,
     can_quiet: bool,
 ) -> impl Iterator<Item = Mv> {
-    piece *= p.active;
+    piece *= p.clr;
     let piece_positions = p.piece(piece).get_ones();
     piece_positions.into_iter().flat_map(move |sq| {
         let possible_moves = get_movemask(p, piece, sq, can_cap).get_ones();
@@ -57,7 +57,7 @@ fn gen_piece_mvs(
             let victim = p.piece_at_sq(end_square);
             if can_quiet && victim == 0 {
                 Mv::new_quiet(sq, end_square)
-            } else if can_cap && victim != 0 && util::dif_colors(p.active, victim) {
+            } else if can_cap && victim != 0 && util::dif_colors(p.clr, victim) {
                 Mv::new_cap(sq, end_square, piece, victim)
             } else {
                 Mv::default()
@@ -83,16 +83,16 @@ fn get_movemask(p: &Pos, piece: i8, sq: u8, can_cap: bool) -> Board {
 }
 
 fn promotions(p: &Pos) -> impl Iterator<Item = Mv> {
-    let rank = if p.active == 1 { 6 } else { 1 };
-    let pawn_bb = p.piece(pos::PAWN * p.active);
+    let rank = if p.clr == 1 { 6 } else { 1 };
+    let pawn_bb = p.piece(pos::PAWN * p.clr);
     // Only pawns that are on the last rank
     let relevant_rank = Board::new(pawn_bb.val() & constants::RANK_MASKS[rank]);
     let start_sqs = relevant_rank.get_ones();
     start_sqs.into_iter().flat_map(|start_sq| {
-        let end_quiet = (start_sq as i8 + 8 * p.active) as u8;
-        let cap_right = (start_sq as i8 + 9 * p.active) as u8;
+        let end_quiet = (start_sq as i8 + 8 * p.clr) as u8;
+        let cap_right = (start_sq as i8 + 9 * p.clr) as u8;
         let right_victim = p.piece_at_sq(cap_right);
-        let cap_left = (start_sq as i8 + 7 * p.active) as u8;
+        let cap_left = (start_sq as i8 + 7 * p.clr) as u8;
         let left_victim = p.piece_at_sq(cap_left);
 
         let can_quiet = p.piece_at_sq(end_quiet) == 0;
@@ -141,7 +141,7 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
     let left;
     let right;
     let end;
-    if p.active == 1 {
+    if p.clr == 1 {
         left = 4 * 8 + file - 1;
         right = 4 * 8 + file + 1;
         end = 5 * 8 + file;
@@ -152,14 +152,14 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
     }
 
     if (0..64).contains(&left)
-        && p.piece_at_sq(left as u8) == pos::PAWN * p.active
+        && p.piece_at_sq(left as u8) == pos::PAWN * p.clr
         && util::no_wrap(left as u8, end as u8)
     {
         mv.push(Mv::new_ep(left as u8, end as u8));
     }
 
     if (0..64).contains(&right)
-        && p.piece_at_sq(right as u8) == pos::PAWN * p.active
+        && p.piece_at_sq(right as u8) == pos::PAWN * p.clr
         && util::no_wrap(right as u8, end as u8)
     {
         mv.push(Mv::new_ep(right as u8, end as u8));
@@ -171,8 +171,8 @@ fn gen_ep(p: &Pos) -> impl Iterator<Item = Mv> {
 fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
     let mut mv = Vec::new();
 
-    let can_castle = p.castling(p.active);
-    let king_bb = p.piece(pos::KING * p.active);
+    let can_castle = p.castle_data(p.clr);
+    let king_bb = p.piece(pos::KING * p.clr);
     let king_pos = king_bb.get_ones_single();
 
     // King side
@@ -181,10 +181,10 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
     if can_castle.0
         && p.piece_at_sq(king_pos + 1) == 0
         && p.piece_at_sq(king_pos + 2) == 0
-        && square_not_attacked(p, king_pos, -p.active)
-        && square_not_attacked(p, king_pos + 1, -p.active)
+        && square_not_attacked(p, king_pos, -p.clr)
+        && square_not_attacked(p, king_pos + 1, -p.clr)
     {
-        if p.active == 1 {
+        if p.clr == 1 {
             mv.push(Mv::new_castle(Castle::WK));
         } else {
             mv.push(Mv::new_castle(Castle::BK));
@@ -196,10 +196,10 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
         && p.piece_at_sq(king_pos - 1) == 0
         && p.piece_at_sq(king_pos - 2) == 0
         && p.piece_at_sq(king_pos - 3) == 0
-        && square_not_attacked(p, king_pos, -p.active)
-        && square_not_attacked(p, king_pos - 1, -p.active)
+        && square_not_attacked(p, king_pos, -p.clr)
+        && square_not_attacked(p, king_pos - 1, -p.clr)
     {
-        if p.active == 1 {
+        if p.clr == 1 {
             mv.push(Mv::new_castle(Castle::WQ));
         } else {
             mv.push(Mv::new_castle(Castle::BQ));
@@ -213,14 +213,14 @@ fn gen_castle(p: &Pos) -> impl Iterator<Item = Mv> {
 // We could almost optimize this, but sadly we have to check whether there is
 // a piece in between
 fn gen_pawn_double(p: &Pos) -> impl Iterator<Item = Mv> {
-    let bb = p.piece(pos::PAWN * p.active);
-    let rank = if p.active == 1 { 1 } else { 6 };
+    let bb = p.piece(pos::PAWN * p.clr);
+    let rank = if p.clr == 1 { 1 } else { 6 };
 
     let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
 
     second_rank.get_ones().into_iter().map(|sq| {
-        let one_move = (sq as i8 + (8 * p.active)) as u8;
-        let two_move = (sq as i8 + (16 * p.active)) as u8;
+        let one_move = (sq as i8 + (8 * p.clr)) as u8;
+        let two_move = (sq as i8 + (16 * p.clr)) as u8;
 
         if p.piece_at_sq(one_move) == 0 && p.piece_at_sq(two_move) == 0 {
             Mv::new_double(sq, two_move)

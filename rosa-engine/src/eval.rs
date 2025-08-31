@@ -42,7 +42,7 @@ pub fn simple_eval(p: &pos::Pos) -> i32 {
         if piece == 0 {
             continue;
         }
-        let norm_sq = if p.active == 1 { sq } else { 63 - sq };
+        let norm_sq = if p.clr == 1 { sq } else { 63 - sq };
         let norm_piece = i8::abs(piece);
         let piece_color = if piece > 0 { 1 } else { -1 };
         eval += eval_const::simple_piece_eval(norm_sq, norm_piece) * piece_color;

@@ -5,6 +5,7 @@ use crate::mv;
 use crate::mv::mv_gen;
 
 use rosa_lib::mv::Mv;
+use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
@@ -206,8 +207,8 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
     // We never encountered a valid move
     if first_iteration {
-        let king_pos = p.piece(pos::KING * p.active).get_ones_single();
-        if mv::mv_gen::square_not_attacked(p, king_pos, -p.active) {
+        let king_pos = p.piece(Piece::King.clr(p.clr)).get_ones_single();
+        if mv::mv_gen::square_not_attacked(p, king_pos, p.clr.flip()) {
             // Stalemate
             return 0;
         } else {
@@ -227,14 +228,11 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 fn write_info(best: Mv, depth: u8, time: u64, score: i32, write_best: bool) {
     let info_string = format!(
         "info depth {} pv {} time {} score cp {} ",
-        depth,
-        best.notation(),
-        time,
-        score
+        depth, best, time, score
     );
     println!("{}", info_string);
     if write_best {
-        println!("bestmove {}", best.notation())
+        println!("bestmove {}", best)
     }
 }
 
@@ -274,11 +272,11 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
 pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
-    for mut mv in mv::mv_gen::gen_mvs(p){
+    for mut mv in mv::mv_gen::gen_mvs(p) {
         make(p, &mut mv, true);
         let count = counting_search(p, depth - 1);
         total += count;
-        println!("{}: {}", mv.notation(), count);
+        println!("{}: {}", mv, count);
     }
     println!("Nodes searched: {total}\n");
 }
