@@ -15,10 +15,10 @@ fn reserve_lookup() {
     for sq in 0..64 {
         unsafe {
             let rook_shift = ROOK_SHIFT[sq];
-            ROOK_LOOKUP[sq].resize(usize::pow(2, rook_shift as u32), 0);
+            ROOK_LOOKUP[sq].resize(2usize.pow(rook_shift as u32), 0);
 
             let bishop_shift = BISHOP_SHIFT[sq];
-            BISHOP_LOOKUP[sq].resize(usize::pow(2, bishop_shift as u32), 0);
+            BISHOP_LOOKUP[sq].resize(2usize.pow(bishop_shift as u32), 0);
         }
     }
 }

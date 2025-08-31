@@ -165,8 +165,57 @@ impl Mv {
         mv
     }
 
-    pub fn new_from_str(str: &str, p: &Pos) -> Mv {
-        Mv(0)
+    pub fn new_from_str(mv_str: &str, p: &Pos) -> Mv {
+        let start = util::square_num(&mv_str[..2]);
+        let end = util::square_num(&mv_str[2..4]);
+        let prom_piece = match &mv_str.chars().nth(4) {
+            Some('q') => Some(Piece::Queen),
+            Some('b') => Some(Piece::Bishop),
+            Some('n') => Some(Piece::Knight),
+            Some('r') => Some(Piece::Rook),
+            _ => None,
+        };
+
+        let piece = p.piece_at_sq(start).unwrap();
+        let op_piece = p.piece_at_sq(end);
+
+        let mut mv: Mv;
+        match (op_piece, prom_piece) {
+            (Some(op_piece), Some(prom_piece)) => {
+                mv = Mv::new_prom_cap(start, end, prom_piece, op_piece.de_clr());
+                mv.set_flag(Flag::PromCap);
+            }
+
+            (None, Some(prom_piece)) => {
+                mv = Mv::new_prom(start, end, prom_piece);
+                mv.set_flag(Flag::Prom);
+            }
+
+            (Some(op_piece), None) => {
+                mv = Mv::new_cap(start, end, piece.de_clr(), op_piece.de_clr());
+                mv.set_flag(Flag::Cap);
+            }
+
+            (None, None) => {
+                let mv_diff = start.abs_diff(end);
+                mv = if piece.de_clr() == Piece::King && mv_diff == 2 {
+                    match (piece.clr(), start > end) {
+                        (Clr::White, true) => Mv::new_castle(0),
+                        (Clr::White, false) => Mv::new_castle(1),
+                        (Clr::Black, true) => Mv::new_castle(2),
+                        (Clr::Black, false) => Mv::new_castle(3),
+                    }
+                } else if piece.de_clr() == Piece::Pawn && mv_diff == 16 {
+                    Mv::new_double(start, end)
+                } else if piece.de_clr() == Piece::Pawn && (mv_diff == 7 || mv_diff == 9) {
+                    Mv::new_ep(start, end)
+                } else {
+                    Mv::new_quiet(start, end)
+                }
+            }
+        }
+
+        mv
     }
 
     pub fn sq(&self) -> (u8, u8) {
@@ -210,9 +259,9 @@ impl Mv {
         self.0 |= (flag as u32) << FLAG_OFFSET
     }
 
-    pub fn captured_piece(&self, capturer: Piece) -> Piece {
-        let offset = self.0 >> CAP_OFFSET_OFFSET;
-        Piece::Pawn
+    pub fn captured_piece(&self, capturer: ClrPiece) -> ClrPiece {
+        let data = self.0 >> CAP_OFFSET_OFFSET;
+        capturer.de_clr().decompress_cap(data).clr(capturer.clr().flip())
     }
 
     pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {

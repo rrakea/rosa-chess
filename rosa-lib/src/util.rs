@@ -8,7 +8,7 @@ pub fn file(sq: u8) -> u8 {
 
 // This accomodates for knight moves
 pub fn no_wrap(a: u8, b: u8) -> bool {
-    (a as i16 % 8 - b as i16 % 8).abs() <= 2
+    u8::abs_diff(a % 8, b % 8) <= 2
 }
 
 pub fn square_name(sq: u8) -> String {

@@ -81,7 +81,7 @@ impl ClrPiece {
     }
 
     pub fn de_clr(&self) -> Piece {
-        Piece::from_i8(i8::abs(self.val()))
+        Piece::from_i8(self.val().abs())
     }
 }
 
@@ -120,16 +120,26 @@ impl Piece {
         ClrPiece::from_i8(self.val()).as_clr(clr)
     }
 
-    pub fn compress_cap(&self, victim: Piece) -> u32 {
-        0
-    }
-
+    // Compresses the piece into 2 bytes for storing the promoted piece
+    // Knight(2) => 0, Queen(5) => 3
     pub fn compress_prom(&self) -> u32 {
-        0
+        (self.val() - 2) as u32
     }
 
     pub fn decompress_prom(data: u32) -> Piece {
-        Piece::Queen
+        Piece::from_i8(data as i8 + 2)
+    }
+
+    // Compresses the pieces into 6 bytes for storing the captured piece
+    // Its not just stored as an abs value since its also used for mv ordering
+    // -> Its the difference that counts
+    // VERY TEMPORARY, THIS DOES NOT WORK 100%
+    pub fn compress_cap(&self, victim: Piece) -> u32 {
+        (victim.val() * (7 - self.val())) as u32
+    }
+
+    pub fn decompress_cap(&self, data: u32) -> Piece {
+        Piece::from_i8(data as i8 / (7 - self.val()))
     }
 }
 
