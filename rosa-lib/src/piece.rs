@@ -41,12 +41,8 @@ pub enum ClrPiece {
 pub type ClrPieceOption = Option<ClrPiece>;
 
 impl ClrPiece {
-    pub fn from_i8(val: i8) -> ClrPiece {
-        unsafe { std::mem::transmute::<i8, ClrPiece>(val) }
-    }
-
     pub fn flip(&self) -> ClrPiece {
-        Self::from_i8(-self.val())
+        Self::from(-self.val())
     }
 
     pub fn val(&self) -> i8 {
@@ -74,14 +70,14 @@ impl ClrPiece {
 
     pub fn as_clr(&self, clr: Clr) -> ClrPiece {
         if clr != self.clr() {
-            ClrPiece::from_i8(-self.val())
+            ClrPiece::from(-self.val())
         } else {
             *self
         }
     }
 
     pub fn de_clr(&self) -> Piece {
-        Piece::from_i8(self.val().abs())
+        Piece::from(self.val().abs())
     }
 }
 
@@ -108,16 +104,12 @@ impl std::fmt::Display for ClrPiece {
 }
 
 impl Piece {
-    pub fn from_i8(val: i8) -> Piece {
-        unsafe { std::mem::transmute::<i8, Piece>(val) }
-    }
-
     fn val(self) -> i8 {
         self as i8
     }
 
     pub fn clr(&self, clr: Clr) -> ClrPiece {
-        ClrPiece::from_i8(self.val()).as_clr(clr)
+        ClrPiece::from(self.val()).as_clr(clr)
     }
 
     // Compresses the piece into 2 bytes for storing the promoted piece
@@ -127,7 +119,7 @@ impl Piece {
     }
 
     pub fn decompress_prom(data: u32) -> Piece {
-        Piece::from_i8(data as i8 + 2)
+        Piece::from(data as i8 + 2)
     }
 
     // Compresses the pieces into 6 bytes for storing the captured piece
@@ -139,7 +131,7 @@ impl Piece {
     }
 
     pub fn decompress_cap(&self, data: u32) -> Piece {
-        Piece::from_i8(data as i8 / (7 - self.val()))
+        Piece::from(data as i8 / (7 - self.val()))
     }
 }
 
@@ -154,5 +146,17 @@ impl std::fmt::Display for Piece {
             Piece::King => "k",
         };
         write!(f, "{piece}")
+    }
+}
+
+impl std::convert::From<i8> for ClrPiece {
+    fn from(value: i8) -> Self {
+        unsafe { std::mem::transmute(value) }
+    }
+}
+
+impl std::convert::From<i8> for Piece {
+    fn from(value: i8) -> Self {
+        unsafe { std::mem::transmute(value) }
     }
 }

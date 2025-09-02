@@ -14,7 +14,17 @@ const TOP_RIGHT_SQ: u8 = 63;
 pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
     let color = p.clr;
     let (start, mut end) = mv.sq();
-    let piece = p.piece_at_sq(start).unwrap();
+    let piece = if make {
+        p.piece_at_sq(start)
+    } else {
+        p.piece_at_sq(end)
+    }
+    .unwrap_or_else(|| {
+        println!("Make: {make}");
+        println!("{:?}", mv);
+        println!("Pos: \n{}", p);
+        panic!();
+    });
 
     // unset the moving piece
     p.piece_toggle(piece, start);

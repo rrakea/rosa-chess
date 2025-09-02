@@ -112,7 +112,7 @@ impl Pos {
     }
 
     pub fn flip_color(&mut self) {
-        self.clr.flip();
+        self.clr = self.clr.flip();
         self.key.color();
     }
 

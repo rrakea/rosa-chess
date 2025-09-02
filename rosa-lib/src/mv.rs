@@ -9,22 +9,25 @@ use crate::util;
     bits like captured piece and promoted piece should
     be the most significant bits
 
-    We currently have 2 bits left over for buffer
+    The MVV_LVA section is both used for move ordering and
+    for retrieving the captured piece during unmake()
+
+    0b1000_0000_1000_0000_0001_1001_10_0000
 
                     Old ep file
                       |
-          Prom        |
-          Piece       |
-      Cap   |         |   Old
-     offset |         |  Castle  Start   End
-        |   |         |    |       |      |
-        |   |         |    |       |      |
-      |--| ||         |-| |--| |-----||-----|
+           Prom       |
+           Piece      |
+             |        |   Old
+             |        |  Castle  Start   End
+             |        |    |       |      |
+             |        |    |       |      |
+             ||       |-| |--| |-----||-----|
     0b0000_0000_0000_0000_0000_0000_0000_0000
-             || |--| |
-             |   |   |
-          Buffer |   |
-                 |   |
+      |-----|   |--| |
+        |        |   |
+        |        |   |
+      MVV_LVA    |   |
                Flag  |
                      |
                      |
@@ -34,7 +37,6 @@ use crate::util;
 
 const START: u32 = 0b_0000_0000_0000_0000_0000_1111_1100_0000;
 const END: u32 = 0b_0000_0000_0000_0000_0000_0000_0011_1111;
-const OLD_CASTLE: u32 = 0b_0000_0000_0000_0000_1111_0000_0000_0000;
 const WKC: u32 = 0b_0000_0000_0000_0000_0001_0000_0000_0000;
 const WQC: u32 = 0b_0000_0000_0000_0000_0010_0000_0000_0000;
 const BKC: u32 = 0b_0000_0000_0000_0000_0100_0000_0000_0000;
@@ -42,30 +44,19 @@ const BQC: u32 = 0b_0000_0000_0000_0000_1000_0000_0000_0000;
 const OLD_EP_FILE: u32 = 0b_0000_0000_0000_0111_0000_0000_0000_0000;
 const OLD_IS_EP: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
 const FLAG: u32 = 0b_0000_0000_1111_0000_0000_0000_0000_0000;
-const BUFFER: u32 = 0b_0000_0011_0000_0000_0000_0000_0000_0000;
-const PROM_PIECE: u32 = 0b_0000_1100_0000_0000_0000_0000_0000_0000;
-const CAP_OFFSET: u32 = 0b_1111_0000_0000_0000_0000_0000_0000_0000;
+const PROM_PIECE: u32 = 0b_0000_0011_0000_0000_0000_0000_0000_0000;
+const MVV_LVA: u32 = 0b_1111_1100_0000_0000_0000_0000_0000_0000;
 
 const START_OFFSET: u32 = 6;
 const OLD_EP_FILE_OFFSET: u32 = 16;
 const FLAG_OFFSET: u32 = 20;
-const PROM_OFFSET: u32 = 26;
-const CAP_OFFSET_OFFSET: u32 = 28;
-
-/*
-    Capture offset:
-    We meassure the capturing piece value and the captured piece
-    value to improve move ordering
-    -> Not by absulute value but by ranking
-    => A pawn capturing a knight is a +1, a rook +2 and a queen +3
-    The extreme values are -5 for qxp and +5 pxq
-    Q, R, B, N, K, P
-*/
+const PROM_OFFSET: u32 = 24;
+const MVV_LVA_OFFSET: u32 = 26;
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mv(u32);
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 #[repr(u8)]
 pub enum Flag {
     Quiet = 1,
@@ -85,13 +76,15 @@ impl Mv {
         let mut val: u32 = 0;
         val |= end as u32;
         val |= (start as u32) << START_OFFSET;
-        Mv(val)
+        let mut mv = Mv(val);
+        mv.set_flag(Flag::Quiet);
+        mv
     }
 
     pub fn new_cap(start: u8, end: u8, capturer: Piece, victim: Piece) -> Mv {
         let mut mv = Mv::new_quiet(start, end);
         mv.set_flag(Flag::Cap);
-        mv.0 |= capturer.compress_cap(victim) << CAP_OFFSET_OFFSET;
+        mv.0 |= capturer.compress_cap(victim) << MVV_LVA_OFFSET;
         mv
     }
 
@@ -219,7 +212,10 @@ impl Mv {
     }
 
     pub fn sq(&self) -> (u8, u8) {
-        ((self.0 & START) as u8, (self.0 & END) as u8)
+        (
+            ((self.0 & START) >> START_OFFSET) as u8,
+            (self.0 & END) as u8,
+        )
     }
 
     pub fn is_prom(&self) -> bool {
@@ -248,20 +244,25 @@ impl Mv {
 
     pub fn prom_piece(&self) -> Piece {
         // We safe a knight as 0, as pos::piece its 2 => +2
-        Piece::decompress_prom(((self.0 | PROM_PIECE) >> PROM_OFFSET) + 2)
+        Piece::decompress_prom(((self.0 & PROM_PIECE) >> PROM_OFFSET) + 2)
     }
 
     pub fn flag(&self) -> Flag {
-        unsafe { std::mem::transmute(((self.0 | FLAG) >> FLAG_OFFSET) as u8) }
+        Flag::from(((self.0 & FLAG) >> FLAG_OFFSET) as u8)
     }
 
     pub fn set_flag(&mut self, flag: Flag) {
+        // Unset the prev flag
+        self.0 &= !FLAG;
         self.0 |= (flag as u32) << FLAG_OFFSET
     }
 
     pub fn captured_piece(&self, capturer: ClrPiece) -> ClrPiece {
-        let data = self.0 >> CAP_OFFSET_OFFSET;
-        capturer.de_clr().decompress_cap(data).clr(capturer.clr().flip())
+        let data = self.0 >> MVV_LVA_OFFSET;
+        capturer
+            .de_clr()
+            .decompress_cap(data)
+            .clr(capturer.clr().flip())
     }
 
     pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {
@@ -319,7 +320,25 @@ impl std::fmt::Display for Mv {
 // To get a binary representation
 impl std::fmt::Debug for Mv {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#018b}", self.0)
+        write!(
+            f,
+            "Mv: {}\nFlag: {:?}\nBin: {:#018b}\nProm Piece: {}\nStart: {}\nEnd: {}",
+            self,
+            self.flag(),
+            self.0,
+            self.prom_piece(),
+            self.sq().0,
+            self.sq().1,
+        )
+    }
+}
+
+impl std::convert::From<u8> for Flag {
+    fn from(value: u8) -> Self {
+        if value == 0 || value > 10 {
+            panic!("Flag: {value}")
+        }
+        unsafe { std::mem::transmute(value) }
     }
 }
 
