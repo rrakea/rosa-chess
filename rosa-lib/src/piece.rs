@@ -151,12 +151,15 @@ impl std::fmt::Display for Piece {
 
 impl std::convert::From<i8> for ClrPiece {
     fn from(value: i8) -> Self {
+        debug_assert!(value != 0 && value <= 6 && value >= -6, "Value: {value}");
+        
         unsafe { std::mem::transmute(value) }
     }
 }
 
 impl std::convert::From<i8> for Piece {
     fn from(value: i8) -> Self {
+        debug_assert!(value != 0 && value <= 6 && value >= -6, "Value: {value}");
         unsafe { std::mem::transmute(value) }
     }
 }

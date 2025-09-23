@@ -54,8 +54,10 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
 
     let clr = if fen[1] == "b" {
         Clr::Black
-    } else {
+    } else if fen[1] == "w"{
         Clr::White
+    } else {
+        panic!("Invalid color: {}", fen[1]);
     };
 
     let mut wk = false;

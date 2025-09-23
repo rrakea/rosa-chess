@@ -49,7 +49,6 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
     let mut is_ep = false;
     let mut ep_file = 0;
 
-    p.flip_color();
     if make {
         mv.set_old_castle_rights((wk, wq, bk, bq));
         if p.is_en_passant() {
@@ -58,10 +57,10 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
         }
     }
 
-    match mv.flag() {
-        Flag::Quiet => {}
+    p.flip_color();
 
-        Flag::Cap => {}
+    match mv.flag() {
+        Flag::Quiet | Flag::Cap => {}
 
         Flag::Double => {
             if make {
@@ -80,12 +79,10 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             }
         }
 
-        Flag::Prom => {
+        Flag::Prom | Flag::PromCap => {
             let prom_piece = mv.prom_piece();
             p.piece_toggle(prom_piece.clr(color), end);
         }
-
-        Flag::PromCap => {}
 
         Flag::WKC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ);
@@ -109,8 +106,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             p.piece_toggle(ClrPiece::BRook, TOP_RIGHT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_RIGHT_SQ - 2);
             if make {
-                wk = false;
-                wq = false
+                bk = false;
+                bq = false
             }
         }
 
@@ -118,8 +115,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv, make: bool) -> bool {
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ + 3);
             if make {
-                wk = false;
-                wq = false
+                bk = false;
+                bq = false
             }
         }
     }

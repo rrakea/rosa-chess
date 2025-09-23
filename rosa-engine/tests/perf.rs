@@ -14,7 +14,9 @@ fn init() {
 
 fn count(p: &mut pos::Pos, expected: [u64; 6]) {
     for (i, res) in expected.iter().enumerate() {
+        println!("Starting Depth: {i}");
         let count = search::counting_search(p, i as u8);
+        println!("Depth: {i}, Count: {count}");
         assert_eq!(count, *res);
     }
 }

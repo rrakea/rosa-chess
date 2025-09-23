@@ -103,7 +103,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     }
 
     // Check the transposition table
-    let mut pv_move = Mv::default();
+    let mut pv_move = None;
     let mut replace_entry = false;
 
     {
@@ -122,7 +122,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                 }
             }
 
-            pv_move = entry.mv;
+            pv_move = Some(entry.mv);
             // If the depth is worse we cant use the score
             if depth <= entry.depth {
                 match entry.node_type {
@@ -159,14 +159,17 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
     let mut node_type = tt::NodeType::Upper;
     let mut first_iteration = true;
+    let mut best_mv = Mv::default();
 
-    let mv_iter = std::iter::once(pv_move).chain(
-        mv_gen::gen_mvs(p)
-            .into_iter()
-            .filter(move |mv| *mv != pv_move),
-    );
+    let iter: Box<dyn Iterator<Item = Mv>> = match pv_move {
+        Some(m) => {
+            best_mv = m;
+            Box::new(std::iter::once(m).chain(mv_gen::gen_mvs(p).into_iter().filter(move |mv| *mv != m)))
+        }
+        None => Box::new(mv_gen::gen_mvs(p).into_iter()),
+    };
 
-    for mut m in mv_iter {
+    for mut m in iter {
         let legal = make(p, &mut m, true);
         if !legal {
             continue;
@@ -188,7 +191,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         }
         if score > alpha {
             alpha = score;
-            pv_move = m;
+            best_mv = m;
             node_type = tt::NodeType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
@@ -203,6 +206,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                 break; // Prune :)
             }
         }
+        make(p, &mut m, false);
     }
 
     // We never encountered a valid move
@@ -219,7 +223,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
     if replace_entry {
         //println!("Writing to TT");
-        TT.set(tt::Entry::new(p.key(), alpha, pv_move, depth, node_type));
+        TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
     }
 
     alpha
@@ -256,6 +260,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
             continue;
         }
         count += counting_search(p, depth - 1);
+        make(p, &mut mv, false);
     }
 
     TT.set(tt::Entry {

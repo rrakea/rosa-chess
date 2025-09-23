@@ -2,6 +2,7 @@ use crate::clr::Clr;
 use crate::piece::*;
 use crate::pos::Pos;
 use crate::util;
+use crate::validate;
 
 /*
     Move encoding as u32
@@ -73,6 +74,7 @@ pub enum Flag {
 
 impl Mv {
     pub fn new_quiet(start: u8, end: u8) -> Mv {
+        debug_assert!(validate::sq(start) && validate::sq(end));
         let mut val: u32 = 0;
         val |= end as u32;
         val |= (start as u32) << START_OFFSET;
@@ -243,8 +245,7 @@ impl Mv {
     }
 
     pub fn prom_piece(&self) -> Piece {
-        // We safe a knight as 0, as pos::piece its 2 => +2
-        Piece::decompress_prom(((self.0 & PROM_PIECE) >> PROM_OFFSET) + 2)
+        Piece::decompress_prom((self.0 & PROM_PIECE) >> PROM_OFFSET)
     }
 
     pub fn flag(&self) -> Flag {
@@ -292,7 +293,7 @@ impl Mv {
     }
 
     pub fn old_ep_file(&self) -> u8 {
-        (self.0 | OLD_EP_FILE >> OLD_EP_FILE_OFFSET) as u8
+        ((self.0 & OLD_EP_FILE) >> OLD_EP_FILE_OFFSET) as u8
     }
 
     pub fn set_old_ep_file(&mut self, file: u8) {

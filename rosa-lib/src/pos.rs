@@ -2,6 +2,7 @@ use crate::board::Board;
 use crate::clr::Clr;
 use crate::piece::*;
 use crate::tt;
+use crate::validate;
 
 #[derive(Clone)]
 pub struct Pos {
@@ -93,6 +94,7 @@ impl Pos {
     }
 
     pub fn piece_at_sq(&self, sq: u8) -> ClrPieceOption {
+        debug_assert!(validate::sq(sq));
         self.sq[sq as usize]
     }
 
