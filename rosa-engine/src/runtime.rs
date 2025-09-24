@@ -112,7 +112,7 @@ pub fn start() {
                 let mv = cmd_parts[1];
                 let mut mv = Mv::new_from_str(mv, &p);
                 println!("{}", mv);
-                make::make(&mut p, &mut mv, true);
+                make::make(&mut p, &mut mv);
             }
 
             "print" | "p" | "d" => {

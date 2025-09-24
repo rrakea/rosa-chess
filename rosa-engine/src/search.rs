@@ -1,6 +1,6 @@
 use crate::debug;
 use crate::eval::simple_eval;
-use crate::make::make;
+use crate::make;
 use crate::mv;
 use crate::mv::mv_gen;
 
@@ -170,7 +170,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     };
 
     for mut m in iter {
-        let legal = make(p, &mut m, true);
+        let legal = make::make(p, &mut m);
         if !legal {
             continue;
         }
@@ -206,7 +206,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                 break; // Prune :)
             }
         }
-        make(p, &mut m, false);
+        make::unmake(p, &mut m);
     }
 
     // We never encountered a valid move
@@ -255,12 +255,12 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     let mut count: u64 = 0;
     let mv_iter = mv::mv_gen::gen_mvs(p);
     for mut mv in mv_iter {
-        let legal = make(p, &mut mv, true);
+        let legal = make::make(p, &mut mv);
         if !legal {
             continue;
         }
         count += counting_search(p, depth - 1);
-        make(p, &mut mv, false);
+        make::unmake(p, &mut mv);
     }
 
     TT.set(tt::Entry {
@@ -278,7 +278,7 @@ pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
     for mut mv in mv::mv_gen::gen_mvs(p) {
-        make(p, &mut mv, true);
+        make::make(p, &mut mv);
         let count = counting_search(p, depth - 1);
         total += count;
         println!("{}: {}", mv, count);
