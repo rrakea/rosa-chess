@@ -1,5 +1,5 @@
 use rosa_engine::*;
-use rosa_lib::{pos, tt};
+use rosa_lib::{pos, tt, mvvlva};
 use std::sync::Once;
 
 static INIT: Once = Once::new();
@@ -8,6 +8,7 @@ fn init() {
     INIT.call_once(|| {
         tt::init_zobrist_keys();
         mv::magic_init::init_magics();
+        mvvlva::init_mvvlva();
         search::TT.resize(10000);
     });
 }

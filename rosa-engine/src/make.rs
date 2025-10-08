@@ -20,14 +20,9 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
         panic!();
     });
 
-    // unset the moving piece
+    // set the moving piece
     p.piece_toggle(piece, start);
-
-    // Promotions are the only move where the moving piece
-    // does not "move" to end (changes piece)
-    if !mv.is_prom() {
-        p.piece_toggle(piece, end);
-    }
+    p.piece_toggle(piece, end);
 
     let (mut wk, mut wq) = p.can_castle(Clr::White);
     let (mut bk, mut bq) = p.can_castle(Clr::Black);
@@ -59,6 +54,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
         }
 
         Flag::Prom | Flag::PromCap => {
+            // Unset the pawn moving
+            p.piece_toggle(piece, end);
             let prom_piece = mv.prom_piece();
             p.piece_toggle(prom_piece.clr(color), end);
         }
@@ -67,34 +64,35 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ);
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ - 2);
             wk = false;
-            wq = false
+            wq = false;
         }
 
         Flag::WQC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_LEFT_SQ);
             p.piece_toggle(ClrPiece::WRook, BOTTOM_LEFT_SQ + 3);
             wk = false;
-            wq = false
+            wq = false;
         }
 
         Flag::BKC => {
             p.piece_toggle(ClrPiece::BRook, TOP_RIGHT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_RIGHT_SQ - 2);
             bk = false;
-            bq = false
+            bq = false;
         }
 
         Flag::BQC => {
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ + 3);
             bk = false;
-            bq = false
+            bq = false;
         }
     }
 
     // cap after special since you need to move the end with ep
     if mv.is_cap() {
-        p.piece_toggle(mv.captured_piece(piece), end);
+        let vic = mv.cap_victim();
+        p.piece_toggle(vic.clr(color.flip()), end);
     }
 
     // If: could castle previously && a) Move king, b) moved from rook sq, c) captured rook
@@ -114,7 +112,6 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
         bq = false;
     }
 
-    // Remember changes for unmake
     p.gen_new_data(is_ep, ep_file, pos::CastleData { wk, wq, bk, bq });
 
     // If the king of the moving player is not attacked, the
@@ -124,8 +121,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
 }
 
 pub fn unmake(p: &mut Pos, mv: &mut Mv) {
-    let color = p.clr;
-    let (start, mut end) = mv.sq();
+    let old_color = p.clr.flip();
+    let (start, end) = mv.sq();
     let piece = p.piece_at_sq(end).unwrap();
 
     p.flip_color();
@@ -139,7 +136,11 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
     let mut ep_file = 0;
 
     match mv.flag() {
-        Flag::Quiet | Flag::Cap => {}
+        Flag::Quiet => {}
+
+        Flag::Cap => {
+            p.piece_toggle(mv.cap_victim().clr(old_color.flip()), end);
+        }
 
         Flag::Double => {
             is_ep = mv.old_is_ep();
@@ -147,15 +148,22 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
         }
 
         Flag::Ep => {
-            end = match color {
+            let ep_end = match old_color {
                 Clr::White => end - 8,
                 Clr::Black => end + 8,
-            }
+            };
+            p.piece_toggle(mv.cap_victim().clr(old_color.flip()), ep_end);
         }
 
-        Flag::Prom | Flag::PromCap => {
+        Flag::Prom => {
             let prom_piece = mv.prom_piece();
-            p.piece_toggle(prom_piece.clr(color), end);
+            p.piece_toggle(prom_piece.clr(old_color), end);
+        }
+
+        Flag::PromCap => {
+            let prom_piece = mv.prom_piece();
+            p.piece_toggle(prom_piece.clr(old_color), end);
+            p.piece_toggle(mv.cap_victim().clr(old_color.flip()), end);
         }
 
         Flag::WKC => {
@@ -177,10 +185,6 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ + 3);
         }
-    }
-
-    if mv.is_cap() {
-        p.piece_toggle(mv.captured_piece(piece), end);
     }
 
     let (wk, wq) = mv.old_castle_rights(Clr::White);

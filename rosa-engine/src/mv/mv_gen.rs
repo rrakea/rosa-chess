@@ -92,14 +92,14 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
             && victim.clr() != p.clr
             && util::no_wrap(start_sq, cap_left)
         {
-            mvs.extend(Mv::mass_new_prom_cap(start_sq, end_quiet, victim.de_clr()));
+            mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_left, victim.de_clr()));
         }
 
         if let Some(victim) = p.piece_at_sq(cap_right)
             && victim.clr() != p.clr
             && util::no_wrap(start_sq, cap_right)
         {
-            mvs.extend(Mv::mass_new_prom_cap(start_sq, end_quiet, victim.de_clr()));
+            mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_right, victim.de_clr()));
         }
     }
 }

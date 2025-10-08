@@ -57,6 +57,7 @@ impl ClrPiece {
         }
         // Since our pieces start at 1 but the array at 0
         index -= 1;
+        debug_assert!((0..12).contains(&index));
         index as usize
     }
 
@@ -104,7 +105,7 @@ impl std::fmt::Display for ClrPiece {
 }
 
 impl Piece {
-    fn val(self) -> i8 {
+    pub fn val(self) -> i8 {
         self as i8
     }
 
@@ -121,21 +122,23 @@ impl Piece {
     pub fn decompress_prom(data: u32) -> Piece {
         Piece::from(data as i8 + 2)
     }
-
-    // Compresses the pieces into 6 bytes for storing the captured piece
-    // Its not just stored as an abs value since its also used for mv ordering
-    // -> Its the difference that counts
-    // VERY TEMPORARY, THIS DOES NOT WORK 100%
-    pub fn compress_cap(&self, victim: Piece) -> u32 {
-        (victim.val() * (7 - self.val())) as u32
-    }
-
-    pub fn decompress_cap(&self, data: u32) -> Piece {
-        Piece::from(data as i8 / (7 - self.val()))
-    }
 }
 
 impl std::fmt::Display for Piece {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let piece = match self {
+            Piece::Pawn => "p",
+            Piece::Knight => "n",
+            Piece::Bishop => "b",
+            Piece::Rook => "r",
+            Piece::Queen => "q",
+            Piece::King => "k",
+        };
+        write!(f, "{piece}")
+    }
+}
+
+impl std::fmt::Debug for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let piece = match self {
             Piece::Pawn => "p",

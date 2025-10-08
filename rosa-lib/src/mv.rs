@@ -1,4 +1,5 @@
 use crate::clr::Clr;
+use crate::mvvlva;
 use crate::piece::*;
 use crate::pos::Pos;
 use crate::util;
@@ -10,10 +11,7 @@ use crate::validate;
     bits like captured piece and promoted piece should
     be the most significant bits
 
-    The MVV_LVA section is both used for move ordering and
-    for retrieving the captured piece during unmake()
-
-    0b1000_0000_1000_0000_0001_1001_10_0000
+    The mvvlva could be only 5 bits but there is no other data to store
 
                     Old ep file
                       |
@@ -86,7 +84,7 @@ impl Mv {
     pub fn new_cap(start: u8, end: u8, capturer: Piece, victim: Piece) -> Mv {
         let mut mv = Mv::new_quiet(start, end);
         mv.set_flag(Flag::Cap);
-        mv.0 |= capturer.compress_cap(victim) << MVV_LVA_OFFSET;
+        mv.0 |= mvvlva::compress(capturer, victim) << MVV_LVA_OFFSET;
         mv
     }
 
@@ -228,6 +226,10 @@ impl Mv {
         matches!(self.flag(), Flag::Cap | Flag::PromCap)
     }
 
+    pub fn is_double(&self) -> bool {
+        self.flag() == Flag::Double
+    }
+
     pub fn old_is_ep(&self) -> bool {
         (self.0 & OLD_IS_EP) != 0
     }
@@ -258,12 +260,17 @@ impl Mv {
         self.0 |= (flag as u32) << FLAG_OFFSET
     }
 
-    pub fn captured_piece(&self, capturer: ClrPiece) -> ClrPiece {
-        let data = self.0 >> MVV_LVA_OFFSET;
-        capturer
-            .de_clr()
-            .decompress_cap(data)
-            .clr(capturer.clr().flip())
+    fn capture_data(&self) -> (Piece, Piece) {
+        let data = (self.0 & MVV_LVA) >> MVV_LVA_OFFSET;
+        mvvlva::decompress(data)
+    }
+
+    pub fn cap_capturer(&self) -> Piece {
+        self.capture_data().0
+    }
+
+    pub fn cap_victim(&self) -> Piece {
+        self.capture_data().1
     }
 
     pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {

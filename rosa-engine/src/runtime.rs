@@ -7,6 +7,7 @@ use crate::search;
 
 use rosa_lib::clr::Clr;
 use rosa_lib::mv::Mv;
+use rosa_lib::mvvlva;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
@@ -21,6 +22,7 @@ pub fn start() {
     tt::init_zobrist_keys();
     search::TT.resize(config::DEFAULT_TABLE_SIZE_MB * config::MB);
     mv::magic_init::init_magics();
+    mvvlva::init_mvvlva();
     let mut p: pos::Pos = fen::starting_pos(Vec::new());
     let mut stop: Option<Arc<RwLock<bool>>> = None;
 

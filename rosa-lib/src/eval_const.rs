@@ -6,11 +6,13 @@ use crate::piece::Piece;
     All values in centipawns (1/100 of a pawn)
 */
 
-const PAWN_EVAL: i32 = 100;
-const KNIGHT_EVAL: i32 = 320;
-const BISHOP_EVAL: i32 = 340;
-const ROOK_EVAL: i32 = 500;
-const QUEEN_EVAL: i32 = 900;
+pub const PAWN_EVAL: i32 = 100;
+pub const KNIGHT_EVAL: i32 = 320;
+pub const BISHOP_EVAL: i32 = 341;
+pub const ROOK_EVAL: i32 = 500;
+pub const QUEEN_EVAL: i32 = 900;
+pub const KING_EVAL: i32 = 10000;
+
 
 pub fn piece_eval(sq: usize, piece: Piece) -> i32 {
     match piece {
@@ -21,6 +23,17 @@ pub fn piece_eval(sq: usize, piece: Piece) -> i32 {
         Piece::Queen => QUEEN_EVAL + QUEEN_TABLE[sq],
         Piece::King => KING_TABLE_MIDDLEGAME[sq],
     }
+}
+
+pub fn pure_piece_eval(piece: Piece) -> i32 {
+   match piece {
+       Piece::Pawn => PAWN_EVAL,
+       Piece::Knight => KNIGHT_EVAL,
+       Piece::Bishop => BISHOP_EVAL,
+       Piece::Rook => ROOK_EVAL,
+       Piece::Queen => QUEEN_EVAL,
+       Piece::King => KING_EVAL,
+   } 
 }
 
 const PAWN_TABLE: [i32; 64] = [
