@@ -164,7 +164,9 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     let iter: Box<dyn Iterator<Item = Mv>> = match pv_move {
         Some(m) => {
             best_mv = m;
-            Box::new(std::iter::once(m).chain(mv_gen::gen_mvs(p).into_iter().filter(move |mv| *mv != m)))
+            Box::new(
+                std::iter::once(m).chain(mv_gen::gen_mvs(p).into_iter().filter(move |mv| *mv != m)),
+            )
         }
         None => Box::new(mv_gen::gen_mvs(p).into_iter()),
     };
@@ -172,6 +174,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     for mut m in iter {
         let legal = make::make(p, &mut m);
         if !legal {
+            make::unmake(p, &mut m);
             continue;
         }
 
@@ -257,6 +260,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     for mut mv in mv_iter {
         let legal = make::make(p, &mut mv);
         if !legal {
+            make::unmake(p, &mut mv);
             continue;
         }
         count += counting_search(p, depth - 1);
@@ -284,4 +288,30 @@ pub fn division_search(p: &mut pos::Pos, depth: u8) {
         println!("{}: {}", mv, count);
     }
     println!("Nodes searched: {total}\n");
+}
+
+pub fn back_track_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
+    if depth == 0 {
+        return;
+    }
+
+    let mv_iter = mv::mv_gen::gen_mvs(p);
+    for mut mv in mv_iter {
+        // Ugly, but the only way to keep a list of made moves
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| make::make(p, &mut mv)));
+        match panic {
+            Ok(legal) => {
+                if !legal {
+                    make::unmake(p, &mut mv);
+                    continue;
+                }
+            } 
+            Err(_e) => {
+                panic!("Make Panic, Previous Mvs: {:?},\n The panic mv: {mv}", previous_mvs);
+            }
+        }
+        previous_mvs.push(mv);
+        back_track_search(p, depth, previous_mvs);
+        make::unmake(p, &mut mv);
+    }
 }

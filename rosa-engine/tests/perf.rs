@@ -1,8 +1,11 @@
 use rosa_engine::*;
-use rosa_lib::{pos, tt, mvvlva};
+use rosa_lib::{mvvlva, pos, tt};
 use std::sync::Once;
 
 static INIT: Once = Once::new();
+
+// Change this for expensive but informative backtrack search
+const BACKTRACK: bool = true;
 
 fn init() {
     INIT.call_once(|| {
@@ -13,12 +16,16 @@ fn init() {
     });
 }
 
-fn count(p: &mut pos::Pos, expected: [u64; 6]) {
-    for (i, res) in expected.iter().enumerate() {
-        println!("Starting Depth: {i}");
-        let count = search::counting_search(p, i as u8);
-        println!("Depth: {i}, Count: {count}");
-        assert_eq!(count, *res);
+fn start_search(p: &mut pos::Pos, expected: [u64; 6]) {
+    if !BACKTRACK {
+        for (i, res) in expected.iter().enumerate() {
+            println!("Starting Depth: {i}");
+            let count = search::counting_search(p, i as u8);
+            println!("Depth: {i}, Count: {count}");
+            assert_eq!(count, *res);
+        }
+    } else {
+        search::back_track_search(p, 6, &mut Vec::new());
     }
 }
 
@@ -27,7 +34,7 @@ fn starting_pos() {
     init();
     let mut pos = fen::starting_pos(Vec::new());
     let expected = [1, 20, 400, 8902, 197281, 4865609];
-    count(&mut pos, expected);
+    start_search(&mut pos, expected);
 }
 
 #[test]
@@ -40,7 +47,7 @@ fn tricky_pos_1() {
         Vec::new(),
     );
     let expected = [1, 48, 2039, 97862, 4085603, 193690690];
-    count(&mut pos, expected);
+    start_search(&mut pos, expected);
 }
 
 #[test]
@@ -53,7 +60,7 @@ fn tricky_pos_2() {
         Vec::new(),
     );
     let expected = [1, 14, 191, 2812, 43238, 674624];
-    count(&mut pos, expected);
+    start_search(&mut pos, expected);
 }
 
 #[test]
@@ -66,5 +73,5 @@ fn tricky_pos_3() {
         Vec::new(),
     );
     let expected = [1, 6, 264, 9467, 422333, 15833292];
-    count(&mut pos, expected);
+    start_search(&mut pos, expected);
 }

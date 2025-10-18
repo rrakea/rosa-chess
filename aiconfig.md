@@ -1,7 +1,7 @@
 # Rosa Chess Engine - Project Configuration
 
 ## Project Overview
-Rosa is a UCI-compatible chess engine written in Rust by rrakea. The project follows a modular architecture with two main crates:
+Rosa is a UCI-compatible chess engine written in Rust. The project follows a modular architecture with two main crates:
 
 ### Architecture
 - **rosa-engine**: Main engine implementation and UCI interface
@@ -19,7 +19,6 @@ Rosa is a UCI-compatible chess engine written in Rust by rrakea. The project fol
   - Iterative deepening with negamax framework
   - Negascout/Principal Variation Search
 - **mv/mv_gen.rs**: Move generation using magic bitboards with lazy evaluation
-- **mv/mv_order.rs**: ⚠️ DEPRECATED - to be removed
 - **make.rs**: Separate Make() and Unmake() move functions
 - **runtime.rs**: UCI implementation running in separate thread
 - **eval.rs**: Position evaluation (currently simple, improvements planned)
@@ -53,12 +52,3 @@ Rosa is a UCI-compatible chess engine written in Rust by rrakea. The project fol
 - Performance is prioritized - unsafe code allowed for speed optimization
 - Modular design with clear separation between engine logic and data types
 - UCI compliance for chess GUI compatibility
-
-## Dependencies
-- rand/rand_pcg: Random number generation (likely for Zobrist hashing)
-- rayon: Parallel computing library (future multi-threading support)
-
-## Build Configuration
-- Rust 2024 edition
-- Debug symbols enabled in release builds
-- Workspace structure with two crates
