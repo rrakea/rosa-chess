@@ -1,34 +1,33 @@
 use rosa_lib::board::*;
 
+use std::collections::HashSet;
+
+fn check_board(nums: Vec<u8>) {
+    let mut b = Board::new();
+    b.toggle_all(nums.clone());
+    let res_set: HashSet<_> = b.get_ones().into_iter().collect();
+    let num_set: HashSet<_> = nums.into_iter().collect();
+    assert_eq!(res_set, num_set);
+    assert_eq!(res_set.len(), num_set.len());
+}
+
 #[test]
 fn ones() {
-    let mut b = Board::new(0);
-    let mut v = vec![0u32, 23, 2, 34, 24, 20, 63];
-    b.toggle_all(v.clone());
-    let res_vec = b.get_ones();
-    assert_eq!(res_vec.len(), v.len());
-    for res in res_vec {
-        v.remove(res as usize);
-    }
-    assert_eq!(v.len(), 0);
+    let v = vec![0, 23, 2, 34, 24, 20, 63];
+    check_board(v);
+}
+
+#[test]
+fn ones2() {
+    let v = vec![3, 52, 63, 2, 1, 0, 33, 43];
+    check_board(v);
 }
 
 #[test]
 fn single() {
-    let mut b = Board::new(0);
+    let mut b = Board::new();
     let rand = rand::random_range(0..64);
     b.toggle(rand);
     assert_eq!(b.get_ones_single(), rand);
 }
 
-#[test]
-fn ones2() {
-    let mut b = Board::new(0);
-    let mut v = vec![3u32, 52, 64, 2, 1, 0, 33, 43];
-    let res_vec = b.get_ones();
-    b.toggle_all(v.clone());
-    assert_eq!(res_vec.len(), v.len());
-    for res in res_vec {
-        v.remove(res as usize);
-    }
-    assert_eq!(v.len(), 0);}

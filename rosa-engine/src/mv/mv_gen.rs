@@ -71,14 +71,14 @@ fn get_movemask(p: &Pos, piece: ClrPiece, sq: u8, can_cap: bool) -> Board {
         ClrPiece::WBishop | ClrPiece::BBishop => magic::bishop_mask(sq, p),
         ClrPiece::WQueen | ClrPiece::BQueen => magic::queen_mask(sq, p),
     };
-    Board::new(raw_board)
+    Board::new_from(raw_board)
 }
 
 fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let rank = if p.clr.is_white() { 6 } else { 1 };
     let pawn_bb = p.piece(Piece::Pawn.clr(p.clr));
     // Only pawns that are on the last rank
-    let relevant_rank = Board::new(pawn_bb.val() & constants::RANK_MASKS[rank]);
+    let relevant_rank = Board::new_from(pawn_bb.val() & constants::RANK_MASKS[rank]);
     for start_sq in relevant_rank.get_ones() {
         let end_quiet = (start_sq as i8 + 8 * p.clr.as_sign()) as u8;
         let cap_right = (start_sq as i8 + 9 * p.clr.as_sign()) as u8;
@@ -179,7 +179,7 @@ fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let bb = p.piece(Piece::Pawn.clr(p.clr));
     let rank = if p.clr.is_white() { 1 } else { 6 };
 
-    let second_rank = Board::new(bb.val() & constants::RANK_MASKS[rank]);
+    let second_rank = Board::new_from(bb.val() & constants::RANK_MASKS[rank]);
 
     for sq in second_rank.get_ones() {
         let one_move = (sq as i8 + (8 * p.clr.as_sign())) as u8;

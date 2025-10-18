@@ -139,7 +139,7 @@ pub fn gen_move_mask(
             }
         }
     }
-    let mut ret = board::Board::new(0);
+    let mut ret = board::Board::new();
     ret.toggle_all(pos_moves);
     ret.val()
 }

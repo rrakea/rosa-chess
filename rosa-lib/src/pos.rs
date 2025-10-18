@@ -36,7 +36,7 @@ impl Pos {
         ep_file: u8,
         castle: CastleData,
     ) -> Pos {
-        let mut boards = [Board::new(0); 12];
+        let mut boards = [Board::new(); 12];
         for (sq, piece) in sq.into_iter().enumerate() {
             if let Some(p) = piece {
                 boards[p.index()].toggle(sq as u8);
@@ -48,7 +48,7 @@ impl Pos {
             sq,
             data: 0,
             clr,
-            full: Board::new(0),
+            full: Board::new(),
             key: tt::Key::default(),
         };
 
@@ -127,7 +127,7 @@ impl Pos {
         for board in self.boards {
             full |= board.val();
         }
-        self.full = Board::new(full);
+        self.full = Board::new_from(full);
     }
 
     pub fn gen_new_data(&mut self, is_ep: bool, ep_file: u8, castle: CastleData) {

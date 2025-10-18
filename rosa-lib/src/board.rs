@@ -2,25 +2,16 @@
 pub struct Board(u64);
 
 impl Board {
-    pub fn new(val: u64) -> Board {
+    pub fn new() -> Board{
+        Board(0)
+    }
+
+    pub fn new_from(val: u64) -> Board {
         Board(val)
     }
 
     pub fn val(&self) -> u64 {
         self.0
-    }
-
-    pub fn get_ones_old(&self) -> Vec<u8> {
-        let mut bb = self.val();
-        let mut ones: Vec<u8> = Vec::new();
-        let mut lsb;
-
-        while bb != 0 {
-            lsb = bb.trailing_zeros();
-            ones.push(lsb as u8);
-            bb &= bb - 1;
-        }
-        ones
     }
 
     pub fn get_ones(&self) -> Vec<u8> {
@@ -43,12 +34,13 @@ impl Board {
     }
 
     pub fn toggle(&mut self, bit: u8) {
+        debug_assert!(bit < 64, "Bit: {bit}");
         self.0 ^= 1 << bit;
     }
 
-    pub fn toggle_all<T: Into<u64>>(&mut self, bits: Vec<T>) {
+    pub fn toggle_all(&mut self, bits: Vec<u8>) {
         for b in bits {
-            self.0 ^= 1 << b.into();
+            self.toggle(b);
         }
     }
 
