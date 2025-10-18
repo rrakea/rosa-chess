@@ -169,6 +169,44 @@ impl Pos {
         }
         self.data = data;
     }
+
+    pub fn debug_key_mismatch(p1: &Pos, p2: &Pos) -> String {
+        let mut report = String::new();
+        if p1.key == p2.key {
+            report.push_str("Keys not actually mismatched");
+        }
+
+        for i in 0..12 {
+            let b1 = p1.boards[i];
+            let b2 = p2.boards[i];
+            if b1 != b2 {
+                report
+                    .push_str(format!("Two boards at position {i} mismatch: {b1}, {b2}").as_str());
+            }
+        }
+
+        if p1.data != p2.data {
+            report.push_str(format!("Data mismatch: {}, {}", p1.data, p2.data).as_str());
+        }
+
+        if p1.clr != p2.clr {
+            report.push_str("Color mismatch");
+        }
+
+        if p1.full != p2.full{
+            report.push_str(format!("Full mismatch: {}, {}", p1.full, p2.full).as_str());
+        }
+
+        for sq in 0..64 {
+            let piece1 = p1.piece_at_sq(sq);
+            let piece2 = p2.piece_at_sq(sq);
+            if piece1 != piece2 {
+                report.push_str(format!("Piece mismatch at sq: {sq}, {:?}, {:?}", piece1,piece2).as_str());
+            }
+        }
+
+        report
+    }
 }
 
 impl std::fmt::Display for Pos {

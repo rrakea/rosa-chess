@@ -104,6 +104,29 @@ impl std::fmt::Display for ClrPiece {
     }
 }
 
+impl std::fmt::Debug for ClrPiece {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::WPawn => "wp",
+            Self::WKnight => "wn",
+            Self::WBishop => "wb",
+            Self::WRook => "wr",
+            Self::WQueen => "wq",
+            Self::WKing => "wk",
+
+            Self::BPawn => "bp",
+            Self::BKnight => "bn",
+            Self::BBishop => "bb",
+            Self::BRook => "br",
+            Self::BQueen => "bq",
+            Self::BKing => "bk",
+            
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
 impl Piece {
     pub fn val(self) -> i8 {
         self as i8

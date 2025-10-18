@@ -25,7 +25,7 @@ fn start_search(p: &mut pos::Pos, expected: [u64; 6]) {
             assert_eq!(count, *res);
         }
     } else {
-        search::back_track_search(p, 6, &mut Vec::new());
+        search::debug_search(p, 6, &mut Vec::new());
     }
 }
 
