@@ -9,6 +9,7 @@ fn check_board(nums: Vec<u8>) {
     let num_set: HashSet<_> = nums.into_iter().collect();
     assert_eq!(res_set, num_set);
     assert_eq!(res_set.len(), num_set.len());
+    assert_eq!(res_set.len(), b.count() as usize);
 }
 
 #[test]
@@ -20,6 +21,12 @@ fn ones() {
 #[test]
 fn ones2() {
     let v = vec![3, 52, 63, 2, 1, 0, 33, 43];
+    check_board(v);
+}
+
+#[test]
+fn empty() {
+    let v = Vec::new();
     check_board(v);
 }
 
