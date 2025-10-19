@@ -4,7 +4,7 @@ use std::sync::Once;
 
 static INIT: Once = Once::new();
 
-const DEBUG_SEARCH: bool = true;
+const DEBUG_SEARCH: bool = false;
 
 fn init() {
     INIT.call_once(|| {

@@ -1,6 +1,7 @@
 use crate::debug;
 use crate::eval::simple_eval;
 use crate::make;
+use crate::make::unmake;
 use crate::mv;
 use crate::mv::mv_gen;
 
@@ -289,8 +290,13 @@ pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
     for mut mv in mv::mv_gen::gen_mvs(p) {
-        make::make(p, &mut mv);
+        let legal = make::make(p, &mut mv);
+        if !legal {
+            unmake(p, &mut mv);
+            continue;
+        }
         let count = counting_search(p, depth - 1);
+        make::unmake(p, &mut mv);
         total += count;
         println!("{}: {}", mv, count);
     }

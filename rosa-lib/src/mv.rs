@@ -3,7 +3,6 @@ use crate::mvvlva;
 use crate::piece::*;
 use crate::pos::Pos;
 use crate::util;
-use crate::validate;
 
 /*
     Move encoding as u32
@@ -75,7 +74,7 @@ pub enum Flag {
 
 impl Mv {
     pub fn new_quiet(start: u8, end: u8) -> Mv {
-        debug_assert!(validate::sq(start) && validate::sq(end));
+        debug_assert!((0..64).contains(&start) && (0..64).contains(&end));
         let mut val: u32 = 0;
         val |= end as u32;
         val |= (start as u32) << START_OFFSET;
@@ -231,7 +230,7 @@ impl Mv {
     }
 
     pub fn is_cap(&self) -> bool {
-        matches!(self.flag(), Flag::Cap | Flag::PromCap)
+        matches!(self.flag(), Flag::Cap | Flag::PromCap | Flag::Ep)
     }
 
     pub fn is_double(&self) -> bool {
@@ -357,4 +356,3 @@ impl std::convert::From<u8> for Flag {
         unsafe { std::mem::transmute(value) }
     }
 }
-
