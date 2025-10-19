@@ -101,7 +101,14 @@ impl Pos {
     pub fn piece_toggle(&mut self, piece: ClrPiece, sq: u8) {
         self.sq[sq as usize] = match self.sq[sq as usize] {
             ClrPieceOption::None => ClrPieceOption::Some(piece),
-            ClrPieceOption::Some(_p) => ClrPieceOption::None,
+            ClrPieceOption::Some(p) => {
+                debug_assert_eq!(
+                    p, piece,
+                    "Tried toggling of an incorrect piece. Piece at sq: {}, Input Piece: {}",
+                    p, piece
+                );
+                ClrPieceOption::None
+            }
         };
 
         self.full.toggle(sq);
@@ -173,7 +180,9 @@ impl Pos {
     pub fn debug_key_mismatch(p1: &Pos, p2: &Pos) -> String {
         let mut report = String::new();
         if p1.key == p2.key {
-            report.push_str("Keys not actually mismatched");
+            report.push_str("Keys not actually mismatched\n");
+        } else {
+            report.push_str("Keys mismatched\n");
         }
 
         for i in 0..12 {
@@ -186,14 +195,14 @@ impl Pos {
         }
 
         if p1.data != p2.data {
-            report.push_str(format!("Data mismatch: {}, {}", p1.data, p2.data).as_str());
+            report.push_str(format!("Data mismatch: {:08b}, {:08b}", p1.data, p2.data).as_str());
         }
 
         if p1.clr != p2.clr {
             report.push_str("Color mismatch");
         }
 
-        if p1.full != p2.full{
+        if p1.full != p2.full {
             report.push_str(format!("Full mismatch: {}, {}", p1.full, p2.full).as_str());
         }
 
@@ -201,7 +210,9 @@ impl Pos {
             let piece1 = p1.piece_at_sq(sq);
             let piece2 = p2.piece_at_sq(sq);
             if piece1 != piece2 {
-                report.push_str(format!("Piece mismatch at sq: {sq}, {:?}, {:?}", piece1,piece2).as_str());
+                report.push_str(
+                    format!("Piece mismatch at sq: {sq}, {:?}, {:?}", piece1, piece2).as_str(),
+                );
             }
         }
 

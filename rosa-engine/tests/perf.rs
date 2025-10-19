@@ -4,8 +4,7 @@ use std::sync::Once;
 
 static INIT: Once = Once::new();
 
-// Change this for expensive but informative backtrack search
-const BACKTRACK: bool = true;
+const DEBUG_SEARCH: bool = true;
 
 fn init() {
     INIT.call_once(|| {
@@ -17,7 +16,7 @@ fn init() {
 }
 
 fn start_search(p: &mut pos::Pos, expected: [u64; 6]) {
-    if !BACKTRACK {
+    if !DEBUG_SEARCH {
         for (i, res) in expected.iter().enumerate() {
             println!("Starting Depth: {i}");
             let count = search::counting_search(p, i as u8);

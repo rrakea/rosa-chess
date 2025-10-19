@@ -13,14 +13,17 @@ const TOP_RIGHT_SQ: u8 = 63;
 
 pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
     let color = p.clr;
-    let (start, mut end) = mv.sq();
-    let piece = p.piece_at_sq(start).unwrap_or_else(|| {
+    let op_color = color.flip();
+
+    let (start, end) = mv.sq();
+    let mut captured_piece_sq = end;
+    let mut piece = p.piece_at_sq(start).unwrap_or_else(|| {
         println!("{:?}", mv);
         println!("Pos: \n{}", p);
         panic!();
     });
 
-    // set the moving piece
+    // unset the moving piece
     p.piece_toggle(piece, start);
 
     let (mut wk, mut wq) = p.can_castle(Clr::White);
@@ -46,17 +49,14 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
         }
 
         Flag::Ep => {
-            end = match color {
+            captured_piece_sq = match color {
                 Clr::White => end - 8,
                 Clr::Black => end + 8,
             }
         }
 
         Flag::Prom | Flag::PromCap => {
-            // Unset the pawn moving
-            p.piece_toggle(piece, end);
-            let prom_piece = mv.prom_piece();
-            p.piece_toggle(prom_piece.clr(color), end);
+            piece = mv.prom_piece().clr(color);
         }
 
         Flag::WKC => {
@@ -88,14 +88,12 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
         }
     }
 
-    // cap after special since you need to move the end with ep
     if mv.is_cap() {
-        let vic = mv.cap_victim();
-        p.piece_toggle(vic.clr(color.flip()), end);
+        p.piece_toggle(mv.cap_victim().clr(op_color), captured_piece_sq);
     }
 
-    // This has to be at the end since we need to unset the cap
-    // piece first/ mv the end for ep
+    // This has to be at the end since we need to unset the captured
+    // piece first
     p.piece_toggle(piece, end);
 
     // If: could castle previously && a) Move king, b) moved from rook sq, c) captured rook
@@ -124,50 +122,27 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
 }
 
 pub fn unmake(p: &mut Pos, mv: &mut Mv) {
-    let old_color = p.clr.flip();
+    let color = p.clr.flip();
+    let op_color = p.clr;
+
     let (start, end) = mv.sq();
-    let piece = p.piece_at_sq(end).unwrap();
+    let mut captured_piece_sq = end;
+    let mut piece = p.piece_at_sq(end).unwrap();
 
     p.flip_color();
     p.piece_toggle(piece, start);
 
-    if !mv.is_prom() {
-        p.piece_toggle(piece, end);
-    }
-
-    let mut is_ep = false;
-    let mut ep_file = 0;
-
     match mv.flag() {
-        Flag::Quiet => {}
-
-        Flag::Cap => {
-            p.piece_toggle(mv.cap_victim().clr(old_color.flip()), end);
-        }
-
-        Flag::Double => {
-            is_ep = mv.old_is_ep();
-            ep_file = mv.old_ep_file();
-        }
+        Flag::Quiet | Flag::Cap | Flag::Double => {}
 
         Flag::Ep => {
-            let ep_end = match old_color {
+            captured_piece_sq = match color {
                 Clr::White => end - 8,
                 Clr::Black => end + 8,
             };
-            p.piece_toggle(mv.cap_victim().clr(old_color.flip()), ep_end);
         }
 
-        Flag::Prom => {
-            let prom_piece = mv.prom_piece();
-            p.piece_toggle(prom_piece.clr(old_color), end);
-        }
-
-        Flag::PromCap => {
-            let prom_piece = mv.prom_piece();
-            p.piece_toggle(prom_piece.clr(old_color), end);
-            p.piece_toggle(mv.cap_victim().clr(old_color.flip()), end);
-        }
+        Flag::Prom | Flag::PromCap => piece = mv.prom_piece().clr(color),
 
         Flag::WKC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ);
@@ -190,8 +165,15 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
         }
     }
 
+    p.piece_toggle(piece, end);
+
+    if mv.is_cap() {
+        p.piece_toggle(mv.cap_victim().clr(op_color), captured_piece_sq);
+    }
+
+
     let (wk, wq) = mv.old_castle_rights(Clr::White);
     let (bk, bq) = mv.old_castle_rights(Clr::Black);
 
-    p.gen_new_data(is_ep, ep_file, pos::CastleData { wk, wq, bk, bq });
+    p.gen_new_data(mv.old_is_ep(), mv.old_ep_file(), pos::CastleData { wk, wq, bk, bq });
 }

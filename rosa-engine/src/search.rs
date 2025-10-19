@@ -330,14 +330,15 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
                 );
             }
         }
-        previous_mvs.push(mv);
-        debug_search(p, depth - 1, previous_mvs);
+        let mut clone = previous_mvs.clone();
+        clone.push(mv);
+        debug_search(p, depth - 1, &mut clone);
         make::unmake(p, &mut mv);
         if p.key() != prev_key {
             panic!(
-                "Key mismatch after move: {:?}\nPrevious Mvs: {:?}",
-                mv, previous_mvs
-            );
+                "Key mismatch after move: {:?}\nPrevious Mvs:\n{:?}, Pos before make:\n{}, Pos after unmake:\n{}\nREPORT: {}",
+                mv, previous_mvs, prev_pos, p, pos::Pos::debug_key_mismatch(&prev_pos, p)
+);
         }
     }
 }
