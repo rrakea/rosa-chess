@@ -142,7 +142,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
             };
         }
 
-        Flag::Prom | Flag::PromCap => piece = mv.prom_piece().clr(color),
+        Flag::Prom | Flag::PromCap => piece = Piece::Pawn.clr(color)
 
         Flag::WKC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ);
