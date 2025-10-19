@@ -22,11 +22,7 @@ const BQ_CASTLE: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
 
 const CAP: u32 = 0b_0110_0000_0000_0000_0000_0000_0000_0000;
 
-<<<<<<< HEAD
-#[derive(PartialEq, PartialOrd, Eq, Ord)]
-=======
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
->>>>>>> e04039cec685c1a43c6b2cf9028b6b9517bda1dd
 pub struct LongMv(u32);
 
 impl LongMv {
@@ -96,7 +92,7 @@ impl LongMv {
     }
 
     pub fn is_ep(&self) -> bool {
-        self.has(IS_EP)
+    self.has(IS_EP)
     }
 
     pub fn is_cap(&self) -> bool {

@@ -4,6 +4,7 @@ use rosa_lib::pos;
 // Since we are using negamax this evaluation function has to return
 // a value relative to the side to move
 
+/*
 pub fn eval(p: &pos::Pos) -> i32 {
     let mut eval = 0;
 
@@ -20,6 +21,7 @@ pub fn eval(p: &pos::Pos) -> i32 {
 
     let endgame = w_endgame && b_endgame;
 
+    /*
     for piece in pos::PIECE_VAL_ARRAY {
         for sq in p.piece(piece).get_ones() {
             // Same color
@@ -30,20 +32,24 @@ pub fn eval(p: &pos::Pos) -> i32 {
             }
         }
     }
+    */
 
     eval
 }
 
+*/
+
 pub fn simple_eval(p: &pos::Pos) -> i32 {
     let mut eval = 0;
     for (sq, piece) in p.piece_iter().enumerate() {
-        if piece == 0 {
-            continue;
+        match piece {
+            None => continue,
+            Some(piece) => {
+                let norm_sq = if p.clr.is_white() { sq } else { 63 - sq };
+                let piece_color = if piece.clr().is_white() { 1 } else { -1 };
+                eval += eval_const::piece_eval(norm_sq, piece.de_clr()) * piece_color;
+            }
         }
-        let norm_sq = if p.active == 1 { sq } else { 63 - sq };
-        let norm_piece = i8::abs(piece);
-        let piece_color = if piece > 0 { 1 } else { -1 };
-        eval += eval_const::simple_piece_eval(norm_sq, norm_piece) * piece_color;
     }
     eval
 }
