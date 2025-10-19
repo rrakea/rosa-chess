@@ -93,7 +93,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
     }
 
     // This has to be at the end since we need to unset the captured
-    // piece first
+    // piece first & change the moving piece during a promotion
     p.piece_toggle(piece, end);
 
     // If: could castle previously && a) Move king, b) moved from rook sq, c) captured rook
