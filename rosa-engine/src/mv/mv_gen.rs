@@ -88,18 +88,20 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
             mvs.extend(Mv::mass_new_prom(start_sq, end_quiet));
         }
 
+        if util::no_wrap(start_sq, cap_left) {
         if let Some(victim) = p.piece_at_sq(cap_left)
             && victim.clr() != p.clr
-            && util::no_wrap(start_sq, cap_left)
         {
             mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_left, victim.de_clr()));
         }
+        }
 
-        if let Some(victim) = p.piece_at_sq(cap_right)
+        if util::no_wrap(start_sq, cap_right) {
+         if let Some(victim) = p.piece_at_sq(cap_right)
             && victim.clr() != p.clr
-            && util::no_wrap(start_sq, cap_right)
         {
             mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_right, victim.de_clr()));
+        }
         }
     }
 }
@@ -198,20 +200,20 @@ pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: Clr) -> bool {
 
     let bishop_mask = magic::bishop_mask(sq, p);
     if check_for_piece(p, bishop_mask, Piece::Bishop.clr(attacker_color))
-        || check_for_piece(p, bishop_mask, Piece::Bishop.clr(attacker_color))
+        || check_for_piece(p, bishop_mask, Piece::Queen.clr(attacker_color))
     {
         return false;
     }
 
     let rook_mask = magic::rook_mask(sq, p);
     if check_for_piece(p, rook_mask, Piece::Rook.clr(attacker_color))
-        || check_for_piece(p, rook_mask, Piece::Rook.clr(attacker_color))
+        || check_for_piece(p, rook_mask, Piece::Queen.clr(attacker_color))
     {
         return false;
     }
 
-    let knight_mask = constants::get_mask(Piece::Bishop.clr(attacker_color), sq);
-    if check_for_piece(p, knight_mask, Piece::Bishop.clr(attacker_color)) {
+    let knight_mask = constants::get_mask(Piece::Knight.clr(attacker_color), sq);
+    if check_for_piece(p, knight_mask, Piece::Knight.clr(attacker_color)) {
         return false;
     }
 

@@ -130,7 +130,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
     let mut piece = p.piece_at_sq(end).unwrap();
 
     p.flip_color();
-    p.piece_toggle(piece, start);
+    p.piece_toggle(piece, end);
 
     match mv.flag() {
         Flag::Quiet | Flag::Cap | Flag::Double => {}
@@ -142,7 +142,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
             };
         }
 
-        Flag::Prom | Flag::PromCap => piece = Piece::Pawn.clr(color)
+        Flag::Prom | Flag::PromCap => piece = Piece::Pawn.clr(color),
 
         Flag::WKC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ);
@@ -165,7 +165,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
         }
     }
 
-    p.piece_toggle(piece, end);
+    p.piece_toggle(piece, start);
 
     if mv.is_cap() {
         p.piece_toggle(mv.cap_victim().clr(op_color), captured_piece_sq);

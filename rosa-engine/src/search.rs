@@ -302,7 +302,14 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         return;
     }
 
-    let mv_iter = mv::mv_gen::gen_mvs(p);
+    let mv_res = std::panic::catch_unwind(|| mv::mv_gen::gen_mvs(p));
+    let mv_iter;
+    match mv_res{
+        Ok(p) => {mv_iter = p}
+        Err(_e) => {
+           panic!("Error in mv generation, Previous Mvs: {:?}", previous_mvs) 
+        }
+    }
     for mut mv in mv_iter {
         let prev_key = p.key();
         let prev_pos = p.clone();

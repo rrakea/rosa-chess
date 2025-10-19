@@ -126,7 +126,7 @@ impl Mv {
     pub fn new_castle(castle_type: u8) -> Mv {
         match castle_type {
             0 => {
-                let mut mv = Mv::new_quiet(WK_STARTING_SQ, BOTTOM_RIGHT_SQ + 2);
+                let mut mv = Mv::new_quiet(WK_STARTING_SQ, WK_STARTING_SQ + 2);
                 mv.set_flag(Flag::WKC);
                 mv
             }
@@ -358,7 +358,3 @@ impl std::convert::From<u8> for Flag {
     }
 }
 
-const BOTTOM_LEFT_SQ: u8 = 0;
-const BOTTOM_RIGHT_SQ: u8 = 7;
-const TOP_LEFT_SQ: u8 = 56;
-const TOP_RIGHT_SQ: u8 = 63;

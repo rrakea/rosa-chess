@@ -152,28 +152,34 @@ impl Pos {
 
         let old_castle = self.castle_data();
 
-        // Since we cant regain castling rights we only have to
-        // unset the key if we previously had them
         if castle.wk {
             data |= 0b0001_0000;
-        } else if old_castle.wk {
+        }
+        if old_castle.wk != castle.wk {
             self.key.castle(Clr::White, true);
         }
+
         if castle.wq {
             data |= 0b0010_0000;
-        } else if old_castle.wq {
+        }
+        if castle.wq != old_castle.wq {
             self.key.castle(Clr::White, false);
         }
+
         if castle.bk {
             data |= 0b0100_0000;
-        } else if old_castle.bk {
+        }
+        if castle.bk != old_castle.bk {
             self.key.castle(Clr::Black, true);
         }
+
         if castle.bq {
             data |= 0b1000_0000;
-        } else if old_castle.bq {
+        }
+        if castle.bq != old_castle.bq {
             self.key.castle(Clr::Black, false);
         }
+
         self.data = data;
     }
 
