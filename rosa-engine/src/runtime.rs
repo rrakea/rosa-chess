@@ -113,7 +113,7 @@ pub fn start() {
                 }
                 let mv = cmd_parts[1];
                 let mut mv = Mv::new_from_str(mv, &p);
-                println!("{}", mv);
+                println!("{:?}", mv);
                 make::make(&mut p, &mut mv);
             }
 

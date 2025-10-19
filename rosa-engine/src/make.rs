@@ -22,7 +22,6 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
 
     // set the moving piece
     p.piece_toggle(piece, start);
-    p.piece_toggle(piece, end);
 
     let (mut wk, mut wq) = p.can_castle(Clr::White);
     let (mut bk, mut bq) = p.can_castle(Clr::Black);
@@ -94,6 +93,10 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
         let vic = mv.cap_victim();
         p.piece_toggle(vic.clr(color.flip()), end);
     }
+
+    // This has to be at the end since we need to unset the cap
+    // piece first/ mv the end for ep
+    p.piece_toggle(piece, end);
 
     // If: could castle previously && a) Move king, b) moved from rook sq, c) captured rook
     if wk && (piece == ClrPiece::WKing || start == BOTTOM_RIGHT_SQ || end == BOTTOM_RIGHT_SQ) {
