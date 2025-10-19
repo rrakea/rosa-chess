@@ -289,11 +289,7 @@ pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
     for mut mv in mv::mv_gen::gen_mvs(p) {
-<<<<<<< HEAD
-        make(p, &mut mv, true);
-=======
         make::make(p, &mut mv);
->>>>>>> 0aa930019d1ad76b0d85ae9673488c5687336247
         let count = counting_search(p, depth - 1);
         total += count;
         println!("{}: {}", mv, count);
