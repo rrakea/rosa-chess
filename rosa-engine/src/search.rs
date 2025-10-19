@@ -307,9 +307,8 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         let prev_key = p.key();
         let prev_pos = p.clone();
         // Ugly, but the only way to keep a list of made moves
-        let panic =
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| make::make(p, &mut mv)));
-        match panic {
+        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| make::make(p, &mut mv)));
+        match err {
             Ok(legal) => {
                 if !legal {
                     make::unmake(p, &mut mv);
@@ -332,7 +331,7 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
             }
         }
         previous_mvs.push(mv);
-        debug_search(p, depth, previous_mvs);
+        debug_search(p, depth - 1, previous_mvs);
         make::unmake(p, &mut mv);
         if p.key() != prev_key {
             panic!(

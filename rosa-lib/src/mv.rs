@@ -52,6 +52,9 @@ const FLAG_OFFSET: u32 = 20;
 const PROM_OFFSET: u32 = 24;
 const MVV_LVA_OFFSET: u32 = 26;
 
+const WK_STARTING_SQ: u8 = 4;
+const BK_STARTING_SQ: u8 = 60;
+
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mv(u32);
 
@@ -123,22 +126,22 @@ impl Mv {
     pub fn new_castle(castle_type: u8) -> Mv {
         match castle_type {
             0 => {
-                let mut mv = Mv::new_quiet(BOTTOM_RIGHT_SQ, BOTTOM_RIGHT_SQ - 2);
+                let mut mv = Mv::new_quiet(WK_STARTING_SQ, BOTTOM_RIGHT_SQ + 2);
                 mv.set_flag(Flag::WKC);
                 mv
             }
             1 => {
-                let mut mv = Mv::new_quiet(BOTTOM_LEFT_SQ, BOTTOM_LEFT_SQ + 3);
+                let mut mv = Mv::new_quiet(WK_STARTING_SQ, WK_STARTING_SQ - 2);
                 mv.set_flag(Flag::WQC);
                 mv
             }
             2 => {
-                let mut mv = Mv::new_quiet(TOP_RIGHT_SQ, TOP_RIGHT_SQ - 2);
+                let mut mv = Mv::new_quiet(BK_STARTING_SQ, BK_STARTING_SQ + 2);
                 mv.set_flag(Flag::BKC);
                 mv
             }
             3 => {
-                let mut mv = Mv::new_quiet(TOP_LEFT_SQ, TOP_LEFT_SQ + 3);
+                let mut mv = Mv::new_quiet(BK_STARTING_SQ, BK_STARTING_SQ - 2);
                 mv.set_flag(Flag::BQC);
                 mv
             }
@@ -174,25 +177,30 @@ impl Mv {
 
         let mut mv: Mv;
         match (op_piece, prom_piece) {
+            // Prom + Cap
             (Some(op_piece), Some(prom_piece)) => {
                 mv = Mv::new_prom_cap(start, end, prom_piece, op_piece.de_clr());
                 mv.set_flag(Flag::PromCap);
             }
 
+            // Prom
             (None, Some(prom_piece)) => {
                 mv = Mv::new_prom(start, end, prom_piece);
                 mv.set_flag(Flag::Prom);
             }
 
+            // Cap
+            // Not EP since the pawn is not on the end sq
             (Some(op_piece), None) => {
                 mv = Mv::new_cap(start, end, piece.de_clr(), op_piece.de_clr());
                 mv.set_flag(Flag::Cap);
             }
 
+            // Quiet Mv
             (None, None) => {
                 let mv_diff = start.abs_diff(end);
                 mv = if piece.de_clr() == Piece::King && mv_diff == 2 {
-                    match (piece.clr(), start > end) {
+                    match (piece.clr(), start < end) {
                         (Clr::White, true) => Mv::new_castle(0),
                         (Clr::White, false) => Mv::new_castle(1),
                         (Clr::Black, true) => Mv::new_castle(2),
