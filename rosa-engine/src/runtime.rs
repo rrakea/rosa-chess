@@ -5,9 +5,7 @@ use crate::make;
 use crate::mv;
 use crate::search;
 
-use rosa_lib::clr::Clr;
 use rosa_lib::mv::Mv;
-use rosa_lib::mvvlva;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
@@ -22,7 +20,6 @@ pub fn start() {
     tt::init_zobrist_keys();
     search::TT.resize(config::DEFAULT_TABLE_SIZE_MB * config::MB);
     mv::magic_init::init_magics();
-    mvvlva::init_mvvlva();
     let mut p: pos::Pos = fen::starting_pos(Vec::new());
     let mut stop: Option<Arc<RwLock<bool>>> = None;
 
@@ -95,10 +92,10 @@ pub fn start() {
                                     .parse()
                                     .expect("Depth value in perft command not num")
                             };
-                            search::division_search(&mut p, depth);
+                            search::division_search(&p, depth);
                         }
                         _ => {
-                            let time = process_go(cmd_parts, p.clr);
+                            let time = process_go(cmd_parts, p.active);
                             stop = Some(search::thread_search(&p, time));
                         }
                     }
@@ -113,16 +110,16 @@ pub fn start() {
                 }
                 let mv = cmd_parts[1];
                 let mut mv = Mv::new_from_str(mv, &p);
-                println!("{:?}", mv);
-                make::make(&mut p, &mut mv);
+                println!("{}", mv.prittify());
+                make::make(&mut p, &mut mv, true);
             }
 
             "print" | "p" | "d" => {
-                println!("{}", &p);
+                println!("{}", &p.prittify_sq_based());
             }
 
             "printfull" => {
-                println!("{}", &p.full);
+                println!("{}", &p.prittify());
             }
 
             "stats" => {
@@ -133,11 +130,7 @@ pub fn start() {
             "attacked" => {
                 println!(
                     "{}",
-                    !mv::mv_gen::square_not_attacked(
-                        &p,
-                        cmd_parts[1].parse().unwrap(),
-                        p.clr.flip()
-                    )
+                    !mv::mv_gen::square_not_attacked(&p, cmd_parts[1].parse().unwrap(), -p.active)
                 );
             }
 
@@ -171,7 +164,7 @@ fn print_options() {
     }
 }
 
-fn process_go(cmd: Vec<&str>, color: Clr) -> time::Duration {
+fn process_go(cmd: Vec<&str>, color: i8) -> time::Duration {
     let mut index = 1;
 
     let mut wtime = 0;
@@ -209,7 +202,7 @@ fn process_go(cmd: Vec<&str>, color: Clr) -> time::Duration {
         return Duration::from_millis(0);
     }
 
-    let time = if color.is_white() {
+    let time = if color == 1 {
         (wtime / 20) + (winc / 2)
     } else {
         (btime / 20) + (binc / 2)

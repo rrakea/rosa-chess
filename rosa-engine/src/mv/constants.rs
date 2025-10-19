@@ -1,29 +1,32 @@
-use rosa_lib::piece::*;
-use rosa_lib::clr::Clr;
+use rosa_lib::pos;
 
-pub fn get_mask(piece: ClrPiece, sq: u8) -> u64 {
+pub fn get_mask(piece: i8, sq: u8) -> u64 {
     let sq = sq as usize;
     unsafe {
         match piece {
-            ClrPiece::WBishop | ClrPiece::BBishop => BISHOP_PREMASKS[sq],
-            ClrPiece::WKnight | ClrPiece::BKnight => KNIGHT_MASKS[sq],
-            ClrPiece::WRook | ClrPiece::BRook => ROOK_PREMASKS[sq],
-            ClrPiece::WKing | ClrPiece::BKing => KING_MASKS[sq],
-            ClrPiece::WQueen | ClrPiece::BQueen => ROOK_PREMASKS[sq] | BISHOP_PREMASKS[sq],
-            ClrPiece::WPawn => WPAWN_MASKS[sq],
-            ClrPiece::BPawn => BPAWN_MASKS[sq],
+            pos::BISHOP | pos::BBISHOP => BISHOP_PREMASKS[sq],
+            pos::KNIGHT | pos::BKNIGHT => KNIGHT_MASKS[sq],
+            pos::ROOK | pos::BROOK => ROOK_PREMASKS[sq],
+            pos::KING | pos::BKING => KING_MASKS[sq],
+            pos::QUEEN | pos::BQUEEN => ROOK_PREMASKS[sq] | BISHOP_PREMASKS[sq],
+            pos::PAWN => WPAWN_MASKS[sq],
+            pos::BPAWN => BPAWN_MASKS[sq],
+            _ => {
+                panic!("get_mask() called with invalid value, piece {}", piece);
+            }
         }
     }
 }
 
-pub fn get_pawn_mask(clr: Clr, sq: u8, cap: bool) -> u64 {
+pub fn get_pawn_mask(active: i8, sq: u8, cap: bool) -> u64 {
     let sq = sq as usize;
     unsafe {
-        match (clr, cap) {
-            (Clr::White, false) => WPAWN_MASKS[sq],
-            (Clr::White, true) => WPAWN_MASKS_CAP[sq],
-            (Clr::Black, false) => BPAWN_MASKS[sq],
-            (Clr::Black, true) => BPAWN_MASKS_CAP[sq],
+        match (active, cap) {
+            (1, false) => WPAWN_MASKS[sq],
+            (1, true) => WPAWN_MASKS_CAP[sq],
+            (-1, false) => BPAWN_MASKS[sq],
+            (-1, true) => BPAWN_MASKS_CAP[sq],
+            _ => panic!("Invalid color value: {}, {}", active, cap),
         }
     }
 }

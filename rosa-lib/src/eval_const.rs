@@ -1,4 +1,4 @@
-use crate::piece::Piece;
+use crate::pos;
 
 /*
     All the values are based on this site in the chessprogramming wiki:
@@ -6,34 +6,41 @@ use crate::piece::Piece;
     All values in centipawns (1/100 of a pawn)
 */
 
-pub const PAWN_EVAL: i32 = 100;
-pub const KNIGHT_EVAL: i32 = 320;
-pub const BISHOP_EVAL: i32 = 341;
-pub const ROOK_EVAL: i32 = 500;
-pub const QUEEN_EVAL: i32 = 900;
-pub const KING_EVAL: i32 = 10000;
+const PAWN_EVAL: i32 = 100;
+const KNIGHT_EVAL: i32 = 320;
+const BISHOP_EVAL: i32 = 340;
+const ROOK_EVAL: i32 = 500;
+const QUEEN_EVAL: i32 = 900;
 
+pub fn piece_eval(sq: u8, piece: i8, active: i8, endgame: bool) -> i32 {
+    let mut sq = sq as usize;
+    let piece = i8::abs(piece);
+    if active == -1 {
+        sq = 63 - sq;
+    }
 
-pub fn piece_eval(sq: usize, piece: Piece) -> i32 {
-    match piece {
-        Piece::Pawn => PAWN_EVAL + PAWN_TABLE[sq],
-        Piece::Knight => KNIGHT_EVAL + KNIGHT_TABLE[sq],
-        Piece::Bishop => BISHOP_EVAL + BISHOP_TABLE[sq],
-        Piece::Rook => ROOK_EVAL + ROOK_TABLE[sq],
-        Piece::Queen => QUEEN_EVAL + QUEEN_TABLE[sq],
-        Piece::King => KING_TABLE_MIDDLEGAME[sq],
+    match (piece, endgame) {
+        (pos::PAWN, _) => PAWN_EVAL + PAWN_TABLE[sq],
+        (pos::KNIGHT, _) => KNIGHT_EVAL + KNIGHT_TABLE[sq],
+        (pos::BISHOP, _) => BISHOP_EVAL + BISHOP_TABLE[sq],
+        (pos::ROOK, _) => ROOK_EVAL + ROOK_TABLE[sq],
+        (pos::QUEEN, _) => QUEEN_EVAL + QUEEN_TABLE[sq],
+        (pos::KING, false) => KING_TABLE_MIDDLEGAME[sq],
+        (pos::KING, true) => KING_TABLE_ENDGAME[sq],
+        _ => panic!("Invalid value in piece_eval() call: {}", piece),
     }
 }
 
-pub fn pure_piece_eval(piece: Piece) -> i32 {
-   match piece {
-       Piece::Pawn => PAWN_EVAL,
-       Piece::Knight => KNIGHT_EVAL,
-       Piece::Bishop => BISHOP_EVAL,
-       Piece::Rook => ROOK_EVAL,
-       Piece::Queen => QUEEN_EVAL,
-       Piece::King => KING_EVAL,
-   } 
+pub fn simple_piece_eval(sq: usize, piece: i8) -> i32 {
+    match piece {
+        pos::PAWN => PAWN_EVAL + PAWN_TABLE[sq],
+        pos::KNIGHT => KNIGHT_EVAL + KNIGHT_TABLE[sq],
+        pos::BISHOP => BISHOP_EVAL + BISHOP_TABLE[sq],
+        pos::ROOK => ROOK_EVAL + ROOK_TABLE[sq],
+        pos::QUEEN => QUEEN_EVAL + QUEEN_TABLE[sq],
+        pos::KING => KING_TABLE_MIDDLEGAME[sq],
+        _ => panic!("Invalid piece in eval: {}", piece),
+    }
 }
 
 const PAWN_TABLE: [i32; 64] = [

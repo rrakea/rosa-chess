@@ -1,6 +1,6 @@
 use super::{constants, magic};
-use crate::mv::constants::*;
 use rosa_lib::board;
+use crate::mv::constants::*;
 use rosa_lib::util;
 
 pub fn init_magics() {
@@ -15,10 +15,10 @@ fn reserve_lookup() {
     for sq in 0..64 {
         unsafe {
             let rook_shift = ROOK_SHIFT[sq];
-            ROOK_LOOKUP[sq].resize(2usize.pow(rook_shift as u32), 0);
+            ROOK_LOOKUP[sq].resize(usize::pow(2, rook_shift as u32), 0);
 
             let bishop_shift = BISHOP_SHIFT[sq];
-            BISHOP_LOOKUP[sq].resize(2usize.pow(bishop_shift as u32), 0);
+            BISHOP_LOOKUP[sq].resize(usize::pow(2, bishop_shift as u32), 0);
         }
     }
 }
@@ -139,7 +139,7 @@ pub fn gen_move_mask(
             }
         }
     }
-    let mut ret = board::Board::new();
+    let mut ret = board::Board::new(0);
     ret.toggle_all(pos_moves);
     ret.val()
 }

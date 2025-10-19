@@ -1,8 +1,5 @@
-use crate::clr::Clr;
 use crate::mv::Mv;
-use crate::piece::*;
 use crate::pos;
-
 use rand::RngCore;
 use std::cell::UnsafeCell;
 
@@ -97,7 +94,6 @@ impl Entry {
             node_type,
         }
     }
-
     pub fn is_null(&self) -> bool {
         self.node_type == NodeType::Null
     }
@@ -123,33 +119,40 @@ impl Key {
         let mut key = Key(0);
 
         for (sq, piece) in p.piece_iter().enumerate() {
-            if let Some(p) = piece {
-                key.piece(sq as u8, p);
-            }
+            key.piece(sq as u8, piece);
         }
+        //println!("After pieces: {}", key.val());
 
-        if p.clr.is_black() {
+        if p.active == -1 {
             key.color();
+            //println!("Color: {}", key.val());
         }
 
-        let castle = p.castle_data();
-        if castle.wk {
-            key.castle(Clr::White, true);
+        let wc = p.castling(1);
+        let bc = p.castling(-1);
+        if wc.0 {
+            key.castle(1, true);
+            //println!("WC: {}", key.val());
         }
-        if castle.wq {
-            key.castle(Clr::White, false);
+        if wc.1 {
+            key.castle(1, false);
+            //println!("WQ: {}", key.val());
         }
-        if castle.bk {
-            key.castle(Clr::Black, true);
+        if bc.0 {
+            key.castle(-1, true);
+            //println!("BK{}", key.val());
         }
-        if castle.bq {
-            key.castle(Clr::Black, false);
+        if bc.1 {
+            key.castle(-1, false);
+            //println!("BQ{}", key.val());
         }
 
         if p.is_en_passant() {
             key.en_passant(p.en_passant_file());
+            //println!("EP{}", key.val());
         }
 
+        //println!("END{}", key.val());
         if key.val() == 0 {
             panic!();
         }
@@ -176,31 +179,35 @@ impl Key {
         self.0 ^= unsafe { EN_PASSANT[file as usize] }
     }
 
-    pub fn piece(&mut self, sq: u8, piece: ClrPiece) {
+    pub fn piece(&mut self, sq: u8, piece: i8) {
+        //println!("key.piece() sq: {sq}, piece: {piece}");
         let sq = sq as usize;
         self.0 ^= match piece {
-            ClrPiece::WPawn => unsafe { PAWN[sq] },
-            ClrPiece::WKnight => unsafe { KNIGHT[sq] },
-            ClrPiece::WBishop => unsafe { BISHOP[sq] },
-            ClrPiece::WRook => unsafe { ROOK[sq] },
-            ClrPiece::WQueen => unsafe { QUEEN[sq] },
-            ClrPiece::WKing => unsafe { KING[sq] },
+            pos::PAWN => unsafe { PAWN[sq] },
+            pos::KNIGHT => unsafe { KNIGHT[sq] },
+            pos::BISHOP => unsafe { BISHOP[sq] },
+            pos::ROOK => unsafe { ROOK[sq] },
+            pos::QUEEN => unsafe { QUEEN[sq] },
+            pos::KING => unsafe { KING[sq] },
 
-            ClrPiece::BPawn => unsafe { BPAWN[sq] },
-            ClrPiece::BKnight => unsafe { BKNIGHT[sq] },
-            ClrPiece::BBishop => unsafe { BBISHOP[sq] },
-            ClrPiece::BRook => unsafe { BROOK[sq] },
-            ClrPiece::BQueen => unsafe { BQUEEN[sq] },
-            ClrPiece::BKing => unsafe { BKING[sq] },
+            pos::BPAWN => unsafe { BPAWN[sq] },
+            pos::BKNIGHT => unsafe { BKNIGHT[sq] },
+            pos::BBISHOP => unsafe { BBISHOP[sq] },
+            pos::BROOK => unsafe { BROOK[sq] },
+            pos::BQUEEN => unsafe { BQUEEN[sq] },
+            pos::BKING => unsafe { BKING[sq] },
+            0 => 0,
+            _ => panic!("Invalid piece code for getting a piece hash: {}", piece),
         }
     }
 
-    pub fn castle(&mut self, clr: Clr, king_side: bool) {
-        self.0 ^= match (clr, king_side) {
-            (Clr::White, true) => unsafe { CASTLE[0] },
-            (Clr::White, false) => unsafe { CASTLE[1] },
-            (Clr::Black, true) => unsafe { CASTLE[2] },
-            (Clr::Black, false) => unsafe { CASTLE[3] },
+    pub fn castle(&mut self, active: i8, king_side: bool) {
+        self.0 ^= match (active, king_side) {
+            (1, true) => unsafe { CASTLE[0] },
+            (1, false) => unsafe { CASTLE[1] },
+            (-1, true) => unsafe { CASTLE[2] },
+            (-1, false) => unsafe { CASTLE[3] },
+            _ => panic!("Invalid value in castle_hash: {}, {}", active, king_side),
         }
     }
 }
