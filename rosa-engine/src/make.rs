@@ -34,7 +34,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
 
     mv.set_old_castle_rights((wk, wq, bk, bq));
     if p.is_en_passant() {
-        mv.set_old_is_ep();
+        mv.set_old_is_ep(true);
         mv.set_old_ep_file(p.en_passant_file());
     }
 

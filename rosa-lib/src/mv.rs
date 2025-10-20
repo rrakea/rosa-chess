@@ -41,6 +41,7 @@ const BKC: u32 = 0b_0000_0000_0000_0000_0100_0000_0000_0000;
 const BQC: u32 = 0b_0000_0000_0000_0000_1000_0000_0000_0000;
 const OLD_EP_FILE: u32 = 0b_0000_0000_0000_0111_0000_0000_0000_0000;
 const OLD_IS_EP: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
+const OLD_CASTLE: u32 = 0b_0000_0000_0000_0000_1111_0000_0000;
 const FLAG: u32 = 0b_0000_0000_1111_0000_0000_0000_0000_0000;
 const PROM_PIECE: u32 = 0b_0000_0011_0000_0000_0000_0000_0000_0000;
 const MVV_LVA: u32 = 0b_1111_1100_0000_0000_0000_0000_0000_0000;
@@ -241,14 +242,21 @@ impl Mv {
         (self.0 & OLD_IS_EP) != 0
     }
 
-    pub fn set_old_is_ep(&mut self) {
-        self.0 |= OLD_IS_EP
+    pub fn set_old_is_ep(&mut self, val: bool) {
+        if val {
+            self.0 |= OLD_IS_EP;
+        } else {
+            self.0 &= !OLD_IS_EP;
+        }
     }
 
     pub fn is_ep(&self) -> bool {
         self.flag() == Flag::Ep
     }
 
+    pub fn is_null(&self) -> bool {
+        self.0 == 0
+    }
     pub fn is_castle(&self) -> bool {
         matches!(self.flag(), Flag::WKC | Flag::BKC | Flag::WQC | Flag::BQC)
     }
@@ -259,7 +267,11 @@ impl Mv {
 
     pub fn flag(&self) -> Flag {
         let val = ((self.0 & FLAG) >> FLAG_OFFSET) as u8;
-        debug_assert!((1..11).contains(&val), "Mv flag not within bounds, val: {val}, Mv: {:032b}", self.0);
+        debug_assert!(
+            (1..11).contains(&val),
+            "Mv flag not within bounds, val: {val}, Mv: {:032b}",
+            self.0
+        );
         unsafe { std::mem::transmute(val) }
     }
 
@@ -283,6 +295,7 @@ impl Mv {
     }
 
     pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {
+        self.0 &= !OLD_CASTLE;
         let mut val = 0;
         let (wk, wq, bk, bq) = rights;
         if wk {
@@ -313,6 +326,7 @@ impl Mv {
     }
 
     pub fn set_old_ep_file(&mut self, file: u8) {
+        self.0 &= !OLD_EP_FILE_OFFSET;
         self.0 |= (file as u32) << OLD_EP_FILE_OFFSET
     }
 }

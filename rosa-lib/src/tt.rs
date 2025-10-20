@@ -49,7 +49,7 @@ impl TT {
         let mut null_count = 0;
         for index in unsafe { 0..(*self.table.get()).len() } {
             let node_type = unsafe { (&(*self.table.get())).get(index).unwrap().node_type };
-            if node_type == NodeType::Null {
+            if node_type == EntryType::Null {
                 null_count += 1;
             } else {
                 entry_count += 1;
@@ -76,11 +76,11 @@ pub struct Entry {
     pub score: i32,
     pub mv: Mv,
     pub depth: u8,
-    pub node_type: NodeType,
+    pub node_type: EntryType,
 }
 
 #[derive(Clone, PartialEq, Copy)]
-pub enum NodeType {
+pub enum EntryType {
     Null,
     Upper,
     Lower,
@@ -88,7 +88,7 @@ pub enum NodeType {
 }
 
 impl Entry {
-    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: NodeType) -> Entry {
+    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: EntryType) -> Entry {
         Entry {
             key,
             score,
@@ -99,7 +99,7 @@ impl Entry {
     }
 
     pub fn is_null(&self) -> bool {
-        self.node_type == NodeType::Null
+        self.node_type == EntryType::Null
     }
 }
 
@@ -110,7 +110,7 @@ impl Default for Entry {
             score: 0,
             mv: Mv::default(),
             depth: 0,
-            node_type: NodeType::Null,
+            node_type: EntryType::Null,
         }
     }
 }

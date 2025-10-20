@@ -97,78 +97,18 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         return simple_eval(p);
     }
 
-    if debug::print_tt_hits() {
-        unsafe {
-            POS_COUNTER += 1;
-        }
+    let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta);
+    if let Some(r) = return_val {
+        return r;
     }
 
-    // Check the transposition table
-    let mut pv_move = None;
-    let mut replace_entry = false;
-
-    {
-        let entry = TT.get(&p.key());
-
-        // The entry is "worth" less than what we are going to write
-        if depth > entry.depth {
-            replace_entry = true;
-        }
-
-        // The entry is usable
-        if !entry.is_null() && entry.key == p.key() {
-            if debug::print_tt_hits() {
-                unsafe {
-                    HIT_COUNTER += 1;
-                }
-            }
-
-            pv_move = Some(entry.mv);
-            // If the depth is worse we cant use the score
-            if depth <= entry.depth {
-                match entry.node_type {
-                    tt::NodeType::Exact => {
-                        return entry.score;
-                    }
-                    tt::NodeType::Upper => {
-                        if entry.score <= alpha {
-                            return entry.score;
-                        } else {
-                            beta = entry.score;
-                        }
-                    }
-                    tt::NodeType::Lower => {
-                        if entry.score >= beta {
-                            return entry.score;
-                        } else {
-                            alpha = entry.score;
-                        }
-                    }
-                    _ => (),
-                }
-            }
-        } else if debug::print_tt_hits() {
-            unsafe {
-                if entry.is_null() {
-                    NULL_HIT += 1;
-                } else {
-                    COLLISION += 1;
-                }
-            }
-        }
-    }
-
-    let mut node_type = tt::NodeType::Upper;
+    let mut node_type = tt::EntryType::Upper;
     let mut first_iteration = true;
-    let mut best_mv = Mv::default();
 
-    let iter: Box<dyn Iterator<Item = Mv>> = match pv_move {
-        Some(m) => {
-            best_mv = m;
-            Box::new(
-                std::iter::once(m).chain(mv_gen::gen_mvs(p).into_iter().filter(move |mv| *mv != m)),
-            )
-        }
+    let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
+        Some(m) => Box::new(
+            std::iter::once(m).chain(mv_gen::gen_mvs(p).into_iter().filter(move |mv| *mv != m)),
+        ),
         None => Box::new(mv_gen::gen_mvs(p).into_iter()),
     };
 
@@ -184,6 +124,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             first_iteration = false;
             // Principle variation search
             // PV Node
+            best_mv = Some(m);
             score = -negascout(p, depth - 1, -beta, -alpha);
         } else {
             // Null window search
@@ -195,8 +136,8 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         }
         if score > alpha {
             alpha = score;
-            best_mv = m;
-            node_type = tt::NodeType::Exact;
+            best_mv = Some(m);
+            node_type = tt::EntryType::Exact;
 
             // Beta cutoff can only occur on a change of alpha
             if score >= beta {
@@ -206,7 +147,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                         BETA_PRUNE += 1;
                     }
                 }
-                node_type = tt::NodeType::Lower;
+                node_type = tt::EntryType::Lower;
                 break; // Prune :)
             }
         }
@@ -226,10 +167,56 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     }
 
     if replace_entry {
-        TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
+        TT.set(tt::Entry::new(p.key(), alpha, best_mv.unwrap(), depth, node_type));
     }
 
     alpha
+}
+
+// -> Replace Entry, Return Value
+fn parse_tt(
+    key: &tt::Key,
+    depth: u8,
+    alpha: &mut i32,
+    beta: &mut i32,
+) -> (bool, Option<Mv>, Option<i32>) {
+    let mut replace = false;
+    let mut pv_move = None;
+    let mut return_val = None;
+
+    let entry = TT.get(key);
+    if depth > entry.depth {
+        replace = true;
+    }
+
+    if !entry.is_null() && &entry.key == key {
+        pv_move = Some(entry.mv);
+        // If the depth is worse we cant use the score
+        if depth <= entry.depth {
+            match entry.node_type {
+                tt::EntryType::Exact => {
+                    return_val = Some(entry.score);
+                }
+                tt::EntryType::Upper => {
+                    if entry.score <= *alpha {
+                        return_val = Some(entry.score);
+                    } else {
+                        *beta = entry.score;
+                    }
+                }
+                tt::EntryType::Lower => {
+                    if entry.score >= *beta {
+                        return_val = Some(entry.score);
+                    } else {
+                        *alpha = entry.score;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    (replace, pv_move, return_val)
 }
 
 fn write_info(best: Mv, depth: u8, time: u64, score: i32, write_best: bool) {
@@ -250,7 +237,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
 
     let entry = TT.get(&p.key());
 
-    if entry.node_type == tt::NodeType::Exact && entry.key == p.key() && entry.depth == depth {
+    if entry.node_type == tt::EntryType::Exact && entry.key == p.key() && entry.depth == depth {
         // We found a valid entry
         return entry.score as u64;
     }
@@ -279,7 +266,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
         score: (count as i32),
         mv: (Mv::default()),
         depth: (depth),
-        node_type: (tt::NodeType::Exact),
+        node_type: (tt::EntryType::Exact),
     });
 
     count
@@ -309,10 +296,10 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
 
     let mv_res = std::panic::catch_unwind(|| mv::mv_gen::gen_mvs(p));
     let mv_iter;
-    match mv_res{
-        Ok(p) => {mv_iter = p}
+    match mv_res {
+        Ok(p) => mv_iter = p,
         Err(_e) => {
-           panic!("Error in mv generation, Previous Mvs: {:?}", previous_mvs) 
+            panic!("Error in mv generation, Previous Mvs: {:?}", previous_mvs)
         }
     }
     for mut mv in mv_iter {
