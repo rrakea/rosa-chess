@@ -226,7 +226,6 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     }
 
     if replace_entry {
-        //println!("Writing to TT");
         TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
     }
 

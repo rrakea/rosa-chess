@@ -258,7 +258,9 @@ impl Mv {
     }
 
     pub fn flag(&self) -> Flag {
-        Flag::from(((self.0 & FLAG) >> FLAG_OFFSET) as u8)
+        let val = ((self.0 & FLAG) >> FLAG_OFFSET) as u8;
+        debug_assert!((1..11).contains(&val), "Mv flag not within bounds, val: {val}, Mv: {:032b}", self.0);
+        unsafe { std::mem::transmute(val) }
     }
 
     pub fn set_flag(&mut self, flag: Flag) {
@@ -345,14 +347,5 @@ impl std::fmt::Debug for Mv {
             self.sq().0,
             self.sq().1,
         )
-    }
-}
-
-impl std::convert::From<u8> for Flag {
-    fn from(value: u8) -> Self {
-        if value == 0 || value > 10 {
-            panic!("Flag: {value}")
-        }
-        unsafe { std::mem::transmute(value) }
     }
 }

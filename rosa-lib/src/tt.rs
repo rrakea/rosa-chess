@@ -67,7 +67,7 @@ impl TT {
     Depth: u8 -> 1 byte
     Node_type: i8 -> 1 byte
 
-    => 16 Bytes (-> No padding)
+    => 16 Bytes/ 156 bit (-> No padding)
 */
 
 #[derive(Clone)]
