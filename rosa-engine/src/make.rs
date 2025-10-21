@@ -121,6 +121,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
     mv_gen::square_not_attacked(p, king_pos, color.flip())
 }
 
+#[inline(always)]
 pub fn unmake(p: &mut Pos, mv: &mut Mv) {
     let color = p.clr.flip();
     let op_color = p.clr;

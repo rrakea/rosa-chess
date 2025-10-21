@@ -173,7 +173,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     alpha
 }
 
-// -> Replace Entry, Return Value
+#[inline(always)]
 fn parse_tt(
     key: &tt::Key,
     depth: u8,
