@@ -4,11 +4,11 @@ use crate::mv;
 use crate::mv::mv_gen;
 use crate::stats;
 
+use rosa_lib::history;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
-use rosa_lib::history;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -41,6 +41,7 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
             break;
         }
 
+        stats::update_branching_factor();
         score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
 
         write_info(
@@ -93,10 +94,10 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                     alpha,
                     best_mv.unwrap(),
                     depth,
-                    tt::EntryType::Lower
+                    tt::EntryType::Lower,
                 ));
             }
-            return alpha
+            return alpha;
         }
 
         make::unmake(p, &mut m);

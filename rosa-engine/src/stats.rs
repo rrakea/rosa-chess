@@ -5,6 +5,7 @@ static mut HIT: u64 = 0;
 static mut COLLISION: u64 = 0;
 static mut NODE_COUNT: u64 = 0;
 static mut BETA_PRUNE: u64 = 0;
+static mut PREV_NODE_COUNT: u64 = 0;
 
 #[inline(always)]
 pub fn tt_hit() {
@@ -35,6 +36,15 @@ pub fn beta_prune() {
 }
 
 #[inline(always)]
+pub fn update_branching_factor() {
+    if config::REPORT_STATS {
+        unsafe {
+            PREV_NODE_COUNT = NODE_COUNT;
+        }
+    }
+}
+
+#[inline(always)]
 pub fn print_tt_info() {
     if config::REPORT_STATS {
         println!();
@@ -46,6 +56,7 @@ pub fn print_tt_info() {
             (HIT as f64 / NODE_COUNT as f64) * 100.0
         });
         println!("Beta Prunes: {}", unsafe { BETA_PRUNE });
+        println!("Effective Branching Factor: {}", unsafe {NODE_COUNT as f64 / PREV_NODE_COUNT as f64});
         println!();
 
         let (valid, null, size) = TT.usage();
