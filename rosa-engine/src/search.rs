@@ -3,7 +3,6 @@ use crate::make;
 use crate::mv;
 use crate::mv::mv_gen;
 use crate::stats;
-use crate::stats::node_count;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
@@ -14,6 +13,8 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time;
+
+pub static TT: tt::TT = tt::TT::new();
 
 pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>> {
     debug_assert!(!p.is_default(), "Pos is default");
