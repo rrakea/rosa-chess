@@ -1,4 +1,5 @@
 use crate::config;
+use crate::debug_search;
 use crate::fen;
 use crate::make;
 use crate::mv;
@@ -6,23 +7,28 @@ use crate::search;
 
 use rosa_lib::clr::Clr;
 use rosa_lib::mv::Mv;
-use rosa_lib::mvvlva;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
 use std::io::{self, BufRead};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Once, RwLock};
 use std::time;
 use std::time::Duration;
 
+static INIT: Once = Once::new();
+
+pub fn init() {
+    INIT.call_once(|| {
+        rosa_lib::lib_init();
+        tt::init_zobrist_keys();
+        mv::magic_init::init_magics();
+        search::TT.resize(config::DEFAULT_TABLE_SIZE_MB * config::MB);
+    });
+}
+
 pub fn start() {
     let stdin = io::stdin();
-
-    tt::init_zobrist_keys();
-    search::TT.resize(config::DEFAULT_TABLE_SIZE_MB * config::MB);
-    mv::magic_init::init_magics();
-    mvvlva::init_mvvlva();
-    let mut p: pos::Pos = fen::starting_pos(Vec::new());
+    let mut p = pos::Pos::default();
     let mut stop: Option<Arc<RwLock<bool>>> = None;
 
     for cmd in stdin.lock().lines() {
@@ -41,7 +47,10 @@ pub fn start() {
                 println!("uciok");
             }
 
-            "isready" => println!("readyok"),
+            "isready" => {
+                init();
+                println!("readyok");
+            }
 
             "position" => {
                 if cmd_parts.len() == 1 {
@@ -79,6 +88,11 @@ pub fn start() {
             }
 
             "go" => {
+                init();
+                if p.is_default() {
+                    p = fen::starting_pos(Vec::new());
+                }
+
                 if cmd_parts.len() == 1 {
                     stop = Some(search::thread_search(&p, time::Duration::ZERO));
                 } else {
@@ -91,7 +105,7 @@ pub fn start() {
                                     .parse()
                                     .expect("Depth value in perft command not num")
                             };
-                            search::division_search(&mut p, depth);
+                            debug_search::division_search(&mut p, depth);
                         }
                         _ => {
                             let time = process_go(cmd_parts, p.clr);
@@ -102,6 +116,10 @@ pub fn start() {
             }
 
             "moves" => {
+                init();
+                if p.is_default() {
+                    p = fen::starting_pos(Vec::new())
+                }
                 println!("Warning: Does not check legality");
                 if cmd_parts.len() < 2 {
                     println!("No move specified");
@@ -114,19 +132,17 @@ pub fn start() {
             }
 
             "print" | "p" | "d" => {
+                init();
                 println!("{}", &p);
             }
 
             "printfull" => {
+                init();
                 println!("{}", &p.full);
             }
 
-            "stats" => {
-                let (valid, null, size) = search::TT.usage();
-                println!("Valid: {valid}, Null: {null}, Total: {size}");
-            }
-
             "attacked" => {
+                init();
                 println!(
                     "{}",
                     !mv::mv_gen::square_not_attacked(

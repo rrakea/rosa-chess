@@ -1,5 +1,7 @@
-#[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, PartialOrd, Ord, Eq, Debug)]
+
 pub enum Clr {
+    #[default]
     White,
     Black,
 }

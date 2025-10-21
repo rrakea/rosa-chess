@@ -7,3 +7,13 @@ pub mod piece;
 pub mod pos;
 pub mod tt;
 pub mod util;
+
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+pub fn lib_init() {
+    INIT.call_once(|| {
+        mvvlva::init_mvvlva();
+    });
+}

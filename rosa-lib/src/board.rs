@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Board(u64);
 
 impl Board {
@@ -49,7 +49,7 @@ impl Board {
     }
 
     pub fn empty(&self) -> bool {
-        self.0 != 0
+        self.0 == 0
     }
 }
 
