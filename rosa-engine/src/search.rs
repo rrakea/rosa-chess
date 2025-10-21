@@ -91,7 +91,6 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
         if score >= beta {
             stats::beta_prune();
-            node_type = tt::EntryType::Lower;
             make::unmake(p, &mut m);
 
             if replace_entry {
@@ -100,7 +99,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                     alpha,
                     best_mv.unwrap(),
                     depth,
-                    node_type,
+                    tt::EntryType::Lower
                 ));
             }
             return alpha
