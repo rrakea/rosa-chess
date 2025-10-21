@@ -1,30 +1,21 @@
 use rosa_engine::*;
-use rosa_lib::{mvvlva, pos, tt};
-use std::sync::Once;
+use rosa_lib::pos;
 
-static INIT: Once = Once::new();
+use rosa_engine::runtime::init;
+use rosa_engine::debug_search::*;
 
 const DEBUG_SEARCH: bool = false;
-
-fn init() {
-    INIT.call_once(|| {
-        tt::init_zobrist_keys();
-        mv::magic_init::init_magics();
-        mvvlva::init_mvvlva();
-        search::TT.resize(10000);
-    });
-}
 
 fn start_search(p: &mut pos::Pos, expected: [u64; 6]) {
     if !DEBUG_SEARCH {
         for (i, res) in expected.iter().enumerate() {
             println!("Starting Depth: {i}");
-            let count = search::counting_search(p, i as u8);
+            let count = counting_search(p, i as u8);
             println!("Depth: {i}, Count: {count}");
             assert_eq!(count, *res);
         }
     } else {
-        search::debug_search(p, 6, &mut Vec::new());
+        debug_search(p, 6, &mut Vec::new());
     }
 }
 

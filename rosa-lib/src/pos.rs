@@ -3,7 +3,7 @@ use crate::clr::Clr;
 use crate::piece::*;
 use crate::tt;
 
-#[derive(Clone)]
+#[derive(Clone) ]
 pub struct Pos {
     // Bitboard centric layout
     // The boardarray is build like this:
@@ -182,6 +182,10 @@ impl Pos {
         self.data = data;
     }
 
+    pub fn is_default(&self) -> bool {
+        self.full.empty()
+    }
+
     pub fn debug_key_mismatch(p1: &Pos, p2: &Pos) -> String {
         let mut report = String::new();
         if p1.key == p2.key {
@@ -222,6 +226,20 @@ impl Pos {
         }
 
         report
+    }
+}
+
+impl Default for Pos {
+    fn default() -> Self {
+        Pos {
+            boards: [Board::default(); 12],
+            full: Board::default(),
+            sq: [None; 64],
+            key: tt::Key::default(),
+            data: 0,
+            clr: Clr::default()
+
+        }
     }
 }
 

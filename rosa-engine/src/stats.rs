@@ -1,4 +1,5 @@
 use crate::config;
+use crate::search::TT;
 
 static mut HIT: u64 = 0;
 static mut COLLISION: u64 = 0;
@@ -38,7 +39,7 @@ pub fn print_tt_info() {
     if config::REPORT_STATS {
         println!();
         println!("STATS:");
-        println!("Hits: {}", unsafe { HIT});
+        println!("Hits: {}", unsafe { HIT });
         println!("Collisions: {}", unsafe { COLLISION });
         println!("Nodes: {}", unsafe { NODE_COUNT });
         println!("TT Hit ratio: {}%", unsafe {
@@ -46,5 +47,8 @@ pub fn print_tt_info() {
         });
         println!("Beta Prunes: {}", unsafe { BETA_PRUNE });
         println!();
+
+        let (valid, null, size) = TT.usage();
+        println!("TT Usage:\nFilled: {valid}, Null: {null}, Total: {size}");
     }
 }
