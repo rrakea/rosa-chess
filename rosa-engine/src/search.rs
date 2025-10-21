@@ -14,15 +14,6 @@ use std::sync::RwLock;
 use std::thread;
 use std::time;
 
-/*
-    Idea: We check if our position is in the TT at the start of a search
-    -> If it is we can start our iterative deepening at that depth value
-    -> Does this interfere with alpha beta pruning (If our nodes is a cut
-    node? )
-*/
-
-pub static TT: tt::TT = tt::TT::new();
-
 pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>> {
     debug_assert!(!p.is_default(), "Pos is default");
     let stop = Arc::new(RwLock::new(false));
