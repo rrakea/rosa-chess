@@ -1,4 +1,5 @@
 pub mod board;
+pub mod history;
 pub mod mvvlva;
 pub mod clr;
 pub mod eval_const;

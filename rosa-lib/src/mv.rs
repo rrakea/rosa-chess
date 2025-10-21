@@ -55,7 +55,7 @@ const MVV_LVA_OFFSET: u32 = 26;
 const WK_STARTING_SQ: u8 = 4;
 const BK_STARTING_SQ: u8 = 60;
 
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mv(u32);
 
 #[derive(PartialEq, Debug)]
@@ -91,6 +91,13 @@ impl Mv {
         mv
     }
 
+    pub fn new_prom_cap(start: u8, end: u8, prom_piece: Piece, victim: Piece) -> Mv {
+        let mut mv = Mv::new_cap(start, end, Piece::Pawn, victim);
+        mv.set_flag(Flag::PromCap);
+        mv.0 |= prom_piece.compress_prom() << PROM_OFFSET;
+        mv
+    }
+
     pub fn new_prom(start: u8, end: u8, prom_piece: Piece) -> Mv {
         let mut mv = Mv::new_quiet(start, end);
         mv.set_flag(Flag::Prom);
@@ -114,13 +121,6 @@ impl Mv {
             Mv::new_prom_cap(start, end, Piece::Rook, victim),
             Mv::new_prom_cap(start, end, Piece::Queen, victim),
         ]
-    }
-
-    pub fn new_prom_cap(start: u8, end: u8, prom_piece: Piece, victim: Piece) -> Mv {
-        let mut mv = Mv::new_cap(start, end, Piece::Pawn, victim);
-        mv.set_flag(Flag::PromCap);
-        mv.0 |= prom_piece.compress_prom() << PROM_OFFSET;
-        mv
     }
 
     pub fn new_castle(castle_type: u8) -> Mv {
@@ -217,6 +217,10 @@ impl Mv {
         }
 
         mv
+    }
+
+    pub const fn null() -> Mv {
+        Mv(0)
     }
 
     pub fn sq(&self) -> (u8, u8) {
