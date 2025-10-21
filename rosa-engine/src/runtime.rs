@@ -28,9 +28,6 @@ pub fn start() {
 
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
-        if debug::print_uci_commands() {
-            println!("UCI Command: {cmd}")
-        }
 
         let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
         if cmd_parts.is_empty() {
@@ -147,11 +144,7 @@ pub fn start() {
 
             "ponderhit" => {}
             "setoption" => {}
-            _ => {
-                if debug::print_uci_commands() {
-                    println!("UCI setup command not understood: {cmd}");
-                }
-            }
+            _ => {}
         }
     }
 }

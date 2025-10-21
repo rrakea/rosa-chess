@@ -1,9 +1,9 @@
-use crate::debug;
 use crate::eval::simple_eval;
 use crate::make;
 use crate::make::unmake;
 use crate::mv;
 use crate::mv::mv_gen;
+use crate::stats;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
@@ -58,21 +58,9 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
         );
 
         depth += 1;
-
-        if debug::print_tt_hits() {
-            println!("Hits: {}", unsafe { HIT_COUNTER });
-            println!("Collisions: {}", unsafe { COLLISION });
-            println!("Null hits: {}", unsafe { NULL_HIT });
-            println!("Pos: {}", unsafe { POS_COUNTER });
-            println!("Ratio: {}%", unsafe {
-                HIT_COUNTER as f64 / POS_COUNTER as f64
-            })
-        }
-
-        if debug::print_prunes() {
-            println!("Beta: {}", unsafe { BETA_PRUNE });
-        }
     }
+
+    stats::print_tt_info();
 
     write_info(
         TT.get(&p.key()).mv,
@@ -82,16 +70,9 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
         true,
     );
 }
-
-static mut HIT_COUNTER: u64 = 0;
-static mut COLLISION: u64 = 0;
-static mut NULL_HIT: u64 = 0;
-static mut POS_COUNTER: u64 = 0;
-
-static mut BETA_PRUNE: u64 = 0;
-
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
+    stats::node_count();
     // Search is done
     if depth == 0 {
         return simple_eval(p);
@@ -142,11 +123,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             // Beta cutoff can only occur on a change of alpha
             if score >= beta {
                 // Cut Node
-                if debug::print_prunes() {
-                    unsafe {
-                        BETA_PRUNE += 1;
-                    }
-                }
+                stats::beta_prune();
                 node_type = tt::EntryType::Lower;
                 break; // Prune :)
             }
@@ -167,7 +144,13 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     }
 
     if replace_entry {
-        TT.set(tt::Entry::new(p.key(), alpha, best_mv.unwrap(), depth, node_type));
+        TT.set(tt::Entry::new(
+            p.key(),
+            alpha,
+            best_mv.unwrap(),
+            depth,
+            node_type,
+        ));
     }
 
     alpha
@@ -189,29 +172,34 @@ fn parse_tt(
         replace = true;
     }
 
-    if !entry.is_null() && &entry.key == key {
-        pv_move = Some(entry.mv);
-        // If the depth is worse we cant use the score
-        if depth <= entry.depth {
-            match entry.node_type {
-                tt::EntryType::Exact => {
-                    return_val = Some(entry.score);
-                }
-                tt::EntryType::Upper => {
-                    if entry.score <= *alpha {
+    if !entry.is_null() {
+        if &entry.key != key {
+            stats::tt_collision();
+        } else {
+            stats::tt_hit();
+            pv_move = Some(entry.mv);
+            // If the depth is worse we cant use the score
+            if depth <= entry.depth {
+                match entry.node_type {
+                    tt::EntryType::Exact => {
                         return_val = Some(entry.score);
-                    } else {
-                        *beta = entry.score;
                     }
-                }
-                tt::EntryType::Lower => {
-                    if entry.score >= *beta {
-                        return_val = Some(entry.score);
-                    } else {
-                        *alpha = entry.score;
+                    tt::EntryType::Upper => {
+                        if entry.score <= *alpha {
+                            return_val = Some(entry.score);
+                        } else {
+                            *beta = i32::min(entry.score, *beta);
+                        }
                     }
+                    tt::EntryType::Lower => {
+                        if entry.score >= *beta {
+                            return_val = Some(entry.score);
+                        } else {
+                            *alpha = i32::max(entry.score, *alpha);
+                        }
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
         }
     }
