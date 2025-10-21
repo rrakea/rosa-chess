@@ -49,7 +49,7 @@ impl Board {
     }
 
     pub fn empty(&self) -> bool {
-        self.0 != 0
+        self.0 == 0
     }
 }
 

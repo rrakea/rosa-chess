@@ -3,7 +3,7 @@ use crate::clr::Clr;
 use crate::piece::*;
 use crate::tt;
 
-#[derive(Clone) ]
+#[derive(Clone)]
 pub struct Pos {
     // Bitboard centric layout
     // The boardarray is build like this:
@@ -237,8 +237,7 @@ impl Default for Pos {
             sq: [None; 64],
             key: tt::Key::default(),
             data: 0,
-            clr: Clr::default()
-
+            clr: Clr::default(),
         }
     }
 }
