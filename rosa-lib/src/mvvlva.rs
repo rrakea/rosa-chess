@@ -45,7 +45,8 @@ pub fn compress(attacker: Piece, victim: Piece) -> u32 {
     let index = index(attacker, victim);
     let ret = unsafe { VALUES[index] };
     debug_assert!((0..32).contains(&ret), "Not in range");
-    ret
+    // Saved as 6 bit -> The first bit is flipped
+    ret + 32
 }
 
 fn index(attacker: Piece, victim: Piece) -> usize {
@@ -58,5 +59,5 @@ fn score(attacker: Piece, victim: Piece) -> i32 {
 }
 
 pub fn decompress(data: u32) -> (Piece, Piece) {
-    unsafe { REVERSE[data as usize] }
+    unsafe { REVERSE[data as usize - 32] }
 }

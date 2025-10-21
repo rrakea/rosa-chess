@@ -17,14 +17,14 @@ pub fn set(m: &Mv, clr: Clr, depth: u8) {
     })
 }
 
-pub fn get(m: &Mv, clr: Clr) -> u8 {
+pub fn get(m: &Mv, clr: Clr) -> u32 {
     let (from, to) = m.sq();
     let index = index(from, to, clr);
     let raw_val = HISTORY.with(|t| unsafe {
         let history = &mut *t.get();
         history[index]
     });
-    raw_val / 8
+    raw_val as u32 / 8
 }
 
 fn index(from: u8, to: u8, clr: Clr) -> usize {

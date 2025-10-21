@@ -48,7 +48,7 @@ pub fn gen_piece_mvs(
                 }
                 None => {
                     if can_quiet {
-                        mvs.push(Mv::new_quiet(sq, end_square));
+                        mvs.push(Mv::new_quiet(sq, end_square, p.clr));
                     }
                 }
             }
