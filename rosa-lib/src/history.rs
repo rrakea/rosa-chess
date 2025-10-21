@@ -33,5 +33,5 @@ fn index(from: u8, to: u8, clr: Clr) -> usize {
         clr_bonus = 64 * 64;
     }
 
-    ((from * 64 + to) + clr_bonus) as usize
+    (from as usize * 64 + to as usize) + clr_bonus
 }

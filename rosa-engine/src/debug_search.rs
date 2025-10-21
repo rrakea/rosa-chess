@@ -41,7 +41,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     TT.set(tt::Entry {
         key: (p.key()),
         score: (count as i32),
-        mv: (Mv::null(0)),
+        mv: (Mv::null()),
         depth: (depth),
         node_type: (tt::EntryType::Exact),
     });
