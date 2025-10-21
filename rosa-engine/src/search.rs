@@ -3,6 +3,7 @@ use crate::make;
 use crate::mv;
 use crate::mv::mv_gen;
 use crate::stats;
+use crate::stats::node_count;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
@@ -68,27 +69,50 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     if depth == 0 {
         return simple_eval(p);
     }
+    stats::node_count();
 
     let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta);
     if let Some(r) = return_val {
         return r;
     }
 
-    stats::node_count();
-
     let mut node_type = tt::EntryType::Upper;
     let mut first_iteration = true;
 
-    let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
-        Some(pv_move) => Box::new(
-            std::iter::once(pv_move).chain(
-                mv_gen::gen_mvs(p)
-                    .into_iter()
-                    .filter(move |mv| *mv != pv_move),
-            ),
-        ),
-        None => Box::new(mv_gen::gen_mvs(p).into_iter()),
-    };
+    // Process PV move
+    if let Some(mut m) = best_mv {
+        first_iteration = false;
+        make::make(p, &mut m);
+        let score = -negascout(p, depth - 1, -beta, -alpha);
+        if score > alpha {
+            alpha = score;
+            node_type = tt::EntryType::Exact;
+        }
+
+        if score >= beta {
+            stats::beta_prune();
+            node_type = tt::EntryType::Lower;
+            make::unmake(p, &mut m);
+
+            if replace_entry {
+                TT.set(tt::Entry::new(
+                    p.key(),
+                    alpha,
+                    best_mv.unwrap(),
+                    depth,
+                    node_type,
+                ));
+            }
+            return alpha
+        }
+
+        make::unmake(p, &mut m);
+    }
+
+    let mut iter = mv_gen::gen_mvs(p);
+    if let Some(pv) = best_mv {
+        iter.retain(|mv| mv != &pv);
+    }
 
     for mut m in iter {
         let legal = make::make(p, &mut m);
