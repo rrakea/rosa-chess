@@ -46,8 +46,7 @@ pub fn simple_eval(p: &pos::Pos) -> i32 {
             None => continue,
             Some(piece) => {
                 let norm_sq = if p.clr.is_white() { sq } else { 63 - sq };
-                let piece_color = if piece.clr().is_white() { 1 } else { -1 };
-                eval += eval_const::piece_eval(norm_sq, piece.de_clr()) * piece_color;
+                eval += eval_const::piece_eval(norm_sq, piece); 
             }
         }
     }
