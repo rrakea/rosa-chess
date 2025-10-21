@@ -16,11 +16,11 @@ impl Board {
 
     pub fn get_ones(&self) -> Vec<u8> {
         let mut bb = self.val();
-        let count = bb.count_ones();
-        let mut ones: Vec<u8> = Vec::with_capacity(count as usize);
+        // 99.9% of the time there are not more than 8 pieces on the board
+        let mut ones: Vec<u8> = Vec::with_capacity(8);
         let mut lsb;
 
-        for _i in 0..count {
+        while bb != 0 {
             lsb = bb.trailing_zeros();
             ones.push(lsb as u8);
             bb &= bb - 1;

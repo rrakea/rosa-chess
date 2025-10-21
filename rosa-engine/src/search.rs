@@ -3,6 +3,7 @@ use crate::make;
 use crate::mv;
 use crate::mv::mv_gen;
 use crate::stats;
+use crate::stats::node_count;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
@@ -27,7 +28,7 @@ pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>
 pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
     // Iterative deepening
     let mut depth = 1;
-    let mut score = 0;
+    let mut score;
     let start = time::Instant::now();
     loop {
         if *stop.read().unwrap() {
@@ -43,7 +44,7 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
         write_info(
             TT.get(&p.key()).mv,
             depth,
-            max_time.as_millis() as u64,
+            (time::Instant::now() - start).as_millis(),
             score,
             false,
         );
@@ -52,19 +53,10 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
     }
 
     stats::print_tt_info();
-
-    write_info(
-        TT.get(&p.key()).mv,
-        depth,
-        max_time.as_millis() as u64,
-        score,
-        true,
-    );
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
-    // Search is done
     if depth == 0 {
         return simple_eval(p);
     }
@@ -78,16 +70,39 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     let mut node_type = tt::EntryType::Upper;
     let mut first_iteration = true;
 
-    let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
-        Some(pv_move) => Box::new(
-            std::iter::once(pv_move).chain(
-                mv_gen::gen_mvs(p)
-                    .into_iter()
-                    .filter(move |mv| *mv != pv_move),
-            ),
-        ),
-        None => Box::new(mv_gen::gen_mvs(p).into_iter()),
-    };
+    // Process PV move
+    if let Some(mut m) = best_mv {
+        first_iteration = false;
+        make::make(p, &mut m);
+        let score = -negascout(p, depth - 1, -beta, -alpha);
+        if score > alpha {
+            alpha = score;
+            node_type = tt::EntryType::Exact;
+        }
+
+        if score >= beta {
+            stats::beta_prune();
+            make::unmake(p, &mut m);
+
+            if replace_entry {
+                TT.set(tt::Entry::new(
+                    p.key(),
+                    alpha,
+                    best_mv.unwrap(),
+                    depth,
+                    tt::EntryType::Lower
+                ));
+            }
+            return alpha
+        }
+
+        make::unmake(p, &mut m);
+    }
+
+    let mut iter = mv_gen::gen_mvs(p);
+    if let Some(pv) = best_mv {
+        iter.retain(|mv| mv != &pv);
+    }
 
     for mut m in iter {
         let legal = make::make(p, &mut m);
@@ -108,7 +123,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             score = -negascout(p, depth - 1, -alpha - 1, -alpha);
             if alpha < score && score < beta {
                 // Failed high -> Full re-search
-                score = -negascout(p, depth - 1, -beta, -alpha);
+                score = -negascout(p, depth - 1, -beta, -score);
             }
         }
 
@@ -116,15 +131,14 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             alpha = score;
             best_mv = Some(m);
             node_type = tt::EntryType::Exact;
+        }
 
-            // Beta cutoff can only occur on a change of alpha
-            if score >= beta {
-                // Cut Node
-                stats::beta_prune();
-                node_type = tt::EntryType::Lower;
-                make::unmake(p, &mut m);
-                break; // Prune :)
-            }
+        if score >= beta {
+            // Cut Node
+            stats::beta_prune();
+            node_type = tt::EntryType::Lower;
+            make::unmake(p, &mut m);
+            break; // Prune :)
         }
 
         make::unmake(p, &mut m);
@@ -198,6 +212,10 @@ fn parse_tt(
                     }
                     _ => unreachable!(),
                 }
+
+                if alpha >= beta {
+                    return_val = Some(entry.score);
+                }
             }
         }
     }
@@ -205,9 +223,9 @@ fn parse_tt(
     (replace, pv_move, return_val)
 }
 
-fn write_info(best: Mv, depth: u8, time: u64, score: i32, write_best: bool) {
+fn write_info(best: Mv, depth: u8, time: u128, score: i32, write_best: bool) {
     let info_string = format!(
-        "info depth {} pv {} time {} score cp {} ",
+        "info depth {} pv {} time {}ms score cp {} ",
         depth, best, time, score
     );
     println!("{}", info_string);

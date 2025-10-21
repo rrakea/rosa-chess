@@ -1,4 +1,4 @@
-use crate::piece::Piece;
+use crate::piece::*;
 
 /*
     All the values are based on this site in the chessprogramming wiki:
@@ -13,27 +13,41 @@ pub const ROOK_EVAL: i32 = 500;
 pub const QUEEN_EVAL: i32 = 900;
 pub const KING_EVAL: i32 = 10000;
 
+pub const BPAWN_EVAL: i32 = -100;
+pub const BKNIGHT_EVAL: i32 = -320;
+pub const BBISHOP_EVAL: i32 = -341;
+pub const BROOK_EVAL: i32 = -500;
+pub const BQUEEN_EVAL: i32 = -900;
+pub const BKING_EVAL: i32 = -10000;
 
-pub fn piece_eval(sq: usize, piece: Piece) -> i32 {
+pub fn piece_eval(sq: usize, piece: ClrPiece) -> i32 {
     match piece {
-        Piece::Pawn => PAWN_EVAL + PAWN_TABLE[sq],
-        Piece::Knight => KNIGHT_EVAL + KNIGHT_TABLE[sq],
-        Piece::Bishop => BISHOP_EVAL + BISHOP_TABLE[sq],
-        Piece::Rook => ROOK_EVAL + ROOK_TABLE[sq],
-        Piece::Queen => QUEEN_EVAL + QUEEN_TABLE[sq],
-        Piece::King => KING_TABLE_MIDDLEGAME[sq],
+        ClrPiece::WPawn => PAWN_EVAL + PAWN_TABLE[sq],
+        ClrPiece::WKnight => KNIGHT_EVAL + KNIGHT_TABLE[sq],
+        ClrPiece::WBishop => BISHOP_EVAL + BISHOP_TABLE[sq],
+        ClrPiece::WRook => ROOK_EVAL + ROOK_TABLE[sq],
+        ClrPiece::WQueen => QUEEN_EVAL + QUEEN_TABLE[sq],
+        ClrPiece::WKing => KING_TABLE_MIDDLEGAME[sq],
+
+        ClrPiece::BPawn => BPAWN_EVAL - PAWN_TABLE[sq],
+        ClrPiece::BKnight => BKNIGHT_EVAL - KNIGHT_TABLE[sq],
+        ClrPiece::BBishop => BBISHOP_EVAL - BISHOP_TABLE[sq],
+        ClrPiece::BRook => BROOK_EVAL - ROOK_TABLE[sq],
+        ClrPiece::BQueen => BQUEEN_EVAL - QUEEN_TABLE[sq],
+        ClrPiece::BKing => -KING_TABLE_MIDDLEGAME[sq],
     }
 }
 
+// Only for mvvlva
 pub fn pure_piece_eval(piece: Piece) -> i32 {
-   match piece {
-       Piece::Pawn => PAWN_EVAL,
-       Piece::Knight => KNIGHT_EVAL,
-       Piece::Bishop => BISHOP_EVAL,
-       Piece::Rook => ROOK_EVAL,
-       Piece::Queen => QUEEN_EVAL,
-       Piece::King => KING_EVAL,
-   } 
+    match piece {
+        Piece::Pawn => PAWN_EVAL,
+        Piece::Knight => KNIGHT_EVAL,
+        Piece::Bishop => BISHOP_EVAL,
+        Piece::Rook => ROOK_EVAL,
+        Piece::Queen => QUEEN_EVAL,
+        Piece::King => KING_EVAL,
+    }
 }
 
 const PAWN_TABLE: [i32; 64] = [
