@@ -7,41 +7,44 @@ static mut BETA_PRUNE: u64 = 0;
 
 #[inline(always)]
 pub fn tt_hit() {
-    if config::TRACK_TT_INFO {
+    if config::REPORT_STATS {
         unsafe { HIT += 1 }
     }
 }
 
 #[inline(always)]
 pub fn tt_collision() {
-    if config::TRACK_TT_INFO {
+    if config::REPORT_STATS {
         unsafe { COLLISION += 1 }
     }
 }
 
 #[inline(always)]
 pub fn node_count() {
-    if config::TRACK_TT_INFO {
+    if config::REPORT_STATS {
         unsafe { NODE_COUNT += 1 }
     }
 }
 
 #[inline(always)]
 pub fn beta_prune() {
-    if config::TRACK_TT_INFO {
+    if config::REPORT_STATS {
         unsafe { BETA_PRUNE += 1 }
     }
 }
 
 #[inline(always)]
 pub fn print_tt_info() {
-    if config::TRACK_TT_INFO {
+    if config::REPORT_STATS {
+        println!();
+        println!("STATS:");
         println!("Hits: {}", unsafe { HIT});
         println!("Collisions: {}", unsafe { COLLISION });
-        println!("Pos: {}", unsafe { NODE_COUNT });
-        println!("Ratio: {}%", unsafe {
-            HIT as f64 / NODE_COUNT as f64
+        println!("Nodes: {}", unsafe { NODE_COUNT });
+        println!("TT Hit ratio: {}%", unsafe {
+            (HIT as f64 / NODE_COUNT as f64) * 100.0
         });
-        println!("Beta: {}", unsafe { BETA_PRUNE });
+        println!("Beta Prunes: {}", unsafe { BETA_PRUNE });
+        println!();
     }
 }

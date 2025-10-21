@@ -72,11 +72,11 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
 }
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
-    stats::node_count();
     // Search is done
     if depth == 0 {
         return simple_eval(p);
     }
+    stats::node_count();
 
     let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta);
     if let Some(r) = return_val {
@@ -87,8 +87,12 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     let mut first_iteration = true;
 
     let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
-        Some(m) => Box::new(
-            std::iter::once(m).chain(mv_gen::gen_mvs(p).into_iter().filter(move |mv| *mv != m)),
+        Some(pv_move) => Box::new(
+            std::iter::once(pv_move).chain(
+                mv_gen::gen_mvs(p)
+                    .into_iter()
+                    .filter(move |mv| *mv != pv_move),
+            ),
         ),
         None => Box::new(mv_gen::gen_mvs(p).into_iter()),
     };
@@ -115,6 +119,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                 score = -negascout(p, depth - 1, -beta, -alpha);
             }
         }
+
         if score > alpha {
             alpha = score;
             best_mv = Some(m);
@@ -125,9 +130,11 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                 // Cut Node
                 stats::beta_prune();
                 node_type = tt::EntryType::Lower;
+                make::unmake(p, &mut m);
                 break; // Prune :)
             }
         }
+
         make::unmake(p, &mut m);
     }
 
@@ -156,7 +163,6 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     alpha
 }
 
-#[inline(always)]
 fn parse_tt(
     key: &tt::Key,
     depth: u8,
@@ -198,7 +204,7 @@ fn parse_tt(
                             *alpha = i32::max(entry.score, *alpha);
                         }
                     }
-                    _ => (),
+                    _ => unreachable!(),
                 }
             }
         }

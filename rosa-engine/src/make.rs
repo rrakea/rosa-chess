@@ -36,6 +36,10 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
     if p.is_en_passant() {
         mv.set_old_is_ep(true);
         mv.set_old_ep_file(p.en_passant_file());
+    } else {
+        // If the move is the pv move it might still have this set
+        mv.set_old_is_ep(false);
+        mv.set_old_ep_file(0);
     }
 
     p.flip_color();

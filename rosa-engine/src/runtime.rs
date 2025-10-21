@@ -1,5 +1,4 @@
 use crate::config;
-use crate::debug;
 use crate::fen;
 use crate::make;
 use crate::mv;

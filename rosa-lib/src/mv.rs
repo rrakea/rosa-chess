@@ -254,9 +254,6 @@ impl Mv {
         self.flag() == Flag::Ep
     }
 
-    pub fn is_null(&self) -> bool {
-        self.0 == 0
-    }
     pub fn is_castle(&self) -> bool {
         matches!(self.flag(), Flag::WKC | Flag::BKC | Flag::WQC | Flag::BQC)
     }
