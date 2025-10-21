@@ -5,15 +5,18 @@ use crate::mv::Mv;
 
 // from sq * to sq * 2 colors
 const TABLE_SIZE: usize = 64 * 64 * 2;
+const MAX_HISTORY: u16 = u16::pow(2, 14);
 
-thread_local! { static HISTORY: UnsafeCell<[u8; TABLE_SIZE]> = const {UnsafeCell::new([0; TABLE_SIZE])}}
+thread_local! { static HISTORY: UnsafeCell<[u16; TABLE_SIZE]> = const {UnsafeCell::new([0; TABLE_SIZE])}}
 
 pub fn set(m: &Mv, clr: Clr, depth: u8) {
     let (from, to) = m.sq();
     let index = index(from, to, clr);
     HISTORY.with(|history| unsafe {
         let history = &mut *history.get();
-        history[index] = depth * depth;
+        let depth = depth as u16;
+        let score = u16::clamp(depth * depth, 0, MAX_HISTORY);
+        history[index] += score;
     })
 }
 
@@ -24,7 +27,13 @@ pub fn get(m: &Mv, clr: Clr) -> u32 {
         let history = &mut *t.get();
         history[index]
     });
-    raw_val as u32 / 8
+
+    if raw_val == 0 {
+        return 0;
+    }
+
+    // This needs to map into 5 bit -> Linear scaling
+    ((raw_val * 31) / MAX_HISTORY) as u32
 }
 
 fn index(from: u8, to: u8, clr: Clr) -> usize {

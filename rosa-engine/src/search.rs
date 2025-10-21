@@ -8,6 +8,7 @@ use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
+use rosa_lib::history;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -84,6 +85,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         if score >= beta {
             stats::beta_prune();
             make::unmake(p, &mut m);
+            history::set(&m, p.clr, depth);
 
             if replace_entry {
                 TT.set(tt::Entry::new(
@@ -139,6 +141,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             stats::beta_prune();
             node_type = tt::EntryType::Lower;
             make::unmake(p, &mut m);
+            history::set(&m, p.clr, depth);
             break; // Prune :)
         }
 
