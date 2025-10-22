@@ -22,7 +22,7 @@ pub fn init() {
         rosa_lib::lib_init();
         tt::init_zobrist_keys();
         mv::magic_init::init_magics();
-        search::TT.resize(config::DEFAULT_TABLE_SIZE_MB * config::MB);
+        search::TT.resize(config::TT_SIZE);
     });
 }
 
@@ -128,7 +128,7 @@ pub fn start() {
                 let mv = cmd_parts[1];
                 let mut mv = Mv::new_from_str(mv, &p);
                 println!("{:?}", mv);
-                make::make(&mut p, &mut mv);
+                make::make(&mut p, &mut mv, false);
             }
 
             "print" | "p" | "d" => {

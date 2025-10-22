@@ -6,7 +6,6 @@ use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-
 pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     if depth == 0 {
         return 1;
@@ -23,7 +22,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     let mv_iter = mv::mv_gen::gen_mvs(p);
     for mut mv in mv_iter {
         let prev_key = p.key();
-        let legal = make::make(p, &mut mv);
+        let legal = make::make(p, &mut mv, true);
         if !legal {
             make::unmake(p, &mut mv);
             if p.key() != prev_key {
@@ -53,7 +52,7 @@ pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
     for mut mv in mv::mv_gen::gen_mvs(p) {
-        let legal = make::make(p, &mut mv);
+        let legal = make::make(p, &mut mv, true);
         if !legal {
             make::unmake(p, &mut mv);
             continue;
@@ -71,6 +70,22 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         return;
     }
 
+    if depth > 2 {
+        let prev_key = p.key();
+        let prev_pos = p.clone();
+        let (legal, is_ep, ep_file) = make::make_null(p);
+        if legal {
+            debug_search(p, depth - 1, previous_mvs);
+        }
+        make::unmake_null(p, is_ep, ep_file);
+        if p.key() != prev_key {
+            panic!(
+                "Null move key mismatch, Report: {}",
+                pos::Pos::debug_key_mismatch(&prev_pos, p)
+            );
+        }
+    }
+
     let mv_res = std::panic::catch_unwind(|| mv::mv_gen::gen_mvs(p));
     let mv_iter;
     match mv_res {
@@ -83,7 +98,9 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         let prev_key = p.key();
         let prev_pos = p.clone();
         // Ugly, but the only way to keep a list of made moves
-        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| make::make(p, &mut mv)));
+        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            make::make(p, &mut mv, true)
+        }));
         match err {
             Ok(legal) => {
                 if !legal {

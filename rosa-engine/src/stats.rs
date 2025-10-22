@@ -6,11 +6,19 @@ static mut COLLISION: u64 = 0;
 static mut NODE_COUNT: u64 = 0;
 static mut BETA_PRUNE: u64 = 0;
 static mut PREV_NODE_COUNT: u64 = 0;
+static mut NULL_MOVE_PRUNE: u64 = 0;
 
 #[inline(always)]
 pub fn tt_hit() {
     if config::REPORT_STATS {
         unsafe { HIT += 1 }
+    }
+}
+
+#[inline(always)]
+pub fn null_move_prune() {
+    if config::REPORT_STATS {
+        unsafe { NULL_MOVE_PRUNE += 1 }
     }
 }
 
@@ -56,10 +64,13 @@ pub fn print_tt_info() {
             (HIT as f64 / NODE_COUNT as f64) * 100.0
         });
         println!("Beta Prunes: {}", unsafe { BETA_PRUNE });
-        println!("Effective Branching Factor: {}", unsafe {NODE_COUNT as f64 / PREV_NODE_COUNT as f64});
+        println!("Null Move Prunes: {}", unsafe { NULL_MOVE_PRUNE });
+        println!("Effective Branching Factor: {}", unsafe {
+            NODE_COUNT as f64 / PREV_NODE_COUNT as f64
+        });
         println!();
 
-        let (valid, null, size) = TT.usage();
-        println!("TT Usage:\nFilled: {valid}, Null: {null}, Total: {size}");
+        let (valid, _null, size) = TT.usage();
+        println!("TT Usage: {}%", (valid as f64 / size as f64) * 100.0);
     }
 }

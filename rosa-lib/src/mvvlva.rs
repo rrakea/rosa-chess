@@ -44,7 +44,7 @@ pub fn init_mvvlva() {
 pub fn compress(attacker: Piece, victim: Piece) -> u32 {
     let index = index(attacker, victim);
     let ret = unsafe { VALUES[index] };
-    debug_assert!((0..32).contains(&ret), "Not in range");
+    debug_assert!((0..30).contains(&ret), "Not in range");
     // Saved as 6 bit -> The first bit is flipped
     ret + 32
 }
@@ -59,5 +59,6 @@ fn score(attacker: Piece, victim: Piece) -> i32 {
 }
 
 pub fn decompress(data: u32) -> (Piece, Piece) {
-    unsafe { REVERSE[data as usize - 32] }
+    let index = data as usize - 32;
+    unsafe { REVERSE[index] }
 }

@@ -15,8 +15,7 @@ pub fn set(m: &Mv, clr: Clr, depth: u8) {
     HISTORY.with(|history| unsafe {
         let history = &mut *history.get();
         let depth = depth as u16;
-        let score = u16::clamp(depth * depth, 0, MAX_HISTORY);
-        history[index] += score;
+        history[index] = u16::clamp(history[index] + depth * depth, 0, MAX_HISTORY - 1);
     })
 }
 
@@ -33,7 +32,10 @@ pub fn get(m: &Mv, clr: Clr) -> u32 {
     }
 
     // This needs to map into 5 bit -> Linear scaling
-    ((raw_val * 31) / MAX_HISTORY) as u32
+    debug_assert!(raw_val < MAX_HISTORY, "Val: {raw_val}");
+    let res = (raw_val as u32 * 31) / MAX_HISTORY as u32;
+    debug_assert!(res < 32);
+    res
 }
 
 fn index(from: u8, to: u8, clr: Clr) -> usize {

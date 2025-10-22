@@ -70,13 +70,27 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         return r;
     }
 
+    // Null Move
+    if depth > 3 {
+        let (legal, was_ep, ep_file) = make::make_null(p);
+        if legal {
+            let score = -negascout(p, depth - 3, -beta, -(beta - 1));
+            if score >= beta {
+                make::unmake_null(p, was_ep, ep_file);
+                stats::null_move_prune();
+                return beta;
+            }
+        }
+        make::unmake_null(p, was_ep, ep_file);
+    }
+
     let mut node_type = tt::EntryType::Upper;
     let mut first_iteration = true;
 
     // Process PV move
     if let Some(mut m) = best_mv {
         first_iteration = false;
-        make::make(p, &mut m);
+        make::make(p, &mut m, false);
         let score = -negascout(p, depth - 1, -beta, -alpha);
         if score > alpha {
             alpha = score;
@@ -109,7 +123,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     }
 
     for mut m in iter {
-        let legal = make::make(p, &mut m);
+        let legal = make::make(p, &mut m, true);
         if !legal {
             make::unmake(p, &mut m);
             continue;
