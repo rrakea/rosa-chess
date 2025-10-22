@@ -32,7 +32,6 @@ pub fn get(m: &Mv, clr: Clr) -> u32 {
     }
 
     // This needs to map into 5 bit -> Linear scaling
-    debug_assert!(raw_val < MAX_HISTORY, "Val: {raw_val}");
     let res = (raw_val as u32 * 31) / MAX_HISTORY as u32;
     debug_assert!(res < 32);
     res
