@@ -14,6 +14,7 @@ impl Board {
         self.0
     }
 
+    #[inline(always)]
     pub fn get_ones(&self) -> Vec<u8> {
         let mut bb = self.val();
         // 99.9% of the time there are not more than 8 pieces on the board

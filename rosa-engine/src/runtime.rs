@@ -1,5 +1,6 @@
 use crate::config;
 use crate::debug_search;
+use crate::eval;
 use crate::fen;
 use crate::make;
 use crate::mv;
@@ -23,6 +24,7 @@ pub fn init() {
         tt::init_zobrist_keys();
         mv::magic_init::init_magics();
         search::TT.resize(config::TT_SIZE);
+        eval::init_eval();
     });
 }
 

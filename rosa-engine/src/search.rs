@@ -1,4 +1,4 @@
-use crate::eval::simple_eval;
+use crate::eval;
 use crate::make;
 use crate::mv;
 use crate::mv::mv_gen;
@@ -61,7 +61,7 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     if depth == 0 {
-        return simple_eval(p);
+        return eval::eval(p);
     }
     stats::node_count();
 
