@@ -2,7 +2,6 @@ pub mod board;
 pub mod history;
 pub mod mvvlva;
 pub mod clr;
-pub mod eval_const;
 pub mod mv;
 pub mod piece;
 pub mod pos;
