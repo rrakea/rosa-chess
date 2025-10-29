@@ -15,16 +15,17 @@ use std::thread;
 use std::time;
 
 pub static TT: tt::TT = tt::TT::new();
-pub static STOP: RwLock<bool> = RwLock::new(false);
+static STOP: RwLock<bool> = RwLock::new(false);
 
-pub fn thread_search(p: &pos::Pos, max_time: time::Duration) {
-    debug_assert!(!p.is_default(), "Pos is default");
-
+pub fn thread_search(p: &pos::Pos) {
+    stats::reset_node_count();
+    *STOP.write().unwrap() = false;
     let pclone = p.clone();
-    thread::spawn(move || search(pclone, max_time));
+    // The thread kills itself when it gets the stop signal
+    thread::spawn(move || search(pclone));
 }
 
-pub fn search(mut p: pos::Pos, max_time: time::Duration) {
+pub fn search(mut p: pos::Pos) {
     // Iterative deepening
     let mut depth = 1;
     let mut score;
@@ -34,7 +35,7 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration) {
         score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
 
         if *STOP.read().unwrap() {
-            break;
+            return;
         }
 
         print_info(
@@ -44,16 +45,10 @@ pub fn search(mut p: pos::Pos, max_time: time::Duration) {
             score,
         );
 
-        if !max_time.is_zero() && time::Instant::now() - start >= max_time {
-            print_bestmove(&mut p);
-            break;
-        }
-
         depth += 1;
     }
 }
 
-// state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     if depth == 0 {
         return eval::eval(p);
@@ -239,13 +234,18 @@ fn parse_tt(
 
 fn print_info(best: Mv, depth: u8, time: u128, score: i32) {
     let info_string = format!(
-        "info depth {} pv {} time {}ms score cp {} ",
-        depth, best, time, score
+        "info depth {} pv {} time {}ms score cp {} nodes {}",
+        depth,
+        best,
+        time,
+        score,
+        stats::nodes()
     );
     println!("{}", info_string);
 }
 
-pub fn print_bestmove(p: &mut pos::Pos) {
+pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
+    *STOP.write().unwrap() = true;
     let best = TT.checked_get(&p.key());
     match best {
         None => panic!("Starting pos doesnt have a tt entry"),
@@ -255,11 +255,15 @@ pub fn print_bestmove(p: &mut pos::Pos) {
             make::make(p, &mut best, false);
             let ponder = TT.checked_get(&p.key());
             match ponder {
-                Some(pe) => println!(" ponder {}", pe.mv),
+                Some(pe) => {
+                    println!(" ponder {}", pe.mv);
+                    return Some(pe.mv);
+                }
                 None => println!(),
             }
             make::unmake(p, &mut best);
         }
     }
     stats::print_stats();
+    None
 }

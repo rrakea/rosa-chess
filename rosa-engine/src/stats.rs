@@ -31,9 +31,7 @@ pub fn tt_collision() {
 
 #[inline(always)]
 pub fn node_count() {
-    if config::REPORT_STATS {
-        unsafe { NODE_COUNT += 1 }
-    }
+    unsafe { NODE_COUNT += 1 }
 }
 
 #[inline(always)]
@@ -41,6 +39,14 @@ pub fn beta_prune() {
     if config::REPORT_STATS {
         unsafe { BETA_PRUNE += 1 }
     }
+}
+
+pub fn nodes() -> u64 {
+    unsafe { NODE_COUNT }
+}
+
+pub fn reset_node_count() {
+    unsafe { NODE_COUNT = 0 }
 }
 
 #[inline(always)]

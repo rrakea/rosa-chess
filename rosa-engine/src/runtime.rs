@@ -11,8 +11,9 @@ use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-use std::io::{self, BufRead};
 use std::sync::Once;
+use std::sync::mpsc;
+use std::thread;
 use std::time;
 use std::time::Duration;
 
@@ -29,11 +30,34 @@ pub fn init() {
 }
 
 pub fn start() {
-    let stdin = io::stdin();
     let mut p = pos::Pos::default();
+    let mut ponder = None;
+    let mut time: Option<(time::Instant, time::Duration)> = None;
 
-    for cmd in stdin.lock().lines() {
-        let cmd = cmd.unwrap();
+    // Spawn stdin reader
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        loop {
+            let mut buf = String::new();
+            std::io::stdin().read_line(&mut buf).unwrap();
+            tx.send(buf).unwrap();
+        }
+    });
+
+    // Check timeout and stdin
+    loop {
+        if let Some((start, duration)) = time
+            && start.elapsed() > duration
+        {
+            ponder = search::stop_search(&mut p);
+            time = None
+        }
+
+        let cmd = match rx.try_recv() {
+            Err(mpsc::TryRecvError::Empty) => continue,
+            Err(mpsc::TryRecvError::Disconnected) => panic!("Channel DC"),
+            Ok(cmd) => cmd,
+        };
 
         let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
         if cmd_parts.is_empty() {
@@ -82,8 +106,8 @@ pub fn start() {
             }
 
             "stop" => {
-                *search::STOP.write().unwrap() = true;
-                search::print_bestmove(&mut p);
+                ponder = search::stop_search(&mut p);
+                time = None;
             }
 
             "go" => {
@@ -93,7 +117,8 @@ pub fn start() {
                 }
 
                 if cmd_parts.len() == 1 {
-                    search::thread_search(&p, time::Duration::ZERO);
+                    // You dont need to set the search time vals
+                    search::thread_search(&p);
                 } else {
                     match cmd_parts[1] {
                         "perft" => {
@@ -106,9 +131,18 @@ pub fn start() {
                             };
                             debug_search::division_search(&mut p, depth);
                         }
+                        "ponder" => {
+                            let mut clone = p.clone();
+                            if let Some(mut p) = ponder {
+                                make::make(&mut clone, &mut p, false);
+                            }
+                            search::thread_search(&p);
+                        }
+
                         _ => {
-                            let time = process_go(cmd_parts, p.clr);
-                            search::thread_search(&p, time);
+                            let search_duration = process_go(cmd_parts, p.clr);
+                            time = Some((time::Instant::now(), search_duration));
+                            search::thread_search(&p);
                         }
                     }
                 }
@@ -156,7 +190,10 @@ pub fn start() {
                 mv::gen_magics::gen_magics();
             }
 
-            "ponderhit" => {}
+            "ponderhit" => {
+                ponder = search::stop_search(&mut p);
+            }
+
             "setoption" => {}
             _ => {}
         }
