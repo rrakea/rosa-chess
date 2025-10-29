@@ -12,7 +12,7 @@ use rosa_lib::pos;
 use rosa_lib::tt;
 
 use std::io::{self, BufRead};
-use std::sync::{Arc, Once, RwLock};
+use std::sync::Once;
 use std::time;
 use std::time::Duration;
 
@@ -31,7 +31,6 @@ pub fn init() {
 pub fn start() {
     let stdin = io::stdin();
     let mut p = pos::Pos::default();
-    let mut stop: Option<Arc<RwLock<bool>>> = None;
 
     for cmd in stdin.lock().lines() {
         let cmd = cmd.unwrap();
@@ -83,10 +82,8 @@ pub fn start() {
             }
 
             "stop" => {
-                if let Some(stop) = &stop {
-                    let mut s = stop.write().unwrap();
-                    *s = true
-                }
+                *search::STOP.write().unwrap() = true;
+                search::print_bestmove(&mut p);
             }
 
             "go" => {
@@ -96,7 +93,7 @@ pub fn start() {
                 }
 
                 if cmd_parts.len() == 1 {
-                    stop = Some(search::thread_search(&p, time::Duration::ZERO));
+                    search::thread_search(&p, time::Duration::ZERO);
                 } else {
                     match cmd_parts[1] {
                         "perft" => {
@@ -111,7 +108,7 @@ pub fn start() {
                         }
                         _ => {
                             let time = process_go(cmd_parts, p.clr);
-                            stop = Some(search::thread_search(&p, time));
+                            search::thread_search(&p, time);
                         }
                     }
                 }

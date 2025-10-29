@@ -17,4 +17,4 @@ fastchess \
 -sprt elo0=0 elo1=2 alpha=0.05 beta=0.05 \
 -rounds 100 \
 -concurrency 3 \
--log file=./games/log realtime=true
+-log file=./sprt_builds/log realtime=true level=trace

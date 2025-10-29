@@ -53,7 +53,7 @@ pub fn update_branching_factor() {
 }
 
 #[inline(always)]
-pub fn print_tt_info() {
+pub fn print_stats() {
     if config::REPORT_STATS {
         println!();
         println!("STATS:");

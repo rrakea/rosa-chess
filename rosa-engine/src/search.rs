@@ -10,52 +10,47 @@ use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time;
 
 pub static TT: tt::TT = tt::TT::new();
+pub static STOP: RwLock<bool> = RwLock::new(false);
 
-pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>> {
+pub fn thread_search(p: &pos::Pos, max_time: time::Duration) {
     debug_assert!(!p.is_default(), "Pos is default");
-    let stop = Arc::new(RwLock::new(false));
 
     let pclone = p.clone();
-    let sclone = Arc::clone(&stop);
-    thread::spawn(move || search(pclone, max_time, sclone));
-    stop
+    thread::spawn(move || search(pclone, max_time));
 }
 
-pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
+pub fn search(mut p: pos::Pos, max_time: time::Duration) {
     // Iterative deepening
     let mut depth = 1;
     let mut score;
     let start = time::Instant::now();
     loop {
-        if *stop.read().unwrap() {
-            break;
-        }
-
-        if !max_time.is_zero() && time::Instant::now() - start >= max_time {
-            break;
-        }
-
         stats::update_branching_factor();
         score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
 
-        write_info(
+        if *STOP.read().unwrap() {
+            break;
+        }
+
+        print_info(
             TT.get(&p.key()).mv,
             depth,
             (time::Instant::now() - start).as_millis(),
             score,
-            false,
         );
+
+        if !max_time.is_zero() && time::Instant::now() - start >= max_time {
+            print_bestmove(&mut p);
+            break;
+        }
 
         depth += 1;
     }
-
-    stats::print_tt_info();
 }
 
 // state, depth, alpha, beta, ply from root, prev zobrist key -> eval
@@ -242,13 +237,29 @@ fn parse_tt(
     (replace, pv_move, return_val)
 }
 
-fn write_info(best: Mv, depth: u8, time: u128, score: i32, write_best: bool) {
+fn print_info(best: Mv, depth: u8, time: u128, score: i32) {
     let info_string = format!(
         "info depth {} pv {} time {}ms score cp {} ",
         depth, best, time, score
     );
     println!("{}", info_string);
-    if write_best {
-        println!("bestmove {}", best)
+}
+
+pub fn print_bestmove(p: &mut pos::Pos) {
+    let best = TT.checked_get(&p.key());
+    match best {
+        None => panic!("Starting pos doesnt have a tt entry"),
+        Some(e) => {
+            let mut best = e.mv;
+            print!("bestmove {}", best);
+            make::make(p, &mut best, false);
+            let ponder = TT.checked_get(&p.key());
+            match ponder {
+                Some(pe) => println!(" ponder {}", pe.mv),
+                None => println!(),
+            }
+            make::unmake(p, &mut best);
+        }
     }
+    stats::print_stats();
 }
