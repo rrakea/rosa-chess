@@ -28,6 +28,7 @@ const STARTPHASE: i32 = 24;
 pub fn init_eval() {
     unsafe {
         for sq in 0..64 {
+            let flip_sq = 63 - sq;
             MIDDLEGAME_TABLE[0][sq] = PAWN_MG + MG_PAWN[sq];
             MIDDLEGAME_TABLE[1][sq] = KNIGHT_MG + MG_KNIGHT[sq];
             MIDDLEGAME_TABLE[2][sq] = BISHOP_MG + MG_BISHOP[sq];
@@ -35,12 +36,12 @@ pub fn init_eval() {
             MIDDLEGAME_TABLE[4][sq] = QUEEN_MG + MG_QUEEN[sq];
             MIDDLEGAME_TABLE[5][sq] = MG_KING[sq];
 
-            MIDDLEGAME_TABLE[6][sq] = -PAWN_MG - MG_PAWN[sq];
-            MIDDLEGAME_TABLE[7][sq] = -KNIGHT_MG - MG_KNIGHT[sq];
-            MIDDLEGAME_TABLE[8][sq] = -BISHOP_MG - MG_BISHOP[sq];
-            MIDDLEGAME_TABLE[9][sq] = -ROOK_MG - MG_ROOK[sq];
-            MIDDLEGAME_TABLE[10][sq] = -QUEEN_MG - MG_QUEEN[sq];
-            MIDDLEGAME_TABLE[11][sq] = -MG_KING[sq];
+            MIDDLEGAME_TABLE[6][sq] = -PAWN_MG - MG_PAWN[flip_sq];
+            MIDDLEGAME_TABLE[7][sq] = -KNIGHT_MG - MG_KNIGHT[flip_sq];
+            MIDDLEGAME_TABLE[8][sq] = -BISHOP_MG - MG_BISHOP[flip_sq];
+            MIDDLEGAME_TABLE[9][sq] = -ROOK_MG - MG_ROOK[flip_sq];
+            MIDDLEGAME_TABLE[10][sq] = -QUEEN_MG - MG_QUEEN[flip_sq];
+            MIDDLEGAME_TABLE[11][sq] = -MG_KING[flip_sq];
 
             ENDGAME_TABLE[0][sq] = PAWN_EG + EG_PAWN[sq];
             ENDGAME_TABLE[1][sq] = KNIGHT_EG + EG_KNIGHT[sq];
@@ -49,12 +50,12 @@ pub fn init_eval() {
             ENDGAME_TABLE[4][sq] = QUEEN_EG + EG_QUEEN[sq];
             ENDGAME_TABLE[5][sq] = EG_KING[sq];
 
-            ENDGAME_TABLE[6][sq] = -PAWN_EG - EG_PAWN[sq];
-            ENDGAME_TABLE[7][sq] = -KNIGHT_EG - EG_KNIGHT[sq];
-            ENDGAME_TABLE[8][sq] = -BISHOP_EG - EG_BISHOP[sq];
-            ENDGAME_TABLE[9][sq] = -ROOK_EG - EG_ROOK[sq];
-            ENDGAME_TABLE[10][sq] = -QUEEN_EG - EG_QUEEN[sq];
-            ENDGAME_TABLE[11][sq] = -EG_KING[sq];
+            ENDGAME_TABLE[6][sq] = -PAWN_EG - EG_PAWN[flip_sq];
+            ENDGAME_TABLE[7][sq] = -KNIGHT_EG - EG_KNIGHT[flip_sq];
+            ENDGAME_TABLE[8][sq] = -BISHOP_EG - EG_BISHOP[flip_sq];
+            ENDGAME_TABLE[9][sq] = -ROOK_EG - EG_ROOK[flip_sq];
+            ENDGAME_TABLE[10][sq] = -QUEEN_EG - EG_QUEEN[flip_sq];
+            ENDGAME_TABLE[11][sq] = -EG_KING[flip_sq];
         }
     }
 }
@@ -78,16 +79,15 @@ const MG_PAWN: [i32; 64] = [
 ];
 
 const MG_KNIGHT: [i32; 64] = [
-    -58, -38, -13, -28, -31, -27, -63, -99, -25, -8, -25, -2, -9, -25, -24, -52, -24, -20, 10, 9,
-    -1, -9, -19, -41, -17, 3, 22, 22, 22, 11, 8, -18, -18, -6, 16, 25, 16, 17, 4, -18, -23, -3, -1,
-    15, 10, -3, -20, -22, -42, -20, -10, -5, -2, -20, -23, -44, -29, -51, -23, -15, -22, -18, -50,
-    -64,
+    -167, -89, -34, -49, 61, -97, -15, -107, -73, -41, 72, 36, 23, 62, 7, -17, -47, 60, 37, 65, 84,
+    129, 73, 44, -9, 17, 19, 53, 37, 69, 18, 22, -13, 4, 16, 13, 28, 19, 21, -8, -23, -9, 12, 10,
+    19, 17, 25, -16, -29, -53, -12, -3, -1, 18, -14, -19, -105, -21, -58, -33, -17, -28, -19, -23,
 ];
 
 const MG_BISHOP: [i32; 64] = [
-    -14, -21, -11, -8, -7, -9, -17, -24, -8, -4, 7, -12, -3, -13, -4, -14, 2, -8, 0, -1, -2, 6, 0,
-    4, -3, 9, 12, 9, 14, 10, 3, 2, -6, 3, 13, 19, 7, 10, -3, -9, -12, -3, 8, 10, 13, 3, -7, -15,
-    -14, -18, -7, -1, 4, -9, -15, -27, -23, -9, -23, -5, -9, -16, -5, -17,
+    -29, 4, -82, -37, -25, -42, 7, -8, -26, 16, -18, -13, 30, 59, 18, -47, -16, 37, 43, 40, 35, 50,
+    37, -2, -4, 5, 19, 50, 37, 37, 7, -2, -6, 13, 13, 26, 34, 12, 10, 4, 0, 15, 15, 15, 14, 27, 18,
+    10, 4, 15, 16, 0, 7, 21, 33, 1, -33, -3, -14, -21, -13, -12, -39, -21,
 ];
 
 const MG_ROOK: [i32; 64] = [

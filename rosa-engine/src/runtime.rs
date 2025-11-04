@@ -1,6 +1,7 @@
 use crate::config;
 use crate::debug_search;
 use crate::eval;
+use crate::eval::eval;
 use crate::fen;
 use crate::make;
 use crate::mv;
@@ -188,6 +189,15 @@ pub fn start() {
 
             "magics" => {
                 mv::gen_magics::gen_magics();
+            }
+
+            "eval" => {
+                init();
+                if p.is_default() {
+                    p = fen::starting_pos(Vec::new());
+                }
+                let eval = eval(&p);
+                println!("Eval: {eval}");
             }
 
             "ponderhit" => {
