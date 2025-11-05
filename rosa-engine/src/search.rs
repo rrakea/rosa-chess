@@ -235,7 +235,7 @@ fn parse_tt(
 
 fn print_info(best: Mv, depth: u8, time: u128, score: i32) {
     let info_string = format!(
-        "info depth {} pv {} time {}ms score cp {} nodes {}",
+        "info depth {} pv {} time {} score cp {} nodes {}",
         depth,
         best,
         time,
