@@ -11,7 +11,7 @@ const BOTTOM_RIGHT_SQ: u8 = 7;
 const TOP_LEFT_SQ: u8 = 56;
 const TOP_RIGHT_SQ: u8 = 63;
 
-pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
+pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
     let color = p.clr;
     let op_color = color.flip();
 
@@ -121,11 +121,14 @@ pub fn make(p: &mut Pos, mv: &mut Mv) -> bool {
 
     // If the king of the moving player is not attacked, the
     // position afterwards is legal
-    let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
-    mv_gen::square_not_attacked(p, king_pos, color.flip())
+    if check_legality {
+        let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
+        mv_gen::square_not_attacked(p, king_pos, color.flip())
+    } else {
+        false
+    }
 }
 
-#[inline(always)]
 pub fn unmake(p: &mut Pos, mv: &mut Mv) {
     let color = p.clr.flip();
     let op_color = p.clr;
@@ -176,9 +179,33 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
         p.piece_toggle(mv.cap_victim().clr(op_color), captured_piece_sq);
     }
 
-
     let (wk, wq) = mv.old_castle_rights(Clr::White);
     let (bk, bq) = mv.old_castle_rights(Clr::Black);
 
-    p.gen_new_data(mv.old_is_ep(), mv.old_ep_file(), pos::CastleData { wk, wq, bk, bq });
+    p.gen_new_data(
+        mv.old_is_ep(),
+        mv.old_ep_file(),
+        pos::CastleData { wk, wq, bk, bq },
+    );
+}
+
+pub fn make_null(p: &mut Pos) -> (bool, bool, u8) {
+    let color = p.clr;
+    let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
+    let was_ep = p.is_en_passant();
+    let file = p.en_passant_file();
+    p.gen_new_data(false, 0, p.castle_data());
+
+    p.flip_color();
+
+    (
+        mv_gen::square_not_attacked(p, king_pos, color.flip()),
+        was_ep,
+        file,
+    )
+}
+
+pub fn unmake_null(p: &mut Pos, was_ep: bool, ep_file: u8) {
+    p.flip_color();
+    p.gen_new_data(was_ep, ep_file, p.castle_data());
 }

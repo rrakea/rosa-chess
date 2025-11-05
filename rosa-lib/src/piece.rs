@@ -61,6 +61,10 @@ impl ClrPiece {
         index as usize
     }
 
+    pub fn declr_index(&self) -> usize {
+        (self.val().abs() - 1) as usize
+    }
+
     pub fn clr(&self) -> Clr {
         if self.val() > 0 {
             Clr::White
@@ -79,6 +83,23 @@ impl ClrPiece {
 
     pub fn de_clr(&self) -> Piece {
         Piece::from(self.val().abs())
+    }
+
+    pub fn iterate() -> [ClrPiece; 12] {
+        [
+            ClrPiece::WPawn,
+            ClrPiece::WKnight,
+            ClrPiece::WBishop,
+            ClrPiece::WRook,
+            ClrPiece::WQueen,
+            ClrPiece::WKing,
+            ClrPiece::WPawn,
+            ClrPiece::WKnight,
+            ClrPiece::WBishop,
+            ClrPiece::WRook,
+            ClrPiece::WQueen,
+            ClrPiece::WKing,
+        ]
     }
 }
 
@@ -120,7 +141,6 @@ impl std::fmt::Debug for ClrPiece {
             Self::BRook => "br",
             Self::BQueen => "bq",
             Self::BKing => "bk",
-            
         };
 
         write!(f, "{}", s)

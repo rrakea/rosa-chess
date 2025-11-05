@@ -1,4 +1,5 @@
 use crate::clr::Clr;
+use crate::history;
 use crate::mvvlva;
 use crate::piece::*;
 use crate::pos::Pos;
@@ -25,12 +26,17 @@ use crate::util;
       |-----|   |--| |
         |        |   |
         |        |   |
-      MVV_LVA    |   |
+      Score      |   |
                Flag  |
                      |
                      |
                     Old
                     is ep
+
+    The score value is either the mvvlva score for captures
+    or history heuristic for non captures
+    We add 32 to the mvvlva score to a) mv order them higher
+    and b) the very first bit becomes a is_cap() bit
 */
 
 const START: u32 = 0b_0000_0000_0000_0000_0000_1111_1100_0000;
@@ -44,13 +50,14 @@ const OLD_IS_EP: u32 = 0b_0000_0000_0000_1000_0000_0000_0000_0000;
 const OLD_CASTLE: u32 = 0b_0000_0000_0000_0000_1111_0000_0000_0000;
 const FLAG: u32 = 0b_0000_0000_1111_0000_0000_0000_0000_0000;
 const PROM_PIECE: u32 = 0b_0000_0011_0000_0000_0000_0000_0000_0000;
-const MVV_LVA: u32 = 0b_1111_1100_0000_0000_0000_0000_0000_0000;
+const SCORE: u32 = 0b_1111_1100_0000_0000_0000_0000_0000_0000;
+const CAP: u32 = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
 
 const START_OFFSET: u32 = 6;
 const OLD_EP_FILE_OFFSET: u32 = 16;
 const FLAG_OFFSET: u32 = 20;
 const PROM_OFFSET: u32 = 24;
-const MVV_LVA_OFFSET: u32 = 26;
+const SCORE_OFFSET: u32 = 26;
 
 const WK_STARTING_SQ: u8 = 4;
 const BK_STARTING_SQ: u8 = 60;
@@ -74,20 +81,27 @@ pub enum Flag {
 }
 
 impl Mv {
-    pub fn new_quiet(start: u8, end: u8) -> Mv {
+    fn new_mv(start: u8, end: u8) -> Mv {
         debug_assert!((0..64).contains(&start) && (0..64).contains(&end));
         let mut val: u32 = 0;
         val |= end as u32;
         val |= (start as u32) << START_OFFSET;
-        let mut mv = Mv(val);
+        Mv(val)
+    }
+
+    pub fn new_quiet(start: u8, end: u8, clr: Clr) -> Mv {
+        let mut mv = Mv::new_mv(start, end);
         mv.set_flag(Flag::Quiet);
+        let score = history::get(&mv, clr);
+        mv.set_score(score);
         mv
     }
 
     pub fn new_cap(start: u8, end: u8, capturer: Piece, victim: Piece) -> Mv {
-        let mut mv = Mv::new_quiet(start, end);
+        let mut mv = Mv::new_mv(start, end);
         mv.set_flag(Flag::Cap);
-        mv.0 |= mvvlva::compress(capturer, victim) << MVV_LVA_OFFSET;
+        let score = mvvlva::compress(capturer, victim);
+        mv.set_score(score);
         mv
     }
 
@@ -99,7 +113,7 @@ impl Mv {
     }
 
     pub fn new_prom(start: u8, end: u8, prom_piece: Piece) -> Mv {
-        let mut mv = Mv::new_quiet(start, end);
+        let mut mv = Mv::new_mv(start, end);
         mv.set_flag(Flag::Prom);
         mv.0 |= prom_piece.compress_prom() << PROM_OFFSET;
         mv
@@ -126,22 +140,22 @@ impl Mv {
     pub fn new_castle(castle_type: u8) -> Mv {
         match castle_type {
             0 => {
-                let mut mv = Mv::new_quiet(WK_STARTING_SQ, WK_STARTING_SQ + 2);
+                let mut mv = Mv::new_mv(WK_STARTING_SQ, WK_STARTING_SQ + 2);
                 mv.set_flag(Flag::WKC);
                 mv
             }
             1 => {
-                let mut mv = Mv::new_quiet(WK_STARTING_SQ, WK_STARTING_SQ - 2);
+                let mut mv = Mv::new_mv(WK_STARTING_SQ, WK_STARTING_SQ - 2);
                 mv.set_flag(Flag::WQC);
                 mv
             }
             2 => {
-                let mut mv = Mv::new_quiet(BK_STARTING_SQ, BK_STARTING_SQ + 2);
+                let mut mv = Mv::new_mv(BK_STARTING_SQ, BK_STARTING_SQ + 2);
                 mv.set_flag(Flag::BKC);
                 mv
             }
             3 => {
-                let mut mv = Mv::new_quiet(BK_STARTING_SQ, BK_STARTING_SQ - 2);
+                let mut mv = Mv::new_mv(BK_STARTING_SQ, BK_STARTING_SQ - 2);
                 mv.set_flag(Flag::BQC);
                 mv
             }
@@ -156,7 +170,7 @@ impl Mv {
     }
 
     pub fn new_double(start: u8, end: u8) -> Mv {
-        let mut mv = Mv::new_quiet(start, end);
+        let mut mv = Mv::new_mv(start, end);
         mv.set_flag(Flag::Double);
         mv
     }
@@ -211,7 +225,7 @@ impl Mv {
                 } else if piece.de_clr() == Piece::Pawn && (mv_diff == 7 || mv_diff == 9) {
                     Mv::new_ep(start, end)
                 } else {
-                    Mv::new_quiet(start, end)
+                    Mv::new_quiet(start, end, p.clr)
                 }
             }
         }
@@ -235,7 +249,7 @@ impl Mv {
     }
 
     pub fn is_cap(&self) -> bool {
-        matches!(self.flag(), Flag::Cap | Flag::PromCap | Flag::Ep)
+        self.0 & CAP > 0
     }
 
     pub fn is_double(&self) -> bool {
@@ -276,14 +290,19 @@ impl Mv {
         unsafe { std::mem::transmute(val) }
     }
 
-    pub fn set_flag(&mut self, flag: Flag) {
+    fn set_flag(&mut self, flag: Flag) {
         // Unset the prev flag
         self.0 &= !FLAG;
         self.0 |= (flag as u32) << FLAG_OFFSET
     }
 
+    fn set_score(&mut self, score: u32) {
+        debug_assert!(score < 64);
+        self.0 |= score << SCORE_OFFSET
+    }
+
     fn capture_data(&self) -> (Piece, Piece) {
-        let data = (self.0 & MVV_LVA) >> MVV_LVA_OFFSET;
+        let data = (self.0 & SCORE) >> SCORE_OFFSET;
         mvvlva::decompress(data)
     }
 

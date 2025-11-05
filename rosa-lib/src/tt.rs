@@ -33,6 +33,15 @@ impl TT {
         }
     }
 
+    pub fn checked_get(&self, key: &Key) -> Option<Entry> {
+        let entry = self.get(key);
+        if entry.is_null() {
+            None
+        } else {
+            Some(entry)
+        }
+    }
+
     pub fn set(&self, entry: Entry) {
         unsafe {
             let index = entry.key.val() % self.size();

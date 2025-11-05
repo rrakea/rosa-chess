@@ -5,7 +5,7 @@ use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
 
-const START_FEN: [&str; 6] = [
+pub const START_FEN: [&str; 6] = [
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
     "w",
     "KQkq",
@@ -54,7 +54,7 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
 
     let clr = if fen[1] == "b" {
         Clr::Black
-    } else if fen[1] == "w"{
+    } else if fen[1] == "w" {
         Clr::White
     } else {
         panic!("Invalid color: {}", fen[1]);
@@ -81,7 +81,7 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
     let mut ep_file = 0;
     if fen[3] != "-" {
         is_ep = true;
-        let file = fen[3].chars().nth(0).unwrap();
+        let file = fen[3].chars().next().unwrap();
         ep_file = file as u8 - b'a';
     }
 
@@ -90,8 +90,8 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
 
     for mv in moves {
         let mut mv = Mv::new_from_str(mv, &pos);
-        let res = make::make(&mut pos, &mut mv);
-        if res {
+        let legal = make::make(&mut pos, &mut mv, true);
+        if !legal {
             panic!("Move not legal to make")
         }
     }

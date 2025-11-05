@@ -1,65 +1,58 @@
-use crate::eval::simple_eval;
+use crate::eval;
 use crate::make;
 use crate::mv;
 use crate::mv::mv_gen;
 use crate::stats;
 
+use rosa_lib::history;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time;
 
 pub static TT: tt::TT = tt::TT::new();
+static STOP: RwLock<bool> = RwLock::new(false);
 
-pub fn thread_search(p: &pos::Pos, max_time: time::Duration) -> Arc<RwLock<bool>> {
-    debug_assert!(!p.is_default(), "Pos is default");
-    let stop = Arc::new(RwLock::new(false));
-
+pub fn thread_search(p: &pos::Pos) {
+    stats::reset_node_count();
+    *STOP.write().unwrap() = false;
     let pclone = p.clone();
-    let sclone = Arc::clone(&stop);
-    thread::spawn(move || search(pclone, max_time, sclone));
-    stop
+    // The thread kills itself when it gets the stop signal
+    thread::spawn(move || search(pclone));
 }
 
-pub fn search(mut p: pos::Pos, max_time: time::Duration, stop: Arc<RwLock<bool>>) {
+pub fn search(mut p: pos::Pos) {
     // Iterative deepening
     let mut depth = 1;
     let mut score;
     let start = time::Instant::now();
     loop {
-        if *stop.read().unwrap() {
-            break;
-        }
-
-        if !max_time.is_zero() && time::Instant::now() - start >= max_time {
-            break;
-        }
-
+        stats::update_branching_factor();
         score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
 
-        write_info(
+        if *STOP.read().unwrap() {
+            return;
+        }
+
+        print_info(
             TT.get(&p.key()).mv,
             depth,
             (time::Instant::now() - start).as_millis(),
-            score,
-            false,
+            // Since eval is dependant on the color
+            score.abs(),
         );
 
         depth += 1;
     }
-
-    stats::print_tt_info();
 }
 
-// state, depth, alpha, beta, ply from root, prev zobrist key -> eval
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     if depth == 0 {
-        return simple_eval(p);
+        return eval::eval(p);
     }
     stats::node_count();
 
@@ -68,13 +61,27 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         return r;
     }
 
+    // Null Move
+    if depth > 3 {
+        let (legal, was_ep, ep_file) = make::make_null(p);
+        if legal {
+            let score = -negascout(p, depth - 3, -beta, -(beta - 1));
+            if score >= beta {
+                make::unmake_null(p, was_ep, ep_file);
+                stats::null_move_prune();
+                return beta;
+            }
+        }
+        make::unmake_null(p, was_ep, ep_file);
+    }
+
     let mut node_type = tt::EntryType::Upper;
     let mut first_iteration = true;
 
     // Process PV move
     if let Some(mut m) = best_mv {
         first_iteration = false;
-        make::make(p, &mut m);
+        make::make(p, &mut m, false);
         let score = -negascout(p, depth - 1, -beta, -alpha);
         if score > alpha {
             alpha = score;
@@ -84,6 +91,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         if score >= beta {
             stats::beta_prune();
             make::unmake(p, &mut m);
+            history::set(&m, p.clr, depth);
 
             if replace_entry {
                 TT.set(tt::Entry::new(
@@ -91,10 +99,10 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                     alpha,
                     best_mv.unwrap(),
                     depth,
-                    tt::EntryType::Lower
+                    tt::EntryType::Lower,
                 ));
             }
-            return alpha
+            return alpha;
         }
 
         make::unmake(p, &mut m);
@@ -106,7 +114,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     }
 
     for mut m in iter {
-        let legal = make::make(p, &mut m);
+        let legal = make::make(p, &mut m, true);
         if !legal {
             make::unmake(p, &mut m);
             continue;
@@ -139,6 +147,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             stats::beta_prune();
             node_type = tt::EntryType::Lower;
             make::unmake(p, &mut m);
+            history::set(&m, p.clr, depth);
             break; // Prune :)
         }
 
@@ -224,13 +233,38 @@ fn parse_tt(
     (replace, pv_move, return_val)
 }
 
-fn write_info(best: Mv, depth: u8, time: u128, score: i32, write_best: bool) {
+fn print_info(best: Mv, depth: u8, time: u128, score: i32) {
     let info_string = format!(
-        "info depth {} pv {} time {}ms score cp {} ",
-        depth, best, time, score
+        "info depth {} pv {} time {}ms score cp {} nodes {}",
+        depth,
+        best,
+        time,
+        score,
+        stats::nodes()
     );
     println!("{}", info_string);
-    if write_best {
-        println!("bestmove {}", best)
+}
+
+pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
+    *STOP.write().unwrap() = true;
+    let best = TT.checked_get(&p.key());
+    match best {
+        None => panic!("Starting pos doesnt have a tt entry"),
+        Some(e) => {
+            let mut best = e.mv;
+            print!("bestmove {}", best);
+            make::make(p, &mut best, false);
+            let ponder = TT.checked_get(&p.key());
+            match ponder {
+                Some(pe) => {
+                    println!(" ponder {}", pe.mv);
+                    return Some(pe.mv);
+                }
+                None => println!(),
+            }
+            make::unmake(p, &mut best);
+        }
     }
+    stats::print_stats();
+    None
 }

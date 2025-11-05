@@ -48,7 +48,7 @@ pub fn gen_piece_mvs(
                 }
                 None => {
                     if can_quiet {
-                        mvs.push(Mv::new_quiet(sq, end_square));
+                        mvs.push(Mv::new_quiet(sq, end_square, p.clr));
                     }
                 }
             }
@@ -88,20 +88,18 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
             mvs.extend(Mv::mass_new_prom(start_sq, end_quiet));
         }
 
-        if util::no_wrap(start_sq, cap_left) {
-        if let Some(victim) = p.piece_at_sq(cap_left)
+        if util::no_wrap(start_sq, cap_left)
+            && let Some(victim) = p.piece_at_sq(cap_left)
             && victim.clr() != p.clr
         {
             mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_left, victim.de_clr()));
         }
-        }
 
-        if util::no_wrap(start_sq, cap_right) {
-         if let Some(victim) = p.piece_at_sq(cap_right)
+        if util::no_wrap(start_sq, cap_right)
+            && let Some(victim) = p.piece_at_sq(cap_right)
             && victim.clr() != p.clr
         {
             mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_right, victim.de_clr()));
-        }
         }
     }
 }

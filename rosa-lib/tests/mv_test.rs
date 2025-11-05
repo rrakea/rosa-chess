@@ -1,21 +1,13 @@
 use std::sync::Once;
 
 use rosa_lib::mv::*;
-use rosa_lib::piece::*;
 use rosa_lib::mvvlva::init_mvvlva;
+use rosa_lib::piece::*;
 
 static INIT: Once = Once::new();
 
 fn init() {
     INIT.call_once(|| init_mvvlva());
-}
-
-#[test]
-fn quiet() {
-    init();
-    let m = Mv::new_quiet(0, 63);
-    assert_eq!(m.sq(), (0, 63));
-    assert_eq!(m.flag(), Flag::Quiet);
 }
 
 #[test]

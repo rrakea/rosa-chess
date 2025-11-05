@@ -1,4 +1,3 @@
-use crate::eval_const;
 use std::collections::HashMap;
 
 use crate::piece::Piece;
@@ -44,8 +43,9 @@ pub fn init_mvvlva() {
 pub fn compress(attacker: Piece, victim: Piece) -> u32 {
     let index = index(attacker, victim);
     let ret = unsafe { VALUES[index] };
-    debug_assert!((0..32).contains(&ret), "Not in range");
-    ret
+    debug_assert!((0..30).contains(&ret), "Not in range");
+    // Saved as 6 bit -> The first bit is flipped
+    ret + 32
 }
 
 fn index(attacker: Piece, victim: Piece) -> usize {
@@ -54,9 +54,21 @@ fn index(attacker: Piece, victim: Piece) -> usize {
 }
 
 fn score(attacker: Piece, victim: Piece) -> i32 {
-    eval_const::pure_piece_eval(victim) * 10 - eval_const::pure_piece_eval(attacker)
+    piece_eval(victim) * 10 - piece_eval(attacker)
 }
 
 pub fn decompress(data: u32) -> (Piece, Piece) {
-    unsafe { REVERSE[data as usize] }
+    let index = data as usize - 32;
+    unsafe { REVERSE[index] }
+}
+
+fn piece_eval(piece: Piece) -> i32 {
+    match piece {
+        Piece::Pawn => 100,
+        Piece::Knight => 320,
+        Piece::Bishop => 341,
+        Piece::Rook => 500,
+        Piece::Queen => 900,
+        Piece::King => 10000,
+    }
 }

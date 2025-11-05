@@ -1,10 +1,10 @@
 use rosa_engine::*;
 use rosa_lib::pos;
 
-use rosa_engine::runtime::init;
 use rosa_engine::debug_search::*;
+use rosa_engine::runtime::init;
 
-const DEBUG_SEARCH: bool = false;
+const DEBUG_SEARCH: bool = true;
 
 fn start_search(p: &mut pos::Pos, expected: [u64; 6]) {
     if !DEBUG_SEARCH {

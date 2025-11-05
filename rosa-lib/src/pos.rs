@@ -103,8 +103,8 @@ impl Pos {
             ClrPieceOption::Some(p) => {
                 debug_assert_eq!(
                     p, piece,
-                    "Tried toggling of an incorrect piece. Piece at sq: {}, Input Piece: {}",
-                    p, piece
+                    "Tried toggling of an incorrect piece. Piece at sq {sq}: {}, Input Piece: {}, Pos:\n{}",
+                    p, piece, self
                 );
                 ClrPieceOption::None
             }
@@ -184,6 +184,19 @@ impl Pos {
 
     pub fn is_default(&self) -> bool {
         self.full.empty()
+    }
+
+    pub fn set_ep(&mut self, val: bool, file: u8) {
+        if self.is_en_passant() {
+            self.key.en_passant(self.en_passant_file());
+        }
+
+
+        if val != self.is_en_passant(){
+            self.data |= 0b0000_1000;
+            self.data |= file;
+            self.key.en_passant(file);
+        }
     }
 
     pub fn debug_key_mismatch(p1: &Pos, p2: &Pos) -> String {
