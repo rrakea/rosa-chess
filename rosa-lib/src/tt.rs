@@ -158,10 +158,7 @@ impl Key {
         if p.is_en_passant() {
             key.en_passant(p.en_passant_file());
         }
-
-        if key.val() == 0 {
-            panic!();
-        }
+        debug_assert!(key.val() != 0);
         key
     }
 

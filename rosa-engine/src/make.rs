@@ -18,9 +18,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
     let (start, end) = mv.sq();
     let mut captured_piece_sq = end;
     let mut piece = p.piece_at_sq(start).unwrap_or_else(|| {
-        println!("{:?}", mv);
-        println!("Pos: \n{}", p);
-        panic!();
+        panic!("Error applying mv: {}, to pos: \n{}", mv, p);
     });
 
     // unset the moving piece

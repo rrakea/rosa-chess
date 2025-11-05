@@ -191,8 +191,7 @@ impl Pos {
             self.key.en_passant(self.en_passant_file());
         }
 
-
-        if val != self.is_en_passant(){
+        if val != self.is_en_passant() {
             self.data |= 0b0000_1000;
             self.data |= file;
             self.key.en_passant(file);
