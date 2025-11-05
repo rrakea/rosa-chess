@@ -5,9 +5,6 @@ Made by rrakea
 Under active development  
 
 # Timeline
-## Bugs
-- Eval favoring white
-
 ## Short Term
 - Splitting move gen into cap and non cap moves
 - Late move reduction

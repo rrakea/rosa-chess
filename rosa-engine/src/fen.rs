@@ -5,7 +5,7 @@ use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
 
-const START_FEN: [&str; 6] = [
+pub const START_FEN: [&str; 6] = [
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
     "w",
     "KQkq",

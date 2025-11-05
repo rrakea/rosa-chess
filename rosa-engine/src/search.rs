@@ -42,7 +42,8 @@ pub fn search(mut p: pos::Pos) {
             TT.get(&p.key()).mv,
             depth,
             (time::Instant::now() - start).as_millis(),
-            score,
+            // Since eval is dependant on the color
+            score.abs(),
         );
 
         depth += 1;
