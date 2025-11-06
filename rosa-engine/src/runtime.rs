@@ -258,7 +258,10 @@ fn process_go(cmd: Vec<&str>, color: Clr) -> time::Duration {
                 index += 1;
                 _mvs_to_go = check_next(&cmd, index)
             }
-            "movetime" => return Duration::from_millis(check_next(&cmd, index)),
+            "movetime" => {
+                index += 1;
+                return Duration::from_millis(check_next(&cmd, index));
+            }
             "ponder" | "infinite" => return Duration::from_millis(0),
             _ => println!("Go command part not understood: {cmd_part}"),
         }
