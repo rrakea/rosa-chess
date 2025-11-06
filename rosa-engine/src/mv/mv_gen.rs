@@ -199,6 +199,10 @@ pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: Clr) -> bool {
     // by that piece
 
     let bishop_mask = magic::bishop_mask(sq, p, true);
+    /*if p.piece(Piece::Bishop.clr(attacker_color)).val() & bishop_mask != 0 {
+        return true;
+    }*/
+
     if check_for_piece(p, bishop_mask, Piece::Bishop.clr(attacker_color))
         || check_for_piece(p, bishop_mask, Piece::Queen.clr(attacker_color))
     {
