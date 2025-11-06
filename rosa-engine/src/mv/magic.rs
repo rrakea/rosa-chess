@@ -13,8 +13,9 @@ pub fn rook_mask(sq: u8, p: &Pos, cap: bool) -> u64 {
     let blocker = premask & p.full.val();
     let index = magic_index(magic, shift, blocker);
     let res = unsafe { ROOK_LOOKUP[sq][index] };
-    if cap { res & blocker } else { res ^ blocker }
+    if cap { res & blocker } else { res & !blocker }
 }
+
 pub fn bishop_mask(sq: u8, p: &Pos, cap: bool) -> u64 {
     let sq = sq as usize;
     let premask = unsafe { BISHOP_PREMASKS_TRUNC[sq] };
@@ -23,7 +24,7 @@ pub fn bishop_mask(sq: u8, p: &Pos, cap: bool) -> u64 {
     let blocker = premask & p.full.val();
     let index = magic_index(magic, shift, blocker);
     let res = unsafe { BISHOP_LOOKUP[sq][index] };
-    if cap { res & blocker } else { res ^ blocker }
+    if cap { res & blocker } else { res & !blocker }
 }
 
 pub fn magic_index(magic: u64, shift: u8, blocker: u64) -> usize {

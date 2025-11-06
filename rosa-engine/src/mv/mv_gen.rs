@@ -11,64 +11,46 @@ use rosa_lib::util;
 use std::collections::BinaryHeap;
 
 pub fn gen_mvs(p: &Pos) -> BinaryHeap<Mv> {
-    let mut heap = gen_caps(p);
-    heap.append(&mut gen_quiet(p));
+    let mut heap = gen_mvs_stages(p, false);
+    heap.append(&mut gen_mvs_stages(p, true));
     heap
 }
 
-pub fn gen_caps(p: &Pos) -> BinaryHeap<Mv> {
+pub fn gen_mvs_stages(p: &Pos, cap: bool) -> BinaryHeap<Mv> {
     let mut mvs = BinaryHeap::with_capacity(8);
-    gen_cap_mvs(p, &mut mvs, Piece::Knight);
-    gen_cap_mvs(p, &mut mvs, Piece::Bishop);
-    gen_cap_mvs(p, &mut mvs, Piece::Rook);
-    gen_cap_mvs(p, &mut mvs, Piece::Queen);
-    gen_cap_mvs(p, &mut mvs, Piece::King);
-    gen_cap_mvs(p, &mut mvs, Piece::Pawn);
-    gen_cap_mvs(p, &mut mvs, Piece::Pawn);
-    gen_prom(p, &mut mvs, true);
-    gen_ep(p, &mut mvs);
+    gen_mv_from_piece(p, &mut mvs, Piece::Knight, cap);
+    gen_mv_from_piece(p, &mut mvs, Piece::Bishop, cap);
+    gen_mv_from_piece(p, &mut mvs, Piece::Rook, cap);
+    gen_mv_from_piece(p, &mut mvs, Piece::Queen, cap);
+    gen_mv_from_piece(p, &mut mvs, Piece::King, cap);
+    gen_mv_from_piece(p, &mut mvs, Piece::Pawn, cap);
+    gen_prom(p, &mut mvs, cap);
+    if cap {
+        gen_ep(p, &mut mvs);
+    } else {
+        gen_castle(p, &mut mvs);
+        gen_pawn_double(p, &mut mvs);
+    }
     mvs
 }
 
-pub fn gen_quiet(p: &Pos) -> BinaryHeap<Mv> {
-    let mut mvs = BinaryHeap::with_capacity(32);
-    gen_quiet_mvs(p, &mut mvs, Piece::Knight);
-    gen_quiet_mvs(p, &mut mvs, Piece::Bishop);
-    gen_quiet_mvs(p, &mut mvs, Piece::Rook);
-    gen_quiet_mvs(p, &mut mvs, Piece::Queen);
-    gen_quiet_mvs(p, &mut mvs, Piece::King);
-    gen_quiet_mvs(p, &mut mvs, Piece::Pawn);
-    gen_quiet_mvs(p, &mut mvs, Piece::Pawn);
-    gen_prom(p, &mut mvs, false);
-    gen_castle(p, &mut mvs);
-    gen_pawn_double(p, &mut mvs);
-    mvs
-}
-
-fn gen_cap_mvs(p: &Pos, mvs: &mut BinaryHeap<Mv>, piece: Piece) {
+fn gen_mv_from_piece(p: &Pos, mvs: &mut BinaryHeap<Mv>, piece: Piece, cap: bool) {
     let piece = piece.clr(p.clr);
     let piece_positions = p.piece(piece).get_ones();
     for sq in piece_positions {
-        let possible_moves = get_movemask(p, piece, sq, true);
+        let possible_moves = get_movemask(p, piece, sq, cap);
         for end_square in possible_moves.get_ones() {
             let victim = p.piece_at_sq(end_square);
-            if let Some(v) = victim
-                && v.clr() != piece.clr()
-            {
-                mvs.push(Mv::new_cap(sq, end_square, piece.de_clr(), v.de_clr()));
-            }
-        }
-    }
-}
-
-fn gen_quiet_mvs(p: &Pos, mvs: &mut BinaryHeap<Mv>, piece: Piece) {
-    let piece = piece.clr(p.clr);
-    let piece_positions = p.piece(piece).get_ones();
-    for sq in piece_positions {
-        let possible_moves = get_movemask(p, piece, sq, false);
-        for end_square in possible_moves.get_ones() {
-            if p.piece_at_sq(end_square).is_none() {
-                mvs.push(Mv::new_quiet(sq, end_square, p.clr));
+            match (cap, victim) {
+                (true, Some(v)) => {
+                    if v.clr() != piece.clr() {
+                        mvs.push(Mv::new_cap(sq, end_square, piece.de_clr(), v.de_clr()));
+                    }
+                }
+                (false, None) => {
+                    mvs.push(Mv::new_quiet(sq, end_square, p.clr));
+                }
+                _ => (),
             }
         }
     }

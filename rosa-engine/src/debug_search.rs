@@ -130,8 +130,12 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         if p.key() != prev_key {
             panic!(
                 "Key mismatch after move: {:?}\nPrevious Mvs:\n{:?}, Pos before make:\n{}, Pos after unmake:\n{}\nREPORT: {}",
-                mv, previous_mvs, prev_pos, p, pos::Pos::debug_key_mismatch(&prev_pos, p)
-);
+                mv,
+                previous_mvs,
+                prev_pos,
+                p,
+                pos::Pos::debug_key_mismatch(&prev_pos, p)
+            );
         }
     }
 }
