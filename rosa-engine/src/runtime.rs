@@ -63,9 +63,7 @@ pub fn start() {
         let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
         if cmd_parts.is_empty() {
             continue;
-        } else {
-            println!("Cmd: {}, Pos:\n{}]", cmd, p);
-        }
+        } 
 
         match cmd_parts[0].to_lowercase().as_str() {
             "uci" => {

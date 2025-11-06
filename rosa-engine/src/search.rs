@@ -108,23 +108,13 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         make::unmake(p, &mut m);
     }
 
-    /*
-        let mut iter = mv_gen::gen_mvs(p);
-        if let Some(pv) = best_mv {
-            iter.retain(|mv| mv != &pv);
-        }
-        let mut iter2: Iterator<Item = Mv> = mv_gen::gen_mvs_stages(p, true)
-            .into_iter()
-            .chain(mv_gen::gen_mvs_stages(p, false))
-            .filter(|m| m != pv);
-    */
-
     let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
         None => Box::new(
             mv_gen::gen_mvs_stages(p, true)
                 .into_iter()
                 .chain(mv_gen::gen_mvs_stages(p, false)),
         ),
+        // Since we dont need to check the non cap mvs if pv is a cap
         Some(pv) => match pv.is_cap() {
             true => Box::new(
                 mv_gen::gen_mvs_stages(p, true)
