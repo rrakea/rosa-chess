@@ -50,6 +50,8 @@ pub fn search(mut p: pos::Pos) {
     }
 }
 
+const LMR_MOVES: usize = 2;
+
 fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
     if depth == 0 {
         return eval::eval(p);
@@ -132,7 +134,19 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         },
     };
 
-    for mut m in iter {
+    /*
+        LMR:
+        If Depth > 2:
+        Search first 1- 2 moves at full depth
+        (Maybe TT move + pv?)
+        -> If no fail high:
+        Search rest at reduced depth
+        -> If fail high -> research
+        Reduction: if mv index < 6: 1, else depth/3
+    */
+    let mut do_lmr = true;
+
+    for (i, mut m) in iter.enumerate() {
         let legal = make::make(p, &mut m, true);
         if !legal {
             make::unmake(p, &mut m);
@@ -148,8 +162,20 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             score = -negascout(p, depth - 1, -beta, -alpha);
         } else {
             // Null window search
-            score = -negascout(p, depth - 1, -alpha - 1, -alpha);
+            if depth > 2 && i > LMR_MOVES && do_lmr {
+                // Late move reduction
+                // Inspired by romichss
+                let reduced_depth = depth - (1 + (depth - 2) / 4);
+                score = -negascout(p, reduced_depth, -alpha - 1, -alpha);
+            } else {
+                score = -negascout(p, depth - 1, -alpha - 1, -alpha);
+            }
+
             if alpha < score && score < beta {
+                // Unstable Node -> Dont do LMR
+                if i <= LMR_MOVES {
+                    do_lmr = false;
+                }
                 // Failed high -> Full re-search
                 score = -negascout(p, depth - 1, -beta, -score);
             }
