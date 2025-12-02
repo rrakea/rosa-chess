@@ -10,4 +10,4 @@ pub const TT_SIZE: u64 =
     DEFAULT_TABLE_SIZE_MB * MB / std::mem::size_of::<rosa_lib::tt::Entry>() as u64;
 pub const PONDER: bool = true;
 pub const SHOW_CURRENT_LINE: bool = true;
-pub const REPORT_STATS: bool = false;
+pub const REPORT_STATS: bool = true;

@@ -6,7 +6,6 @@ Under active development
 
 # Timeline
 ## Short Term
-- Splitting move gen into cap and non cap moves
 - Late move reduction
 - Quisence Search
 

@@ -43,7 +43,10 @@ pub fn init_mvvlva() {
 pub fn compress(attacker: Piece, victim: Piece) -> u32 {
     let index = index(attacker, victim);
     let ret = unsafe { VALUES[index] };
-    debug_assert!((0..30).contains(&ret), "Not in range");
+    debug_assert!(
+        (0..30).contains(&ret),
+        "Not in range, att: {attacker}, victim: {victim}"
+    );
     // Saved as 6 bit -> The first bit is flipped
     ret + 32
 }

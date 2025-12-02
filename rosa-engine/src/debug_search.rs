@@ -19,8 +19,17 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     }
 
     let mut count: u64 = 0;
-    let mv_iter = mv::mv_gen::gen_mvs(p);
-    for mut mv in mv_iter {
+
+    let iter = mv::mv_gen::gen_mvs_stages(p, true)
+        .into_iter()
+        .inspect(|m| assert!(m.is_cap()))
+        .chain(
+            mv::mv_gen::gen_mvs_stages(p, false)
+                .into_iter()
+                .inspect(|m| assert!(!m.is_cap())),
+        );
+
+    for mut mv in iter {
         let prev_key = p.key();
         let legal = make::make(p, &mut mv, true);
         if !legal {
@@ -130,8 +139,12 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         if p.key() != prev_key {
             panic!(
                 "Key mismatch after move: {:?}\nPrevious Mvs:\n{:?}, Pos before make:\n{}, Pos after unmake:\n{}\nREPORT: {}",
-                mv, previous_mvs, prev_pos, p, pos::Pos::debug_key_mismatch(&prev_pos, p)
-);
+                mv,
+                previous_mvs,
+                prev_pos,
+                p,
+                pos::Pos::debug_key_mismatch(&prev_pos, p)
+            );
         }
     }
 }
