@@ -3,17 +3,16 @@ name = "rosa-engine"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "rosa-engine"
-path = "src/main.rs"
-
 [lib]
 name = "rosa_engine"
 path = "src/lib.rs"
 
+[[bin]]
+name = "rosa-engine"
+path = "src/main.rs"
+
 [dependencies]
-rosa-lib = { path = "../rosa-lib"}
 rand = "0.9.1"
 rand_pcg = "0.9.0"
 rayon = "1.10.0"
-
+rosa-lib = { path = "../rosa-lib" }

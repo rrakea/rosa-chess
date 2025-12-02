@@ -9,6 +9,8 @@ const MAX_HISTORY: u16 = u16::pow(2, 14);
 
 thread_local! { static HISTORY: UnsafeCell<[u16; TABLE_SIZE]> = const {UnsafeCell::new([0; TABLE_SIZE])}}
 
+static HISTORY: global_table::GlobalTable<u16>
+
 pub fn set(m: &Mv, clr: Clr, depth: u8) {
     let (from, to) = m.sq();
     let index = index(from, to, clr);

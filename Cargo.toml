@@ -1,5 +1,5 @@
 [workspace]
-members = ["rosa-engine", "rosa-lib"]
+members = ["global_table", "rosa-engine", "rosa-lib"]
 resolver = "3"
 
 

@@ -1,8 +1,8 @@
 pub mod board;
-pub mod history;
-pub mod mvvlva;
 pub mod clr;
+pub mod history;
 pub mod mv;
+pub mod mvvlva;
 pub mod piece;
 pub mod pos;
 pub mod tt;
