@@ -73,8 +73,54 @@
 //! It is important to remeber than this reductions happens at every depth, as such moves that statically evaluate as bad
 //! get searched quite shallowly.   
 //! There are a lot of formulas ans heuristic used to decide to what exactly we can reduce our depth.
-//! Rosa Chess uses a simple formula of: if depth < 6 depth - 1 else depth/3
+//! Rosa Chess uses a simple formula of: if depth < 6 {depth - 1} else {depth/3}
 //! This formulat is definitly open to changes with further testing
+//! ## Node Types
+//! # Position Representation
+//! Rosa Chess uses both bitboards for every piece and a piece table representation. Both of them are optimal for different tasks
+//! (Bitboards for move generation, piece tables for checking for checks & promotions)
+//! ## Bitboards
+//! Since chess boards have 64 squares we can abuse 64 bit unsigned integers (bitboards) to represent where the pieces are.
+//! Since bitboards have one bit of information for each square we have to save a bitboard for each piece & color.
+//! Using bitboards not only speeds up but also optimizes the memory layout of the position struct
+//! The main speed up comes from being able to quickly use bitwise operators for a ton of different operations
+//! ## Making & Unmaking
+//! Instead of copying our position struct on every new move we use the make() and unmake() functions.
+//! However this operation is lossy (Castling rights & En passant rights).
+//! Since this has to be done multiple times in a row we cant save it in the position struct.
+//! Some chess engines use a specialized tables for this information, however Rosa Chess saves it in the 32 bit represenetation
+//! of each move. More about that in the move ordering/ move struct.
+//! ## Incremental updates to TT Keys
+//! Instead of generating the zobrist key new for every operation it is incrementally updated after every operation.
+//! # Move Ordering
+//! ## MVVLVA Heuristic
+//! MVVLVA stands for most valuable victim, least valuable attacker. This heuristic ranks capture moves
+//! based on the assumption that more in general capturing a high value piece is better,
+//! and the capturing piece should be at least valuable as possible (Pawn x Queen > Queen x Queen)
+//! Since capture chains are not evaluated this can leed to an unoptimal move ordering
+//! ## History Heuristic
+//! The history heuristic evaluates moves based on how often a move was previously evaluated.
+//! The data is saved in a global tables, indexed by: from square x to square x color.
+//! The formula is again different for every engine, rosa currently uses: prev history + depth^2
+//! ## Killer Heuristic
+//! # Move Generation
+//! Since move generation has to be done at every node (except if we find a good TT move/ The null move or TT Move produce a cutoff),
+//! it has to be quite optimized. Move generation uses several optimizations techniques, most notably magic bitboards.
+//! Since for most nodes we dont actually use most moves, move generation is commonly done in stages
+//! (Currently Cap + Non Cap, Possibly Promotions in the future)
+//! ## Legal Moves
+//! Rosas move generation functions generates pseudo-legal moves i.e. legal moves that dont check if they leave the king in check.
+//! The legality is only checked inside of make() using square_not_attacked().
+//! Since square_not_attacked() has to check all the oponent moves (with a few optimizations) it is quite expensive
+//! ## Magic Bitboards
+//! # Evaluation
+//! ## Piece Square Tables
+//! ## Piece Values
+//! ## Texel Tuning
+//! # Transposition Table
+//! ## Zobrist Hashing
+//! # Testing
+//! ## Perf
 
 pub mod config;
 pub mod debug_search;
