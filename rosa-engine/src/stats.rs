@@ -1,12 +1,15 @@
+use std::sync::RwLock;
+
 use crate::config;
 use crate::search::TT;
 
 static mut HIT: u64 = 0;
 static mut COLLISION: u64 = 0;
-static mut NODE_COUNT: u64 = 0;
 static mut BETA_PRUNE: u64 = 0;
-static mut PREV_NODE_COUNT: u64 = 0;
 static mut NULL_MOVE_PRUNE: u64 = 0;
+
+static mut NODE_COUNT: u64 = 0;
+static NODES: RwLock<Vec<u64>> = RwLock::new(Vec::new());
 
 #[inline(always)]
 pub fn tt_hit() {
@@ -20,6 +23,16 @@ pub fn null_move_prune() {
     if config::REPORT_STATS {
         unsafe { NULL_MOVE_PRUNE += 1 }
     }
+}
+
+#[inline(always)]
+pub fn reset_node_count() {
+    unsafe {
+        NODE_COUNT = 0;
+    }
+
+    let mut n = NODES.write().unwrap();
+    *n = Vec::new();
 }
 
 #[inline(always)]
@@ -41,21 +54,19 @@ pub fn beta_prune() {
     }
 }
 
-pub fn nodes() -> u64 {
-    unsafe { NODE_COUNT }
-}
-
-pub fn reset_node_count() {
-    unsafe { NODE_COUNT = 0 }
+#[inline(always)]
+pub fn new_depth() {
+    if config::REPORT_STATS {
+        unsafe {
+            (*NODES.write().unwrap()).push(NODE_COUNT);
+            NODE_COUNT = 0;
+        }
+    }
 }
 
 #[inline(always)]
-pub fn update_branching_factor() {
-    if config::REPORT_STATS {
-        unsafe {
-            PREV_NODE_COUNT = NODE_COUNT;
-        }
-    }
+pub fn nodes() -> u64 {
+    return *(*NODES.write().unwrap()).last().unwrap();
 }
 
 #[inline(always)]
@@ -71,9 +82,12 @@ pub fn print_stats() {
         });
         println!("Beta Prunes: {}", unsafe { BETA_PRUNE });
         println!("Null Move Prunes: {}", unsafe { NULL_MOVE_PRUNE });
-        println!("Effective Branching Factor: {}", unsafe {
-            NODE_COUNT as f64 / PREV_NODE_COUNT as f64
-        });
+        let nodes = NODES.read().unwrap();
+        println!(
+            "Effective Branching Factor: {}",
+            nodes[nodes.len() - 2] as f64 / nodes[nodes.len() - 3] as f64
+        );
+        println!("Nodes: {:?}", nodes);
         println!();
 
         let (valid, _null, size) = TT.usage();

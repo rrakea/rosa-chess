@@ -5,6 +5,7 @@ use rosa_lib::pos::{self, Pos};
 use rosa_lib::util;
 
 use crate::mv::mv_gen;
+use crate::stats;
 
 const BOTTOM_LEFT_SQ: u8 = 0;
 const BOTTOM_RIGHT_SQ: u8 = 7;
@@ -12,6 +13,7 @@ const TOP_LEFT_SQ: u8 = 56;
 const TOP_RIGHT_SQ: u8 = 63;
 
 pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
+    stats::node_count();
     let color = p.clr;
     let op_color = color.flip();
 
@@ -188,6 +190,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
 }
 
 pub fn make_null(p: &mut Pos) -> (bool, bool, u8) {
+    stats::node_count();
     let color = p.clr;
     let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
     let was_ep = p.is_en_passant();

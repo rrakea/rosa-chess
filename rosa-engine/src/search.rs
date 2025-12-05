@@ -31,7 +31,7 @@ pub fn search(mut p: pos::Pos) {
     let mut score;
     let start = time::Instant::now();
     loop {
-        stats::update_branching_factor();
+        stats::new_depth();
         score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
 
         if *STOP.read().unwrap() {
@@ -56,7 +56,6 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     if depth == 0 {
         return eval::eval(p);
     }
-    stats::node_count();
 
     let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta);
     if let Some(r) = return_val {
@@ -291,6 +290,7 @@ fn print_info(best: Mv, depth: u8, time: u128, score: i32) {
 }
 
 pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
+    stats::print_stats();
     *STOP.write().unwrap() = true;
     let best = TT.checked_get(&p.key());
     match best {
@@ -310,6 +310,5 @@ pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
             make::unmake(p, &mut best);
         }
     }
-    stats::print_stats();
     None
 }
