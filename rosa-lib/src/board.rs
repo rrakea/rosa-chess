@@ -1,8 +1,15 @@
+//! # Bitboards
+
+/// # Bitboards
+/// Since chess boards have 64 squares we can abuse 64 bit unsigned integers (bitboards) to represent where the pieces are.
+/// Since bitboards have one bit of information for each square we have to save a bitboard for each piece & color.
+/// Using bitboards not only speeds up but also optimizes the memory layout of the position struct.  
+/// The main speed up comes from being able to quickly use bitwise operators for a ton of different operations.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Board(u64);
 
 impl Board {
-    pub fn new() -> Board{
+    pub fn new() -> Board {
         Board(0)
     }
 
@@ -14,10 +21,12 @@ impl Board {
         self.0
     }
 
+    /// Gets on the positions where the bitboard is 1.  
+    /// Preinitializes a vector on cap 8, since there will 99.9% of the time not be more than
+    /// 8 instances of the same piece on the board
     #[inline(always)]
     pub fn get_ones(&self) -> Vec<u8> {
         let mut bb = self.val();
-        // 99.9% of the time there are not more than 8 pieces on the board
         let mut ones: Vec<u8> = Vec::with_capacity(8);
         let mut lsb;
 
@@ -30,6 +39,8 @@ impl Board {
         ones
     }
 
+    /// Used when we are sure there can be only one piece
+    /// i.e. Kings
     pub fn get_ones_single(&self) -> u8 {
         self.0.trailing_zeros() as u8
     }

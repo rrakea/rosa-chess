@@ -1,3 +1,5 @@
+//! # Variations on the search functions
+//! Used in debugging. Extremly slow but very thorough
 use crate::make;
 use crate::mv;
 use crate::search::TT;

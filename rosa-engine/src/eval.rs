@@ -1,3 +1,8 @@
+//! # Evaluation
+//! ## Piece Square Tables
+//! ## Piece Values
+//! ## Texel Tuning
+
 use rosa_lib::pos;
 
 // Stolen from: https://www.chessprogramming.org/Tapered_Eval

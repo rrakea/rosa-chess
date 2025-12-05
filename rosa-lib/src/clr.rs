@@ -1,5 +1,7 @@
-#[derive(Clone, Copy, Default, PartialEq, PartialOrd, Ord, Eq, Debug)]
+//! # Color
+//! Used for some optimizations with the piece type
 
+#[derive(Clone, Copy, Default, PartialEq, PartialOrd, Ord, Eq, Debug)]
 pub enum Clr {
     #[default]
     White,

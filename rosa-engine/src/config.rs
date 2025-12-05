@@ -1,3 +1,5 @@
+//! # Static config settings
+
 pub const NAME: &str = "rosa-chess";
 pub const AUTHOR: &str = "rrakea";
 pub const VERSION: &str = "0.1";

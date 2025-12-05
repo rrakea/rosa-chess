@@ -1,3 +1,5 @@
+//! # Debug data collection
+//! About the current search; Also calculates the EBF
 use std::sync::RwLock;
 
 use crate::config;

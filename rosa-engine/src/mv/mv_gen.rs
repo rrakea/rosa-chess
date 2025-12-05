@@ -1,3 +1,14 @@
+//! # Move Generation
+//! Since move generation has to be done at every node (except if we find a good TT move/ The null move or TT Move produce a cutoff),
+//! it has to be quite optimized. Move generation uses several optimizations techniques, most notably magic bitboards.
+//! Since for most nodes we dont actually use most moves, move generation is commonly done in stages
+//! (Currently Cap + Non Cap, Possibly Promotions in the future)
+//! ## Legal Moves
+//! Rosas move generation functions generates pseudo-legal moves i.e. legal moves that dont check if they leave the king in check.
+//! The legality is only checked inside of make() using square_not_attacked().
+//! Since square_not_attacked() has to check all the oponent moves (with a few optimizations) it is quite expensive
+//! ## Magic Bitboards
+
 use super::constants;
 use super::magic;
 

@@ -1,3 +1,9 @@
+//! ## MVVLVA Heuristic
+//! MVVLVA stands for most valuable victim, least valuable attacker. This heuristic ranks capture moves
+//! based on the assumption that more in general capturing a high value piece is better,
+//! and the capturing piece should be at least valuable as possible (Pawn x Queen > Queen x Queen)
+//! Since capture chains are not evaluated this can leed to an unoptimal move ordering
+
 use std::collections::HashMap;
 
 use crate::piece::Piece;

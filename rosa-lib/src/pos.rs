@@ -1,3 +1,7 @@
+//! # Position Representation
+//! Rosa Chess uses both bitboards for every piece and a piece table representation. Both of them are optimal for different tasks
+//! (Bitboards for move generation, piece tables for checking for checks & promotions)
+
 use crate::board::Board;
 use crate::clr::Clr;
 use crate::piece::*;

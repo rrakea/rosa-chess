@@ -1,3 +1,7 @@
+//! # Generating Positions from FEN strings
+//! Not designed to be robust
+//! If you pass this a wrong FEN it WILL do bullshit
+
 use crate::make;
 
 use rosa_lib::clr::Clr;
@@ -18,7 +22,6 @@ pub fn starting_pos(moves: Vec<&str>) -> pos::Pos {
     fen(START_FEN.to_vec(), moves)
 }
 
-// If you pass this a wrong FEN it WILL do bullshit
 pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
     let mut sq: [ClrPieceOption; 64] = [None; 64];
     let ranks = fen[0].rsplit("/");

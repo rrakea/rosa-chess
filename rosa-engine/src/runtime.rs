@@ -1,3 +1,6 @@
+//! # UCI Handling
+//! Spawns a separate thread to handle both stdin and timeouts
+
 use crate::config;
 use crate::debug_search;
 use crate::eval;

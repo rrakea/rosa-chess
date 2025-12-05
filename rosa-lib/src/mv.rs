@@ -1,43 +1,11 @@
+//! # Move Representation
+
 use crate::clr::Clr;
 use crate::history;
 use crate::mvvlva;
 use crate::piece::*;
 use crate::pos::Pos;
 use crate::util;
-
-/*
-    Move encoding as u32
-    Move ordering is done by value, so the most important
-    bits like captured piece and promoted piece should
-    be the most significant bits
-
-    The mvvlva could be only 5 bits but there is no other data to store
-
-                    Old ep file
-                      |
-           Prom       |
-           Piece      |
-             |        |   Old
-             |        |  Castle  Start   End
-             |        |    |       |      |
-             |        |    |       |      |
-             ||       |-| |--| |-----||-----|
-    0b0000_0000_0000_0000_0000_0000_0000_0000
-      |-----|   |--| |
-        |        |   |
-        |        |   |
-      Score      |   |
-               Flag  |
-                     |
-                     |
-                    Old
-                    is ep
-
-    The score value is either the mvvlva score for captures
-    or history heuristic for non captures
-    We add 32 to the mvvlva score to a) mv order them higher
-    and b) the very first bit becomes a is_cap() bit
-*/
 
 const START: u32 = 0b_0000_0000_0000_0000_0000_1111_1100_0000;
 const END: u32 = 0b_0000_0000_0000_0000_0000_0000_0011_1111;
@@ -62,6 +30,36 @@ const SCORE_OFFSET: u32 = 26;
 const WK_STARTING_SQ: u8 = 4;
 const BK_STARTING_SQ: u8 = 60;
 
+///  Move encoding as u32  
+///  Move ordering is done by value, so the most important  
+///  bits like captured piece and promoted piece should  
+///  be the most significant bits  
+///  The mvvlva could be only 5 bits but there is no other data to store  
+///  <pre>
+///                  Old ep file  
+///                    |  
+///         Prom       |  
+///         Piece      |  
+///           |        |   Old  
+///           |        |  Castle  Start   End  
+///           |        |    |       |      |  
+///           |        |    |       |      |  
+///           ||       |-| |--| |-----||-----|  
+///  0b0000_0000_0000_0000_0000_0000_0000_0000  
+///    |-----|   |--| |  
+///      |        |   |  
+///      |        |   |  
+///    Score      |   |  
+///             Flag  |  
+///                   |  
+///                   |  
+///                  Old  
+///                  is ep  
+///  </pre>
+///  The score value is either the mvvlva score for captures  
+///  or history heuristic for non captures  
+///  We add 32 to the mvvlva score to a) mv order them higher  
+///  and b) the very first bit becomes a is_cap() bit  
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mv(u32);
 
