@@ -133,16 +133,6 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         },
     };
 
-    /*
-        LMR:
-        If Depth > 2:
-        Search first 1- 2 moves at full depth
-        (Maybe TT move + pv?)
-        -> If no fail high:
-        Search rest at reduced depth
-        -> If fail high -> research
-        Reduction: if mv index < 6: 1, else depth/3
-    */
     let mut do_lmr = true;
 
     for (i, mut m) in iter.enumerate() {
@@ -163,10 +153,10 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             // Null window search
             if depth > 2 && i > LMR_MOVES && do_lmr {
                 // Late move reduction
-                // Inspired by romichss
-                let reduced_depth = depth - (1 + (depth - 2) / 4);
+                let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
                 score = -negascout(p, reduced_depth, -alpha - 1, -alpha);
             } else {
+                // Not reduced depth null window
                 score = -negascout(p, depth - 1, -alpha - 1, -alpha);
             }
 
