@@ -18,4 +18,4 @@ Under active development
 - Multithreading
 
 # Docs
-For docs run "cargo docs --open --lib"
+For docs run "cargo docs --open --workspace --document-private-items"
