@@ -1,4 +1,6 @@
 //! # Transposition Table
+//! ## Safety
+//! The is no read write write - reading might produce smeared data
 //! ## Zobrist Hashing
 
 use crate::mv::Mv;
