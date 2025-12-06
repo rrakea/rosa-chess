@@ -1,8 +1,15 @@
-use rosa_lib::clr::Clr;
+//! # Making & Unmaking
+//! Instead of copying our position struct on every new move we use the make() and unmake() functions.
+//! However this operation is lossy (Castling rights & En passant rights).
+//! Since this has to be done multiple times in a row we cant save it in the position struct.
+//! Some chess engines use a specialized tables for this information, however Rosa Chess saves it in the 32 bit represenetation
+//! of each move. More about that in the move ordering/ move struct.
+//! ## Incremental updates to TT Keys
+//! Instead of generating the zobrist key new for every operation it is incrementally updated after every operation.
+
 use rosa_lib::mv::*;
 use rosa_lib::piece::*;
 use rosa_lib::pos::{self, Pos};
-use rosa_lib::util;
 
 use crate::mv::mv_gen;
 use crate::stats;
@@ -49,7 +56,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
 
         Flag::Double => {
             is_ep = true;
-            ep_file = util::file(end);
+            ep_file = end % 8;
         }
 
         Flag::Ep => {

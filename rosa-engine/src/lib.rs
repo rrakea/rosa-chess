@@ -1,9 +1,14 @@
+//! Documentation for the rosa chess engine
+//! The code is split into 2 modules:  
+//! __rosa-lib__ for struct and static code  
+//! __rosa-engine__ for runtime code  
+
 pub mod config;
-pub mod make;
+pub mod debug_search;
 pub mod eval;
 pub mod fen;
-pub mod stats;
+pub mod make;
 pub mod mv;
 pub mod runtime;
 pub mod search;
-pub mod debug_search;
+pub mod stats;

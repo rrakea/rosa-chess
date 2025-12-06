@@ -1,11 +1,3 @@
-pub fn rank(sq: u8) -> u8 {
-    sq / 8
-}
-
-pub fn file(sq: u8) -> u8 {
-    sq % 8
-}
-
 // This accomodates for knight moves
 pub fn no_wrap(a: u8, b: u8) -> bool {
     u8::abs_diff(a % 8, b % 8) <= 2

@@ -6,7 +6,9 @@ Under active development
 
 # Timeline
 ## Short Term
+- Promotion mv gen separate + mv ordering?
 - Late move reduction
+- Only check on make if castle is possible
 - Quisence Search
 
 ## Long Term
@@ -15,3 +17,5 @@ Under active development
 - SPRT Testing
 - Multithreading
 
+# Docs
+For docs run "cargo docs --open --lib"

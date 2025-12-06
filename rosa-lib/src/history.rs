@@ -1,6 +1,11 @@
+//! ## History Heuristic
+//! The history heuristic evaluates moves based on how often a move was previously evaluated.
+//! The data is saved in a global tables, indexed by: from square x to square x color.
+//! The formula is again different for every engine, rosa currently uses: prev history + depth^2
+
 use std::cell::UnsafeCell;
 
-use crate::clr::Clr;
+use crate::piece::Clr;
 use crate::mv::Mv;
 
 // from sq * to sq * 2 colors

@@ -1,4 +1,8 @@
-use crate::clr::Clr;
+//! # Transposition Table
+//! ## Safety
+//! The is no read write write - reading might produce smeared data
+//! ## Zobrist Hashing
+
 use crate::mv::Mv;
 use crate::piece::*;
 use crate::pos;
@@ -35,11 +39,7 @@ impl TT {
 
     pub fn checked_get(&self, key: &Key) -> Option<Entry> {
         let entry = self.get(key);
-        if entry.is_null() {
-            None
-        } else {
-            Some(entry)
-        }
+        if entry.is_null() { None } else { Some(entry) }
     }
 
     pub fn set(&self, entry: Entry) {
