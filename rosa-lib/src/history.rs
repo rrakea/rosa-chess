@@ -5,7 +5,7 @@
 
 use std::cell::UnsafeCell;
 
-use crate::clr::Clr;
+use crate::piece::Clr;
 use crate::mv::Mv;
 
 // from sq * to sq * 2 colors

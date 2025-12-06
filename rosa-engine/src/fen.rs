@@ -4,7 +4,6 @@
 
 use crate::make;
 
-use rosa_lib::clr::Clr;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;

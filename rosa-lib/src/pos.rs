@@ -3,7 +3,6 @@
 //! (Bitboards for move generation, piece tables for checking for checks & promotions)
 
 use crate::board::Board;
-use crate::clr::Clr;
 use crate::piece::*;
 use crate::tt;
 

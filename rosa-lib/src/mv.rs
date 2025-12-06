@@ -1,6 +1,5 @@
 //! # Move Representation
 
-use crate::clr::Clr;
 use crate::history;
 use crate::mvvlva;
 use crate::piece::*;

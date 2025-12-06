@@ -13,7 +13,6 @@ use super::constants;
 use super::magic;
 
 use rosa_lib::board::Board;
-use rosa_lib::clr::Clr;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos::{self, Pos};

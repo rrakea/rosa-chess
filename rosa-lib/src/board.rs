@@ -1,6 +1,4 @@
 //! # Bitboards
-
-/// # Bitboards
 /// Since chess boards have 64 squares we can abuse 64 bit unsigned integers (bitboards) to represent where the pieces are.
 /// Since bitboards have one bit of information for each square we have to save a bitboard for each piece & color.
 /// Using bitboards not only speeds up but also optimizes the memory layout of the position struct.  

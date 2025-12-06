@@ -1,13 +1,5 @@
-use crate::clr::Clr;
-
-/*
-    This module provides 3 enums for representing pieces.
-    I chose 3 different ones, to make the api clear
-    So when checking what piece occupies a square you will get
-    a ClrPieceOption, so it is clear that it could be empty
-    Piece is used for stuff where the color does not matter
-    i.e. to which piece to promote to
-*/
+//! # Piece & Color Helper Struct
+//! Provides Piece, Clr, ClrPiece and ClrPieceOption
 
 #[repr(i8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -36,6 +28,13 @@ pub enum ClrPiece {
     BRook = -4,
     BQueen = -5,
     BKing = -6,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, PartialOrd, Ord, Eq, Debug)]
+pub enum Clr {
+    #[default]
+    White,
+    Black,
 }
 
 pub type ClrPieceOption = Option<ClrPiece>;
@@ -103,6 +102,50 @@ impl ClrPiece {
     }
 }
 
+impl Piece {
+    pub fn val(self) -> i8 {
+        self as i8
+    }
+
+    pub fn clr(&self, clr: Clr) -> ClrPiece {
+        ClrPiece::from(self.val()).as_clr(clr)
+    }
+
+    // Compresses the piece into 2 bytes for storing the promoted piece
+    // Knight(2) => 0, Queen(5) => 3
+    pub fn compress_prom(&self) -> u32 {
+        (self.val() - 2) as u32
+    }
+
+    pub fn decompress_prom(data: u32) -> Piece {
+        Piece::from(data as i8 + 2)
+    }
+}
+
+impl Clr {
+    pub fn as_sign(&self) -> i8 {
+        match self {
+            Clr::White => 1,
+            Clr::Black => -1,
+        }
+    }
+
+    pub fn flip(&self) -> Clr {
+        match self {
+            Clr::White => Clr::Black,
+            Clr::Black => Clr::White,
+        }
+    }
+
+    pub fn is_white(&self) -> bool {
+        *self == Clr::White
+    }
+
+    pub fn is_black(&self) -> bool {
+        *self == Clr::Black
+    }
+}
+
 impl std::fmt::Display for ClrPiece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let piece_str = match self {
@@ -147,26 +190,12 @@ impl std::fmt::Debug for ClrPiece {
     }
 }
 
-impl Piece {
-    pub fn val(self) -> i8 {
-        self as i8
-    }
-
-    pub fn clr(&self, clr: Clr) -> ClrPiece {
-        ClrPiece::from(self.val()).as_clr(clr)
-    }
-
-    // Compresses the piece into 2 bytes for storing the promoted piece
-    // Knight(2) => 0, Queen(5) => 3
-    pub fn compress_prom(&self) -> u32 {
-        (self.val() - 2) as u32
-    }
-
-    pub fn decompress_prom(data: u32) -> Piece {
-        Piece::from(data as i8 + 2)
+impl std::fmt::Display for Clr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let clr = if self.is_white() { "w" } else { "b" };
+        write!(f, "{clr}")
     }
 }
-
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let piece = match self {

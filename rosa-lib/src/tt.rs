@@ -1,7 +1,6 @@
 //! # Transposition Table
 //! ## Zobrist Hashing
 
-use crate::clr::Clr;
 use crate::mv::Mv;
 use crate::piece::*;
 use crate::pos;

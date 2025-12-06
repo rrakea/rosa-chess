@@ -10,10 +10,10 @@ use crate::make;
 use crate::mv;
 use crate::search;
 
-use rosa_lib::clr::Clr;
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 use rosa_lib::tt;
+use rosa_lib::piece::Clr;
 
 use std::sync::Once;
 use std::sync::mpsc;

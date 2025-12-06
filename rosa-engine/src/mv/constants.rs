@@ -1,4 +1,3 @@
-use rosa_lib::clr::Clr;
 use rosa_lib::piece::*;
 
 pub fn get_mask(piece: ClrPiece, sq: u8) -> u64 {

@@ -7,11 +7,9 @@
 //! ## Incremental updates to TT Keys
 //! Instead of generating the zobrist key new for every operation it is incrementally updated after every operation.
 
-use rosa_lib::clr::Clr;
 use rosa_lib::mv::*;
 use rosa_lib::piece::*;
 use rosa_lib::pos::{self, Pos};
-use rosa_lib::util;
 
 use crate::mv::mv_gen;
 use crate::stats;
@@ -58,7 +56,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
 
         Flag::Double => {
             is_ep = true;
-            ep_file = util::file(end);
+            ep_file = end % 8;
         }
 
         Flag::Ep => {
