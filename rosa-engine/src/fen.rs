@@ -92,10 +92,7 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
 
     for mv in moves {
         let mut mv = Mv::new_from_str(mv, &pos);
-        let legal = make::make(&mut pos, &mut mv, true);
-        if !legal {
-            panic!("Move not legal to make")
-        }
+        make::make(&mut pos, &mut mv, false);
     }
 
     pos

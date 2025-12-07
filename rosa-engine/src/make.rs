@@ -10,8 +10,9 @@
 use rosa_lib::mv::*;
 use rosa_lib::piece::*;
 use rosa_lib::pos::{self, Pos};
+use rosa_lib::util;
 
-use crate::mv::mv_gen;
+use crate::mv::*;
 use crate::stats;
 
 const BOTTOM_LEFT_SQ: u8 = 0;
@@ -19,7 +20,13 @@ const BOTTOM_RIGHT_SQ: u8 = 7;
 const TOP_LEFT_SQ: u8 = 56;
 const TOP_RIGHT_SQ: u8 = 63;
 
-pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
+#[derive(PartialEq, Eq)]
+pub enum Legal {
+    LEGAL,
+    ILLEGAL,
+}
+
+pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     stats::node_count();
     let color = p.clr;
     let op_color = color.flip();
@@ -129,11 +136,26 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> bool {
     // If the king of the moving player is not attacked, the
     // position afterwards is legal
     if check_legality {
-        let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
-        mv_gen::square_not_attacked(p, king_pos, color.flip())
-    } else {
-        false
+        if square_attacked(p, color, p.piece(Piece::King.clr(color)).get_ones_single()) {
+            return Legal::ILLEGAL;
+        }
+
+        if mv.is_castle() {
+            if square_attacked(p, color, start) {
+                return Legal::ILLEGAL;
+            }
+
+            // Castles always move the king 2 -> rshift by 1 makes it either -1 or +1
+            //let (start, end) = (start as i8, end as i8);
+            //let square_after_king = (start - ((start - end) >> 1)) as u8;
+            let square_after_king = if start > end { start - 1 } else { start + 1 };
+
+            if square_attacked(p, color, square_after_king) {
+                return Legal::ILLEGAL;
+            }
+        }
     }
+    Legal::LEGAL
 }
 
 pub fn unmake(p: &mut Pos, mv: &mut Mv) {
@@ -196,7 +218,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
     );
 }
 
-pub fn make_null(p: &mut Pos) -> (bool, bool, u8) {
+pub fn make_null(p: &mut Pos) -> (Legal, bool, u8) {
     stats::node_count();
     let color = p.clr;
     let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
@@ -206,14 +228,81 @@ pub fn make_null(p: &mut Pos) -> (bool, bool, u8) {
 
     p.flip_color();
 
-    (
-        mv_gen::square_not_attacked(p, king_pos, color.flip()),
-        was_ep,
-        file,
-    )
+    let legal = if square_attacked(p, color, king_pos) {
+        Legal::ILLEGAL
+    } else {
+        Legal::LEGAL
+    };
+
+    (legal, was_ep, file)
 }
 
 pub fn unmake_null(p: &mut Pos, was_ep: bool, ep_file: u8) {
     p.flip_color();
     p.gen_new_data(was_ep, ep_file, p.castle_data());
+}
+
+pub fn square_attacked(p: &Pos, victim_clr: Clr, sq: u8) -> bool {
+    let attacker_color = victim_clr.flip();
+    // Basically we pretend there is every possible piece on the square
+    // And then & that with the bb of the piece. If non 0 , then the square is attacked
+    // by that piece
+
+    let bishop_mask = magic::bishop_mask(sq, p, true);
+    /*if p.piece(Piece::Bishop.clr(attacker_color)).val() & bishop_mask != 0 {
+        return true;
+    }*/
+
+    if check_for_piece(p, bishop_mask, Piece::Bishop.clr(attacker_color))
+        || check_for_piece(p, bishop_mask, Piece::Queen.clr(attacker_color))
+    {
+        return true;
+    }
+
+    let rook_mask = magic::rook_mask(sq, p, true);
+    if check_for_piece(p, rook_mask, Piece::Rook.clr(attacker_color))
+        || check_for_piece(p, rook_mask, Piece::Queen.clr(attacker_color))
+    {
+        return true;
+    }
+
+    let knight_mask = constants::get_mask(Piece::Knight.clr(attacker_color), sq);
+    if check_for_piece(p, knight_mask, Piece::Knight.clr(attacker_color)) {
+        return true;
+    }
+
+    let (attack_left, attack_right) = if attacker_color.is_white() {
+        (sq as i8 - 7, sq as i8 - 9)
+    } else {
+        (sq as i8 + 7, sq as i8 + 9)
+    };
+
+    if (0..64).contains(&attack_left)
+        && p.piece_at_sq(attack_left as u8) == Some(Piece::Pawn.clr(attacker_color))
+        && util::no_wrap(attack_left as u8, sq)
+    {
+        return true;
+    }
+
+    if (0..64).contains(&attack_right)
+        && p.piece_at_sq(attack_right as u8) == Some(Piece::Pawn.clr(attacker_color))
+        && util::no_wrap(attack_right as u8, sq)
+    {
+        return true;
+    }
+
+    let king_mask = constants::get_mask(Piece::King.clr(attacker_color), sq);
+    if check_for_piece(p, king_mask, Piece::King.clr(attacker_color)) {
+        return true;
+    }
+
+    false
+}
+
+fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: ClrPiece) -> bool {
+    let piece_bb = p.piece(piece);
+    if attacker_mask & piece_bb.val() != 0 {
+        return true;
+    }
+    false
 }

@@ -79,7 +79,6 @@
 
 use crate::eval;
 use crate::make;
-use crate::mv;
 use crate::mv::mv_gen;
 use crate::stats;
 
@@ -152,14 +151,14 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     // Null Move
     if depth > 3 {
         let (legal, was_ep, ep_file) = make::make_null(p);
-        if legal {
+        if legal == make::Legal::LEGAL {
             let score = -negascout(p, depth - 3, -beta, -(beta - 1));
             if score >= beta {
-                make::unmake_null(p, was_ep, ep_file);
                 stats::null_move_prune();
                 return beta;
             }
         }
+
         make::unmake_null(p, was_ep, ep_file);
     }
 
@@ -224,7 +223,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
     for (i, mut m) in iter.enumerate() {
         let legal = make::make(p, &mut m, true);
-        if !legal {
+        if legal == make::Legal::ILLEGAL {
             make::unmake(p, &mut m);
             continue;
         }
@@ -278,7 +277,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     // We never encountered a valid move
     if first_iteration {
         let king_pos = p.piece(Piece::King.clr(p.clr)).get_ones_single();
-        if mv::mv_gen::square_not_attacked(p, king_pos, p.clr.flip()) {
+        if !make::square_attacked(p, p.clr, king_pos) {
             // Stalemate
             return 0;
         } else {

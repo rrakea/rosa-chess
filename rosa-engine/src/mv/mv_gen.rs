@@ -15,7 +15,7 @@ use super::magic;
 use rosa_lib::board::Board;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
-use rosa_lib::pos::{self, Pos};
+use rosa_lib::pos::Pos;
 use rosa_lib::util;
 
 use std::collections::BinaryHeap;
@@ -161,8 +161,6 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     if can_castle.0
         && p.piece_at_sq(king_pos + 1).is_none()
         && p.piece_at_sq(king_pos + 2).is_none()
-        && square_not_attacked(p, king_pos, p.clr.flip())
-        && square_not_attacked(p, king_pos + 1, p.clr.flip())
     {
         if p.clr.is_white() {
             mvs.push(Mv::new_castle(0));
@@ -176,8 +174,6 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
         && p.piece_at_sq(king_pos - 1).is_none()
         && p.piece_at_sq(king_pos - 2).is_none()
         && p.piece_at_sq(king_pos - 3).is_none()
-        && square_not_attacked(p, king_pos, p.clr.flip())
-        && square_not_attacked(p, king_pos - 1, p.clr.flip())
     {
         if p.clr.is_white() {
             mvs.push(Mv::new_castle(1));
@@ -201,68 +197,4 @@ fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
             mvs.push(Mv::new_double(sq, two_move));
         }
     }
-}
-
-pub fn square_not_attacked(p: &Pos, sq: u8, attacker_color: Clr) -> bool {
-    // Basically we pretend there is every possible piece on the square
-    // And then & that with the bb of the piece. If non 0 , then the square is attacked
-    // by that piece
-
-    let bishop_mask = magic::bishop_mask(sq, p, true);
-    /*if p.piece(Piece::Bishop.clr(attacker_color)).val() & bishop_mask != 0 {
-        return true;
-    }*/
-
-    if check_for_piece(p, bishop_mask, Piece::Bishop.clr(attacker_color))
-        || check_for_piece(p, bishop_mask, Piece::Queen.clr(attacker_color))
-    {
-        return false;
-    }
-
-    let rook_mask = magic::rook_mask(sq, p, true);
-    if check_for_piece(p, rook_mask, Piece::Rook.clr(attacker_color))
-        || check_for_piece(p, rook_mask, Piece::Queen.clr(attacker_color))
-    {
-        return false;
-    }
-
-    let knight_mask = constants::get_mask(Piece::Knight.clr(attacker_color), sq);
-    if check_for_piece(p, knight_mask, Piece::Knight.clr(attacker_color)) {
-        return false;
-    }
-
-    let (attack_left, attack_right) = if attacker_color.is_white() {
-        (sq as i8 - 7, sq as i8 - 9)
-    } else {
-        (sq as i8 + 7, sq as i8 + 9)
-    };
-
-    if (0..64).contains(&attack_left)
-        && p.piece_at_sq(attack_left as u8) == Some(Piece::Pawn.clr(attacker_color))
-        && util::no_wrap(attack_left as u8, sq)
-    {
-        return false;
-    }
-
-    if (0..64).contains(&attack_right)
-        && p.piece_at_sq(attack_right as u8) == Some(Piece::Pawn.clr(attacker_color))
-        && util::no_wrap(attack_right as u8, sq)
-    {
-        return false;
-    }
-
-    let king_mask = constants::get_mask(Piece::King.clr(attacker_color), sq);
-    if check_for_piece(p, king_mask, Piece::King.clr(attacker_color)) {
-        return false;
-    }
-
-    true
-}
-
-fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: ClrPiece) -> bool {
-    let piece_bb = p.piece(piece);
-    if attacker_mask & piece_bb.val() != 0 {
-        return true;
-    }
-    false
 }

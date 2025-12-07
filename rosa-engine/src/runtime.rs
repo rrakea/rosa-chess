@@ -178,18 +178,6 @@ pub fn start() {
                 println!("{}", &p.full);
             }
 
-            "attacked" => {
-                init();
-                println!(
-                    "{}",
-                    !mv::mv_gen::square_not_attacked(
-                        &p,
-                        cmd_parts[1].parse().unwrap(),
-                        p.clr.flip()
-                    )
-                );
-            }
-
             "magics" => {
                 mv::gen_magics::gen_magics();
             }
