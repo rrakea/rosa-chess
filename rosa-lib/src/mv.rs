@@ -29,11 +29,9 @@ const SCORE_OFFSET: u32 = 26;
 const WK_STARTING_SQ: u8 = 4;
 const BK_STARTING_SQ: u8 = 60;
 
-///  Move encoding as u32  
-///  Move ordering is done by value, so the most important  
-///  bits like captured piece and promoted piece should  
-///  be the most significant bits  
-///  The mvvlva could be only 5 bits but there is no other data to store  
+/// # Move Representation
+///  Mv encoded as a u32. Since move ordering is done by value, so the most important
+///  bits like captured piece and promoted piece are the most significant bits
 ///  <pre>
 ///                  Old ep file  
 ///                    |  
@@ -55,10 +53,9 @@ const BK_STARTING_SQ: u8 = 60;
 ///                  Old  
 ///                  is ep  
 ///  </pre>
-///  The score value is either the mvvlva score for captures  
-///  or history heuristic for non captures  
-///  We add 32 to the mvvlva score to a) mv order them higher  
-///  and b) the very first bit becomes a is_cap() bit  
+///  The score value is either the mvvlva score for captures or history heuristic for non captures
+///  We add 32 to the mvvlva score to a) mv order them higher and b) the very first bit becomes a is_cap() bit  
+///  We also need to save the old en passant & castling data for unmake()
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mv(u32);
 

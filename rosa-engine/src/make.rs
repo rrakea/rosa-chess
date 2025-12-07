@@ -136,7 +136,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     // If the king of the moving player is not attacked, the
     // position afterwards is legal
     if check_legality {
-        if square_attacked(p, color, p.piece(Piece::King.clr(color)).get_ones_single()) {
+        let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
+        if square_attacked(p, color, king_pos) {
             return Legal::ILLEGAL;
         }
 
@@ -145,10 +146,9 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
                 return Legal::ILLEGAL;
             }
 
-            // Castles always move the king 2 -> rshift by 1 makes it either -1 or +1
-            let (start, end) = (start as i8, end as i8);
-            let square_after_king = (start - ((start - end) >> 1)) as u8;
-            if square_attacked(p, color, square_after_king) {
+            // Cant be uneven
+            let square_after_king = (start as i8 + end as i8) >> 1;
+            if square_attacked(p, color, square_after_king as u8) {
                 return Legal::ILLEGAL;
             }
         }
@@ -240,32 +240,28 @@ pub fn unmake_null(p: &mut Pos, was_ep: bool, ep_file: u8) {
     p.gen_new_data(was_ep, ep_file, p.castle_data());
 }
 
+/// Basically we pretend there is every possible piece on the square
+/// And then & that with the bb of the piece. If non 0 , then the square is attacked by that piece
 pub fn square_attacked(p: &Pos, victim_clr: Clr, sq: u8) -> bool {
+    let check = |p: &Pos, mask: u64, piece: ClrPiece| mask & p.piece(piece).val() != 0;
+
     let attacker_color = victim_clr.flip();
-    // Basically we pretend there is every possible piece on the square
-    // And then & that with the bb of the piece. If non 0 , then the square is attacked
-    // by that piece
-
     let bishop_mask = magic::bishop_mask(sq, p, true);
-    /*if p.piece(Piece::Bishop.clr(attacker_color)).val() & bishop_mask != 0 {
-        return true;
-    }*/
-
-    if check_for_piece(p, bishop_mask, Piece::Bishop.clr(attacker_color))
-        || check_for_piece(p, bishop_mask, Piece::Queen.clr(attacker_color))
+    if check(p, bishop_mask, Piece::Bishop.clr(attacker_color))
+        || check(p, bishop_mask, Piece::Queen.clr(attacker_color))
     {
         return true;
     }
 
     let rook_mask = magic::rook_mask(sq, p, true);
-    if check_for_piece(p, rook_mask, Piece::Rook.clr(attacker_color))
-        || check_for_piece(p, rook_mask, Piece::Queen.clr(attacker_color))
+    if check(p, rook_mask, Piece::Rook.clr(attacker_color))
+        || check(p, rook_mask, Piece::Queen.clr(attacker_color))
     {
         return true;
     }
 
     let knight_mask = constants::get_mask(Piece::Knight.clr(attacker_color), sq);
-    if check_for_piece(p, knight_mask, Piece::Knight.clr(attacker_color)) {
+    if check(p, knight_mask, Piece::Knight.clr(attacker_color)) {
         return true;
     }
 
@@ -290,17 +286,9 @@ pub fn square_attacked(p: &Pos, victim_clr: Clr, sq: u8) -> bool {
     }
 
     let king_mask = constants::get_mask(Piece::King.clr(attacker_color), sq);
-    if check_for_piece(p, king_mask, Piece::King.clr(attacker_color)) {
+    if check(p, king_mask, Piece::King.clr(attacker_color)) {
         return true;
     }
 
-    false
-}
-
-fn check_for_piece(p: &pos::Pos, attacker_mask: u64, piece: ClrPiece) -> bool {
-    let piece_bb = p.piece(piece);
-    if attacker_mask & piece_bb.val() != 0 {
-        return true;
-    }
     false
 }
