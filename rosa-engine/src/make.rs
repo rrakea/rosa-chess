@@ -146,10 +146,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
             }
 
             // Castles always move the king 2 -> rshift by 1 makes it either -1 or +1
-            //let (start, end) = (start as i8, end as i8);
-            //let square_after_king = (start - ((start - end) >> 1)) as u8;
-            let square_after_king = if start > end { start - 1 } else { start + 1 };
-
+            let (start, end) = (start as i8, end as i8);
+            let square_after_king = (start - ((start - end) >> 1)) as u8;
             if square_attacked(p, color, square_after_king) {
                 return Legal::ILLEGAL;
             }
