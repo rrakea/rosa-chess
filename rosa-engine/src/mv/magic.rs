@@ -13,7 +13,7 @@ pub fn rook_mask(sq: u8, p: &Pos, cap: bool) -> u64 {
     let premask = unsafe { ROOK_PREMASKS_TRUNC[sq] };
     let magic = ROOK_MAGIC[sq];
     let shift = ROOK_SHIFT[sq];
-    let blocker = premask & p.full.val();
+    let blocker = premask & p.full().val();
     let index = magic_index(magic, shift, blocker);
     let res = unsafe { ROOK_LOOKUP[sq][index] };
     // Since our blockers dont extend to the outside squares
@@ -31,7 +31,7 @@ pub fn bishop_mask(sq: u8, p: &Pos, cap: bool) -> u64 {
     let premask = unsafe { BISHOP_PREMASKS_TRUNC[sq] };
     let magic = BISHOP_MAGIC[sq];
     let shift = BISHOP_SHIFT[sq];
-    let blocker = premask & p.full.val();
+    let blocker = premask & p.full().val();
     let index = magic_index(magic, shift, blocker);
     let res = unsafe { BISHOP_LOOKUP[sq][index] };
     if cap {

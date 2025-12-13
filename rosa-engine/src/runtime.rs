@@ -144,7 +144,7 @@ pub fn start() {
                         }
 
                         _ => {
-                            let search_duration = process_go(cmd_parts, p.clr);
+                            let search_duration = process_go(cmd_parts, p.clr());
                             time = Some((time::Instant::now(), search_duration));
                             search::thread_search(&p);
                         }
@@ -175,7 +175,7 @@ pub fn start() {
 
             "printfull" => {
                 init();
-                println!("{}", &p.full);
+                println!("{}", &p.full());
             }
 
             "magics" => {

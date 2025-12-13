@@ -45,7 +45,7 @@ pub fn gen_mvs_stages(p: &Pos, cap: bool) -> BinaryHeap<Mv> {
 }
 
 fn gen_mv_from_piece(p: &Pos, mvs: &mut BinaryHeap<Mv>, piece: Piece, cap: bool) {
-    let piece = piece.clr(p.clr);
+    let piece = piece.clr(p.clr());
     let piece_positions = p.piece(piece).get_ones();
     for sq in piece_positions {
         let possible_moves = get_movemask(p, piece, sq, cap);
@@ -58,7 +58,7 @@ fn gen_mv_from_piece(p: &Pos, mvs: &mut BinaryHeap<Mv>, piece: Piece, cap: bool)
                     }
                 }
                 (false, None) => {
-                    mvs.push(Mv::new_quiet(sq, end_square, p.clr));
+                    mvs.push(Mv::new_quiet(sq, end_square, p.clr()));
                 }
                 _ => (),
             }
@@ -85,14 +85,14 @@ fn get_movemask(p: &Pos, piece: ClrPiece, sq: u8, cap: bool) -> Board {
 }
 
 fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>, cap: bool) {
-    let rank = if p.clr.is_white() { 6 } else { 1 };
-    let pawn_bb = p.piece(Piece::Pawn.clr(p.clr));
+    let rank = if p.clr().is_white() { 6 } else { 1 };
+    let pawn_bb = p.piece(Piece::Pawn.clr(p.clr()));
     // Only pawns that are on the last rank
     let relevant_rank = Board::new_from(pawn_bb.val() & constants::RANK_MASKS[rank]);
     for start_sq in relevant_rank.get_ones() {
-        let end_quiet = (start_sq as i8 + 8 * p.clr.as_sign()) as u8;
-        let cap_right = (start_sq as i8 + 9 * p.clr.as_sign()) as u8;
-        let cap_left = (start_sq as i8 + 7 * p.clr.as_sign()) as u8;
+        let end_quiet = (start_sq as i8 + 8 * p.clr().as_sign()) as u8;
+        let cap_right = (start_sq as i8 + 9 * p.clr().as_sign()) as u8;
+        let cap_left = (start_sq as i8 + 7 * p.clr().as_sign()) as u8;
 
         if !cap && p.piece_at_sq(end_quiet).is_none() {
             mvs.extend(Mv::mass_new_prom(start_sq, end_quiet));
@@ -101,7 +101,7 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>, cap: bool) {
         if cap
             && util::no_wrap(start_sq, cap_left)
             && let Some(victim) = p.piece_at_sq(cap_left)
-            && victim.clr() != p.clr
+            && victim.clr() != p.clr()
         {
             mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_left, victim.de_clr()));
         }
@@ -109,7 +109,7 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>, cap: bool) {
         if cap
             && util::no_wrap(start_sq, cap_right)
             && let Some(victim) = p.piece_at_sq(cap_right)
-            && victim.clr() != p.clr
+            && victim.clr() != p.clr()
         {
             mvs.extend(Mv::mass_new_prom_cap(start_sq, cap_right, victim.de_clr()));
         }
@@ -125,7 +125,7 @@ fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     let left;
     let right;
     let end;
-    if p.clr.is_white() {
+    if p.clr().is_white() {
         left = 4 * 8 + file - 1;
         right = 4 * 8 + file + 1;
         end = 5 * 8 + file;
@@ -136,14 +136,14 @@ fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
     }
 
     if (0..64).contains(&left)
-        && p.piece_at_sq(left as u8) == Some(Piece::Pawn.clr(p.clr))
+        && p.piece_at_sq(left as u8) == Some(Piece::Pawn.clr(p.clr()))
         && util::no_wrap(left as u8, end as u8)
     {
         mvs.push(Mv::new_ep(left as u8, end as u8));
     }
 
     if (0..64).contains(&right)
-        && p.piece_at_sq(right as u8) == Some(Piece::Pawn.clr(p.clr))
+        && p.piece_at_sq(right as u8) == Some(Piece::Pawn.clr(p.clr()))
         && util::no_wrap(right as u8, end as u8)
     {
         mvs.push(Mv::new_ep(right as u8, end as u8));
@@ -151,8 +151,8 @@ fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
 }
 
 fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
-    let can_castle = p.can_castle(p.clr);
-    let king_bb = p.piece(Piece::King.clr(p.clr));
+    let can_castle = p.can_castle(p.clr());
+    let king_bb = p.piece(Piece::King.clr(p.clr()));
     let king_pos = king_bb.get_ones_single();
 
     // King side
@@ -162,7 +162,7 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
         && p.piece_at_sq(king_pos + 1).is_none()
         && p.piece_at_sq(king_pos + 2).is_none()
     {
-        if p.clr.is_white() {
+        if p.clr().is_white() {
             mvs.push(Mv::new_castle(0));
         } else {
             mvs.push(Mv::new_castle(2));
@@ -175,7 +175,7 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
         && p.piece_at_sq(king_pos - 2).is_none()
         && p.piece_at_sq(king_pos - 3).is_none()
     {
-        if p.clr.is_white() {
+        if p.clr().is_white() {
             mvs.push(Mv::new_castle(1));
         } else {
             mvs.push(Mv::new_castle(3));
@@ -184,14 +184,14 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
 }
 
 fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
-    let bb = p.piece(Piece::Pawn.clr(p.clr));
-    let rank = if p.clr.is_white() { 1 } else { 6 };
+    let bb = p.piece(Piece::Pawn.clr(p.clr()));
+    let rank = if p.clr().is_white() { 1 } else { 6 };
 
     let second_rank = Board::new_from(bb.val() & constants::RANK_MASKS[rank]);
 
     for sq in second_rank.get_ones() {
-        let one_move = (sq as i8 + (8 * p.clr.as_sign())) as u8;
-        let two_move = (sq as i8 + (16 * p.clr.as_sign())) as u8;
+        let one_move = (sq as i8 + (8 * p.clr().as_sign())) as u8;
+        let two_move = (sq as i8 + (16 * p.clr().as_sign())) as u8;
 
         if p.piece_at_sq(one_move).is_none() && p.piece_at_sq(two_move).is_none() {
             mvs.push(Mv::new_double(sq, two_move));

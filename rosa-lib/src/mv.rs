@@ -219,7 +219,7 @@ impl Mv {
                 } else if piece.de_clr() == Piece::Pawn && (mv_diff == 7 || mv_diff == 9) {
                     Mv::new_ep(start, end)
                 } else {
-                    Mv::new_quiet(start, end, p.clr)
+                    Mv::new_quiet(start, end, p.clr())
                 }
             }
         }

@@ -21,7 +21,7 @@ pub fn eval(p: &pos::Pos) -> i32 {
     }
 
     phase = (phase * 256 + (STARTPHASE / 2)) / STARTPHASE;
-    (((middelgame * (256 - phase)) + endgame * phase) / 256) * p.clr.as_sign() as i32
+    (((middelgame * (256 - phase)) + endgame * phase) / 256) * p.clr().as_sign() as i32
 }
 
 static mut MIDDLEGAME_TABLE: [[i32; 64]; 12] = [[0; 64]; 12];

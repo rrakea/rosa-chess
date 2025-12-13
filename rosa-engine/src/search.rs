@@ -178,7 +178,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
         if score >= beta {
             stats::beta_prune();
             make::unmake(p, &mut m);
-            history::set(&m, p.clr, depth);
+            history::set(&m, p.clr(), depth);
 
             if replace_entry {
                 TT.set(tt::Entry::new(
@@ -267,7 +267,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             stats::beta_prune();
             node_type = tt::EntryType::Lower;
             make::unmake(p, &mut m);
-            history::set(&m, p.clr, depth);
+            history::set(&m, p.clr(), depth);
             break; // Prune :)
         }
 
@@ -276,8 +276,8 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
     // We never encountered a valid move
     if first_iteration {
-        let king_pos = p.piece(Piece::King.clr(p.clr)).get_ones_single();
-        if !make::square_attacked(p, p.clr, king_pos) {
+        let king_pos = p.piece(Piece::King.clr(p.clr())).get_ones_single();
+        if !make::square_attacked(p, p.clr(), king_pos) {
             // Stalemate
             return 0;
         } else {

@@ -15,7 +15,7 @@ pub struct Pos {
     // 6 -> bpawn, 7 -> bbishop..
     boards: [Board; 12],
 
-    pub full: Board,
+    full: Board,
 
     // Square centric representation
     // Using the consts defined above
@@ -27,7 +27,7 @@ pub struct Pos {
     // Encoded like this: castling:  b queen, b king, w queen, b king; en_passant file;
     data: u8,
 
-    pub clr: Clr,
+    clr: Clr,
 }
 
 impl Pos {
@@ -70,6 +70,14 @@ impl Pos {
 
     pub fn key(&self) -> tt::Key {
         self.key
+    }
+
+    pub fn clr(&self) -> Clr {
+        self.clr
+    }
+
+    pub fn full(&self) -> Board {
+        self.full
     }
 
     // -> kingside, queenside

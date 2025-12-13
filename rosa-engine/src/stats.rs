@@ -92,7 +92,7 @@ pub fn print_stats() {
         println!("Nodes: {:?}", nodes);
         println!();
 
-        let (valid, _null, size) = TT.usage();
+        let (valid, size) = TT.load_factor();
         println!("TT Usage: {}%", (valid as f64 / size as f64) * 100.0);
     }
 }

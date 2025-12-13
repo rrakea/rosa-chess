@@ -39,7 +39,11 @@ impl TT {
 
     pub fn checked_get(&self, key: &Key) -> Option<Entry> {
         let entry = self.get(key);
-        if entry.is_null() { None } else { Some(entry) }
+        if entry.is_null() {
+            None
+        } else {
+            Some(entry)
+        }
     }
 
     pub fn set(&self, entry: Entry) {
@@ -53,32 +57,26 @@ impl TT {
         unsafe { (*self.table.get()).len() as u64 }
     }
 
-    pub fn usage(&self) -> (u64, u64, u64) {
+    /// Non null entries & Table Size
+    pub fn load_factor(&self) -> (u64, u64) {
         let mut entry_count = 0;
-        let mut null_count = 0;
         for index in unsafe { 0..(*self.table.get()).len() } {
             let node_type = unsafe { (&(*self.table.get())).get(index).unwrap().node_type };
-            if node_type == EntryType::Null {
-                null_count += 1;
-            } else {
+            if node_type != EntryType::Null {
                 entry_count += 1;
             }
         }
-        (entry_count, null_count, self.size())
+        (entry_count, self.size())
     }
 }
 
-/*
-    Alignment:
-    Key: u64 -> 8 bytes
-    Score: i32 -> 4 bytes
-    mv: u16 -> 2 byte
-    Depth: u8 -> 1 byte
-    Node_type: i8 -> 1 byte
-
-    => 16 Bytes/ 156 bit (-> No padding)
-*/
-
+/// Alignment:
+/// Key: u64 -> 8 bytes
+/// Score: i32 -> 4 bytes
+/// mv: u16 -> 2 byte
+/// Depth: u8 -> 1 byte
+/// Node_type: i8 -> 1 byte
+/// => 16 Bytes/ 156 bit (-> No padding)
 #[derive(Clone)]
 pub struct Entry {
     pub key: Key,
@@ -137,7 +135,7 @@ impl Key {
             }
         }
 
-        if p.clr.is_black() {
+        if p.clr().is_black() {
             key.color();
         }
 

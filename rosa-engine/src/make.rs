@@ -28,7 +28,7 @@ pub enum Legal {
 
 pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     stats::node_count();
-    let color = p.clr;
+    let color = p.clr();
     let op_color = color.flip();
 
     let (start, end) = mv.sq();
@@ -157,8 +157,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
 }
 
 pub fn unmake(p: &mut Pos, mv: &mut Mv) {
-    let color = p.clr.flip();
-    let op_color = p.clr;
+    let color = p.clr().flip();
+    let op_color = p.clr();
 
     let (start, end) = mv.sq();
     let mut captured_piece_sq = end;
@@ -218,7 +218,7 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
 
 pub fn make_null(p: &mut Pos) -> (Legal, bool, u8) {
     stats::node_count();
-    let color = p.clr;
+    let color = p.clr();
     let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
     let was_ep = p.is_en_passant();
     let file = p.en_passant_file();
