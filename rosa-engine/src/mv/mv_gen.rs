@@ -157,22 +157,34 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
 
     // We can skip checking the last square, since that is where the kings ends up
     // -> It is searched again in checking for legal moves
-    if p.piece_at_sq(king_pos + 1).is_none() && p.piece_at_sq(king_pos + 2).is_none() {
-        if castle.wk && p.clr().is_white() {
-            mvs.push(Mv::new_castle(0));
-        } else if castle.bk && p.clr().is_black() {
-            mvs.push(Mv::new_castle(2));
+    match p.clr() {
+        Clr::White => {
+            if castle.wk
+                && p.piece_at_sq(king_pos + 1).is_none()
+                && p.piece_at_sq(king_pos + 2).is_none()
+            {
+                mvs.push(Mv::new_castle(0));
+            } else if castle.wq
+                && p.piece_at_sq(king_pos - 1).is_none()
+                && p.piece_at_sq(king_pos - 2).is_none()
+                && p.piece_at_sq(king_pos - 3).is_none()
+            {
+                mvs.push(Mv::new_castle(1));
+            }
         }
-    }
-
-    if p.piece_at_sq(king_pos - 1).is_none()
-        && p.piece_at_sq(king_pos - 2).is_none()
-        && p.piece_at_sq(king_pos - 3).is_none()
-    {
-        if castle.wq && p.clr().is_white() {
-            mvs.push(Mv::new_castle(1));
-        } else if castle.bq && p.clr().is_black() {
-            mvs.push(Mv::new_castle(3));
+        Clr::Black => {
+            if castle.bk
+                && p.piece_at_sq(king_pos + 1).is_none()
+                && p.piece_at_sq(king_pos + 2).is_none()
+            {
+                mvs.push(Mv::new_castle(2));
+            } else if castle.bq
+                && p.piece_at_sq(king_pos - 1).is_none()
+                && p.piece_at_sq(king_pos - 2).is_none()
+                && p.piece_at_sq(king_pos - 3).is_none()
+            {
+                mvs.push(Mv::new_castle(3));
+            }
         }
     }
 }
