@@ -37,6 +37,10 @@ impl Board {
         ones
     }
 
+    pub fn at(&self, sq: u8) -> bool {
+        (self.0 >> sq) & 1u64 == 1u64
+    }
+
     /// Used when we are sure there can be only one piece
     /// i.e. Kings
     pub fn get_ones_single(&self) -> u8 {

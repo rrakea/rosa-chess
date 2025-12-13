@@ -101,6 +101,10 @@ impl Pos {
         self.sq[sq as usize]
     }
 
+    pub fn board_empty_at(&self, sq: u8) -> bool {
+        self.full.at(sq) == false
+    }
+
     pub fn piece_toggle(&mut self, piece: ClrPiece, sq: u8) {
         self.sq[sq as usize] = match self.sq[sq as usize] {
             ClrPieceOption::None => ClrPieceOption::Some(piece),
