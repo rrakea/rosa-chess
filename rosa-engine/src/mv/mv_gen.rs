@@ -133,7 +133,7 @@ fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
                 right = 3 * 8 + file + 1;
                 end = 2 * 8 + file;
             }
-           if (0..64).contains(&left)
+            if (0..64).contains(&left)
                 && p.piece_at_sq(left as u8) == Some(Piece::Pawn.clr(p.clr()))
                 && util::no_wrap(left as u8, end as u8)
             {
@@ -157,7 +157,7 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
 
     // We can skip checking the last square, since that is where the kings ends up
     // -> It is searched again in checking for legal moves
-   if p.piece_at_sq(king_pos + 1).is_none() && p.piece_at_sq(king_pos + 2).is_none() {
+    if p.piece_at_sq(king_pos + 1).is_none() && p.piece_at_sq(king_pos + 2).is_none() {
         if castle.wk && p.clr().is_white() {
             mvs.push(Mv::new_castle(0));
         } else if castle.bk && p.clr().is_black() {
@@ -169,11 +169,11 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
         && p.piece_at_sq(king_pos - 2).is_none()
         && p.piece_at_sq(king_pos - 3).is_none()
     {
-       if castle.wq && p.clr().is_white() {
+        if castle.wq && p.clr().is_white() {
             mvs.push(Mv::new_castle(1));
-        } else if castle.bq {
+        } else if castle.bq && p.clr().is_black() {
             mvs.push(Mv::new_castle(3));
-        };
+        }
     }
 }
 
