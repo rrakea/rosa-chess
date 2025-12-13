@@ -139,7 +139,7 @@ impl Key {
             key.color();
         }
 
-        let castle = p.castle_data();
+        let castle = p.castle();
         if castle.wk {
             key.castle(Clr::White, true);
         }
@@ -153,8 +153,8 @@ impl Key {
             key.castle(Clr::Black, false);
         }
 
-        if p.is_en_passant() {
-            key.en_passant(p.en_passant_file());
+        if let Some(file) = p.ep() {
+            key.en_passant(file);
         }
         debug_assert!(key.val() != 0);
         key

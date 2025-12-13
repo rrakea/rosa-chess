@@ -117,67 +117,61 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>, cap: bool) {
 }
 
 fn gen_ep(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
-    if !p.is_en_passant() {
-        return;
-    }
+    match p.ep() {
+        None => (),
+        Some(file) => {
+            let file = file as i8;
+            let left;
+            let right;
+            let end;
+            if p.clr().is_white() {
+                left = 4 * 8 + file - 1;
+                right = 4 * 8 + file + 1;
+                end = 5 * 8 + file;
+            } else {
+                left = 3 * 8 + file - 1;
+                right = 3 * 8 + file + 1;
+                end = 2 * 8 + file;
+            }
+           if (0..64).contains(&left)
+                && p.piece_at_sq(left as u8) == Some(Piece::Pawn.clr(p.clr()))
+                && util::no_wrap(left as u8, end as u8)
+            {
+                mvs.push(Mv::new_ep(left as u8, end as u8));
+            }
 
-    let file = p.en_passant_file() as i8;
-    let left;
-    let right;
-    let end;
-    if p.clr().is_white() {
-        left = 4 * 8 + file - 1;
-        right = 4 * 8 + file + 1;
-        end = 5 * 8 + file;
-    } else {
-        left = 3 * 8 + file - 1;
-        right = 3 * 8 + file + 1;
-        end = 2 * 8 + file;
-    }
-
-    if (0..64).contains(&left)
-        && p.piece_at_sq(left as u8) == Some(Piece::Pawn.clr(p.clr()))
-        && util::no_wrap(left as u8, end as u8)
-    {
-        mvs.push(Mv::new_ep(left as u8, end as u8));
-    }
-
-    if (0..64).contains(&right)
-        && p.piece_at_sq(right as u8) == Some(Piece::Pawn.clr(p.clr()))
-        && util::no_wrap(right as u8, end as u8)
-    {
-        mvs.push(Mv::new_ep(right as u8, end as u8));
+            if (0..64).contains(&right)
+                && p.piece_at_sq(right as u8) == Some(Piece::Pawn.clr(p.clr()))
+                && util::no_wrap(right as u8, end as u8)
+            {
+                mvs.push(Mv::new_ep(right as u8, end as u8));
+            }
+        }
     }
 }
 
 fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
-    let can_castle = p.can_castle(p.clr());
     let king_bb = p.piece(Piece::King.clr(p.clr()));
     let king_pos = king_bb.get_ones_single();
+    let castle = p.castle();
 
-    // King side
     // We can skip checking the last square, since that is where the kings ends up
     // -> It is searched again in checking for legal moves
-    if can_castle.0
-        && p.piece_at_sq(king_pos + 1).is_none()
-        && p.piece_at_sq(king_pos + 2).is_none()
-    {
-        if p.clr().is_white() {
+   if p.piece_at_sq(king_pos + 1).is_none() && p.piece_at_sq(king_pos + 2).is_none() {
+        if castle.wk && p.clr().is_white() {
             mvs.push(Mv::new_castle(0));
-        } else {
+        } else if castle.bk && p.clr().is_black() {
             mvs.push(Mv::new_castle(2));
-        };
+        }
     }
 
-    // Queen side
-    if can_castle.1
-        && p.piece_at_sq(king_pos - 1).is_none()
+    if p.piece_at_sq(king_pos - 1).is_none()
         && p.piece_at_sq(king_pos - 2).is_none()
         && p.piece_at_sq(king_pos - 3).is_none()
     {
-        if p.clr().is_white() {
+       if castle.wq && p.clr().is_white() {
             mvs.push(Mv::new_castle(1));
-        } else {
+        } else if castle.bq {
             mvs.push(Mv::new_castle(3));
         };
     }

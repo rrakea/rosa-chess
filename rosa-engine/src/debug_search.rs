@@ -84,11 +84,11 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
     if depth > 2 {
         let prev_key = p.key();
         let prev_pos = p.clone();
-        let (legal, is_ep, ep_file) = make::make_null(p);
+        let (legal, was_ep) = make::make_null(p);
         if legal == make::Legal::LEGAL {
             debug_search(p, depth - 1, previous_mvs);
         }
-        make::unmake_null(p, is_ep, ep_file);
+        make::unmake_null(p, was_ep);
         if p.key() != prev_key {
             panic!(
                 "Null move key mismatch, Report: {}",
