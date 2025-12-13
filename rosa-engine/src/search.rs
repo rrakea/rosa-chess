@@ -150,7 +150,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
     // Null Move
     if depth > 3 {
-        let (legal, was_ep, ep_file) = make::make_null(p);
+        let (legal, was_ep) = make::make_null(p);
         if legal == make::Legal::LEGAL {
             let score = -negascout(p, depth - 3, -beta, -(beta - 1));
             if score >= beta {
@@ -159,7 +159,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             }
         }
 
-        make::unmake_null(p, was_ep, ep_file);
+        make::unmake_null(p, was_ep);
     }
 
     let mut node_type = tt::EntryType::Upper;

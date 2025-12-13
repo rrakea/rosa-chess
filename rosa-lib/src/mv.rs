@@ -3,6 +3,7 @@
 use crate::history;
 use crate::mvvlva;
 use crate::piece::*;
+use crate::pos;
 use crate::pos::Pos;
 use crate::util;
 
@@ -308,30 +309,30 @@ impl Mv {
         self.capture_data().1
     }
 
-    pub fn set_old_castle_rights(&mut self, rights: (bool, bool, bool, bool)) {
+    pub fn set_old_castle_rights(&mut self, rights: pos::Castling) {
         self.0 &= !OLD_CASTLE;
         let mut val = 0;
-        let (wk, wq, bk, bq) = rights;
-        if wk {
+        if rights.wk {
             val |= WKC;
         }
-        if wq {
+        if rights.wq {
             val |= WQC;
         }
-        if bk {
+        if rights.bk {
             val |= BKC;
         }
-        if bq {
+        if rights.bq {
             val |= BQC;
         }
         self.0 |= val
     }
 
-    pub fn old_castle_rights(&self, color: Clr) -> (bool, bool) {
-        if color.is_white() {
-            (self.0 & WKC > 0, self.0 & WQC > 0)
-        } else {
-            (self.0 & BKC > 0, self.0 & BQC > 0)
+    pub fn old_castle_rights(&self) -> pos::Castling {
+        pos::Castling {
+            wk: self.0 & WKC > 0,
+            wq: self.0 & WQC > 0,
+            bk: self.0 & BKC > 0,
+            bq: self.0 & BQC > 0,
         }
     }
 

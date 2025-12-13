@@ -88,7 +88,7 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
     }
 
     // split_fen[4] and 5 specify move clocks, which we dont use yet
-    let mut pos = pos::Pos::new(sq, clr, is_ep, ep_file, pos::CastleData { wk, wq, bk, bq });
+    let mut pos = pos::Pos::new(sq, clr, is_ep, ep_file, pos::Castling { wk, wq, bk, bq });
 
     for mv in moves {
         let mut mv = Mv::new_from_str(mv, &pos);

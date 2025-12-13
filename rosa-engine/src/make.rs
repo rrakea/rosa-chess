@@ -9,7 +9,7 @@
 
 use rosa_lib::mv::*;
 use rosa_lib::piece::*;
-use rosa_lib::pos::{self, Pos};
+use rosa_lib::pos::Pos;
 use rosa_lib::util;
 
 use crate::mv::*;
@@ -30,6 +30,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     stats::node_count();
     let color = p.clr;
     let op_color = color.flip();
+    let mut castle = p.castle();
 
     let (start, end) = mv.sq();
     let mut captured_piece_sq = end;
@@ -40,20 +41,19 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     // unset the moving piece
     p.piece_toggle(piece, start);
 
-    let (mut wk, mut wq) = p.can_castle(Clr::White);
-    let (mut bk, mut bq) = p.can_castle(Clr::Black);
+    let mut ep = None;
 
-    let mut is_ep = false;
-    let mut ep_file = 0;
-
-    mv.set_old_castle_rights((wk, wq, bk, bq));
-    if p.is_en_passant() {
-        mv.set_old_is_ep(true);
-        mv.set_old_ep_file(p.en_passant_file());
-    } else {
-        // If the move is the pv move it might still have this set
-        mv.set_old_is_ep(false);
-        mv.set_old_ep_file(0);
+    mv.set_old_castle_rights(p.castle());
+    match p.ep() {
+        Some(file) => {
+            mv.set_old_is_ep(true);
+            mv.set_old_ep_file(file);
+        }
+        None => {
+            // If the move is the pv move it might still have this set
+            mv.set_old_is_ep(false);
+            mv.set_old_ep_file(0);
+        }
     }
 
     p.flip_color();
@@ -61,10 +61,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     match mv.flag() {
         Flag::Quiet | Flag::Cap => {}
 
-        Flag::Double => {
-            is_ep = true;
-            ep_file = end % 8;
-        }
+        Flag::Double => ep = Some(end % 8),
 
         Flag::Ep => {
             captured_piece_sq = match color {
@@ -80,29 +77,29 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
         Flag::WKC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ);
             p.piece_toggle(ClrPiece::WRook, BOTTOM_RIGHT_SQ - 2);
-            wk = false;
-            wq = false;
+            castle.wk = false;
+            castle.wq = false;
         }
 
         Flag::WQC => {
             p.piece_toggle(ClrPiece::WRook, BOTTOM_LEFT_SQ);
             p.piece_toggle(ClrPiece::WRook, BOTTOM_LEFT_SQ + 3);
-            wk = false;
-            wq = false;
+            castle.wk = false;
+            castle.wq = false;
         }
 
         Flag::BKC => {
             p.piece_toggle(ClrPiece::BRook, TOP_RIGHT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_RIGHT_SQ - 2);
-            bk = false;
-            bq = false;
+            castle.bk = false;
+            castle.bq = false;
         }
 
         Flag::BQC => {
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ);
             p.piece_toggle(ClrPiece::BRook, TOP_LEFT_SQ + 3);
-            bk = false;
-            bq = false;
+            castle.bk = false;
+            castle.bq = false;
         }
     }
 
@@ -115,23 +112,25 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
     p.piece_toggle(piece, end);
 
     // If: could castle previously && a) Move king, b) moved from rook sq, c) captured rook
-    if wk && (piece == ClrPiece::WKing || start == BOTTOM_RIGHT_SQ || end == BOTTOM_RIGHT_SQ) {
-        wk = false;
+    if castle.wk && (piece == ClrPiece::WKing || start == BOTTOM_RIGHT_SQ || end == BOTTOM_RIGHT_SQ)
+    {
+        castle.wk = false;
     }
 
-    if wq && (piece == ClrPiece::WKing || start == BOTTOM_LEFT_SQ || end == BOTTOM_LEFT_SQ) {
-        wq = false;
+    if castle.wq && (piece == ClrPiece::WKing || start == BOTTOM_LEFT_SQ || end == BOTTOM_LEFT_SQ) {
+        castle.wq = false;
     }
 
-    if bk && (piece == ClrPiece::BKing || start == TOP_RIGHT_SQ || end == TOP_RIGHT_SQ) {
-        bk = false;
+    if castle.bk && (piece == ClrPiece::BKing || start == TOP_RIGHT_SQ || end == TOP_RIGHT_SQ) {
+        castle.bk = false;
     }
 
-    if bq && (piece == ClrPiece::BKing || start == TOP_LEFT_SQ || end == TOP_LEFT_SQ) {
-        bq = false;
+    if castle.bq && (piece == ClrPiece::BKing || start == TOP_LEFT_SQ || end == TOP_LEFT_SQ) {
+        castle.bq = false;
     }
 
-    p.gen_new_data(is_ep, ep_file, pos::CastleData { wk, wq, bk, bq });
+    p.set_castling(castle);
+    p.set_ep(ep);
 
     // If the king of the moving player is not attacked, the
     // position afterwards is legal
@@ -206,24 +205,20 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
         p.piece_toggle(mv.cap_victim().clr(op_color), captured_piece_sq);
     }
 
-    let (wk, wq) = mv.old_castle_rights(Clr::White);
-    let (bk, bq) = mv.old_castle_rights(Clr::Black);
-
-    p.gen_new_data(
-        mv.old_is_ep(),
-        mv.old_ep_file(),
-        pos::CastleData { wk, wq, bk, bq },
-    );
+    p.set_castling(mv.old_castle_rights());
+    if mv.old_is_ep() {
+        p.set_ep(Some(mv.old_ep_file()));
+    } else {
+        p.set_ep(None);
+    }
 }
 
-pub fn make_null(p: &mut Pos) -> (Legal, bool, u8) {
+pub fn make_null(p: &mut Pos) -> (Legal, Option<u8>) {
     stats::node_count();
     let color = p.clr;
     let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
-    let was_ep = p.is_en_passant();
-    let file = p.en_passant_file();
-    p.gen_new_data(false, 0, p.castle_data());
-
+    let was_ep = p.ep();
+    p.set_ep(None);
     p.flip_color();
 
     let legal = if square_attacked(p, color, king_pos) {
@@ -232,12 +227,12 @@ pub fn make_null(p: &mut Pos) -> (Legal, bool, u8) {
         Legal::LEGAL
     };
 
-    (legal, was_ep, file)
+    (legal, was_ep)
 }
 
-pub fn unmake_null(p: &mut Pos, was_ep: bool, ep_file: u8) {
+pub fn unmake_null(p: &mut Pos, was_ep: Option<u8>) {
     p.flip_color();
-    p.gen_new_data(was_ep, ep_file, p.castle_data());
+    p.set_ep(was_ep);
 }
 
 /// Basically we pretend there is every possible piece on the square

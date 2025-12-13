@@ -1,6 +1,12 @@
 //! # Position Representation
-//! Rosa Chess uses both bitboards for every piece and a piece table representation. Both of them are optimal for different tasks
+//! To keep track of the state of a chess position during search a accurate and fast board representation is needed.
+//! The data it needs to keep track of include: the position of all the pieces, castling rights, side to move and en passant rights.
+//! Different techniques can be used to represent the pieces, bitboards being the most popular one.
+//! Rosa Chess uses a hybrid approach of both bitboards for every piece and a piece table representation.
+//! Both of them are optimal for different tasks
 //! (Bitboards for move generation, piece tables for checking for checks & promotions)
+//! Since this struct is only constructed once you dont need to particuarly optimize for memory layout.
+//! Instead speed of access and storing is key.
 
 use crate::board::Board;
 use crate::piece::*;
@@ -23,11 +29,17 @@ pub struct Pos {
 
     key: tt::Key,
 
-    // Extra Data
-    // Encoded like this: castling:  b queen, b king, w queen, b king; en_passant file;
-    data: u8,
-
+    ep: Option<u8>,
+    castle: Castling,
     pub clr: Clr,
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Default, Debug)]
+pub struct Castling {
+    pub wk: bool,
+    pub wq: bool,
+    pub bk: bool,
+    pub bq: bool,
 }
 
 impl Pos {
@@ -36,7 +48,7 @@ impl Pos {
         clr: Clr,
         is_ep: bool,
         ep_file: u8,
-        castle: CastleData,
+        castle: Castling,
     ) -> Pos {
         let mut boards = [Board::new(); 12];
         for (sq, piece) in sq.into_iter().enumerate() {
@@ -48,51 +60,32 @@ impl Pos {
         let mut newp = Pos {
             boards,
             sq,
-            data: 0,
             clr,
+            castle,
             full: Board::new(),
             key: tt::Key::default(),
+            ep: is_ep.then(|| ep_file),
         };
 
-        newp.gen_new_data(is_ep, ep_file, castle);
         newp.gen_new_full();
         newp.gen_new_key();
         newp
-    }
-
-    pub fn is_en_passant(&self) -> bool {
-        (self.data & 0b0000_1000) != 0
-    }
-
-    pub fn en_passant_file(&self) -> u8 {
-        self.data & 0b0000_0111
     }
 
     pub fn key(&self) -> tt::Key {
         self.key
     }
 
-    // -> kingside, queenside
-    pub fn castle_data(&self) -> CastleData {
-        CastleData {
-            wk: self.data & 0b0001_0000 > 0,
-            wq: self.data & 0b0010_0000 > 0,
-            bk: self.data & 0b0100_0000 > 0,
-            bq: self.data & 0b1000_0000 > 0,
-        }
+    pub fn castle(&self) -> Castling {
+        self.castle
     }
 
-    pub fn can_castle(&self, clr: Clr) -> (bool, bool) {
-        let data = self.castle_data();
-        if clr.is_white() {
-            (data.wk, data.wq)
-        } else {
-            (data.bk, data.bq)
-        }
+    pub fn ep(&self) -> Option<u8> {
+        self.ep
     }
 
-    pub fn piece(&self, piece: ClrPiece) -> &Board {
-        &self.boards[piece.index()]
+    pub fn piece(&self, piece: ClrPiece) -> Board {
+        self.boards[piece.index()]
     }
 
     pub fn piece_at_sq(&self, sq: u8) -> ClrPieceOption {
@@ -139,66 +132,37 @@ impl Pos {
         self.full = Board::new_from(full);
     }
 
-    pub fn gen_new_data(&mut self, is_ep: bool, ep_file: u8, castle: CastleData) {
-        // Unset the old ep key
-        if self.is_en_passant() {
-            self.key.en_passant(self.en_passant_file());
+    pub fn set_ep(&mut self, ep: Option<u8>) {
+        if let Some(old) = self.ep {
+            self.key.en_passant(old);
         }
 
-        let mut data: u8 = 0;
-        if is_ep {
-            data |= 0b0000_1000;
-            data |= ep_file;
-            self.key.en_passant(ep_file);
+        if let Some(new) = ep {
+            self.key.en_passant(new);
         }
 
-        let old_castle = self.castle_data();
+        self.ep = ep;
+    }
 
-        if castle.wk {
-            data |= 0b0001_0000;
-        }
-        if old_castle.wk != castle.wk {
+    pub fn set_castling(&mut self, c: Castling) {
+        if self.castle.wk != c.wk {
             self.key.castle(Clr::White, true);
         }
-
-        if castle.wq {
-            data |= 0b0010_0000;
-        }
-        if castle.wq != old_castle.wq {
+        if self.castle.wq != c.wq {
             self.key.castle(Clr::White, false);
         }
-
-        if castle.bk {
-            data |= 0b0100_0000;
-        }
-        if castle.bk != old_castle.bk {
+        if self.castle.bk != c.bk {
             self.key.castle(Clr::Black, true);
         }
-
-        if castle.bq {
-            data |= 0b1000_0000;
-        }
-        if castle.bq != old_castle.bq {
+        if self.castle.bq != c.bq {
             self.key.castle(Clr::Black, false);
         }
 
-        self.data = data;
+        self.castle = c;
     }
 
     pub fn is_default(&self) -> bool {
         self.full.empty()
-    }
-
-    pub fn set_ep(&mut self, val: bool, file: u8) {
-        if self.is_en_passant() {
-            self.key.en_passant(self.en_passant_file());
-        }
-
-        if val != self.is_en_passant() {
-            self.data |= 0b0000_1000;
-            self.data |= file;
-            self.key.en_passant(file);
-        }
     }
 
     pub fn debug_key_mismatch(p1: &Pos, p2: &Pos) -> String {
@@ -218,8 +182,18 @@ impl Pos {
             }
         }
 
-        if p1.data != p2.data {
-            report.push_str(format!("Data mismatch: {:08b}, {:08b}", p1.data, p2.data).as_str());
+        if p1.castle != p2.castle {
+            report.push_str(
+                format!(
+                    "Missmatch in castling data: {:?}, {:?}",
+                    p1.castle, p2.castle
+                )
+                .as_str(),
+            );
+        }
+
+        if p1.ep != p2.ep {
+            report.push_str(format!("Missmatch in ep data: {:?}, {:?}", p1.ep, p2.ep).as_str());
         }
 
         if p1.clr != p2.clr {
@@ -245,14 +219,16 @@ impl Pos {
 }
 
 impl Default for Pos {
+    // You cant define default for a type alias ahhh
     fn default() -> Self {
         Pos {
             boards: [Board::default(); 12],
             full: Board::default(),
             sq: [None; 64],
             key: tt::Key::default(),
-            data: 0,
+            castle: Castling::default(),
             clr: Clr::default(),
+            ep: Option::default(),
         }
     }
 }
@@ -293,16 +269,10 @@ impl std::fmt::Debug for Pos {
             str += format!("{}\n", b).as_str();
         }
         str += format!("{}\n", self.full).as_str();
-        str += format!("Data: {:#010b}\n", self.data).as_str();
+        str += format!("{:?}\n", self.castle).as_str();
+        str += format!("{:?}\n", self.ep).as_str();
         str += format!("Color: {}", self.clr).as_str();
 
         write!(f, "{}", str)
     }
-}
-
-pub struct CastleData {
-    pub wk: bool,
-    pub wq: bool,
-    pub bk: bool,
-    pub bq: bool,
 }
