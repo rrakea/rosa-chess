@@ -38,7 +38,7 @@ impl Board {
     }
 
     pub fn at(&self, sq: u8) -> bool {
-        (self.0 >> sq) & 1u64 == 1u64
+        self.0 & (1u64 << sq) != 0
     }
 
     /// Used when we are sure there can be only one piece

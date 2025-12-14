@@ -13,7 +13,6 @@ use rosa_lib::pos::Pos;
 use rosa_lib::util;
 
 use crate::mv::*;
-use crate::stats;
 
 const BOTTOM_LEFT_SQ: u8 = 0;
 const BOTTOM_RIGHT_SQ: u8 = 7;
@@ -27,7 +26,6 @@ pub enum Legal {
 }
 
 pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> Legal {
-    stats::node_count();
     let color = p.clr();
     let op_color = color.flip();
     let mut castle = p.castle();
@@ -214,7 +212,6 @@ pub fn unmake(p: &mut Pos, mv: &mut Mv) {
 }
 
 pub fn make_null(p: &mut Pos) -> (Legal, Option<u8>) {
-    stats::node_count();
     let color = p.clr();
     let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
     let was_ep = p.ep();

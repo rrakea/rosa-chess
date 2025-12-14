@@ -80,7 +80,7 @@
 use crate::eval;
 use crate::make;
 use crate::mv::mv_gen;
-use crate::stats;
+use crate::stats2::Stats;
 
 use rosa_lib::history;
 use rosa_lib::mv::Mv;
@@ -90,7 +90,6 @@ use rosa_lib::tt;
 
 use std::sync::RwLock;
 use std::thread;
-use std::time;
 
 pub static TT: tt::TT = tt::TT::new();
 
@@ -102,7 +101,6 @@ static STOP: RwLock<bool> = RwLock::new(false);
 
 /// Spawns a new thread & inits the STOP global
 pub fn thread_search(p: &pos::Pos) {
-    stats::reset_node_count();
     *STOP.write().unwrap() = false;
     let pclone = p.clone();
     thread::spawn(move || search(pclone));
@@ -113,37 +111,33 @@ pub fn search(mut p: pos::Pos) {
     // Iterative deepening
     let mut depth = 1;
     let mut score;
-    let start = time::Instant::now();
+    let mut stats = Stats::new();
     loop {
-        stats::new_depth();
-        score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1);
+        score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1, &mut stats);
 
         if *STOP.read().unwrap() {
-            return;
+            break;
         }
 
-        print_info(
-            TT.get(&p.key()).mv,
-            depth,
-            (time::Instant::now() - start).as_millis(),
-            // Since eval is dependant on the color
-            score.abs(),
-        );
-
+        stats.print_info(TT.get(&p.key()).mv, score);
+        stats.depth_done();
         depth += 1;
     }
+
+    stats.search_done(TT.get(&p.key()).mv, score);
 }
 
 /// How many moves to do before starting late move reductions
 const LMR_MOVES: usize = 2;
 
 /// Main search functions; uses the optimizations described above
-fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
+fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut Stats) -> i32 {
+    stats.node();
     if depth == 0 {
         return eval::eval(p);
     }
 
-    let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta);
+    let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta,stats);
     if let Some(r) = return_val {
         return r;
     }
@@ -152,9 +146,8 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     if depth > 3 {
         let (legal, was_ep) = make::make_null(p);
         if legal == make::Legal::LEGAL {
-            let score = -negascout(p, depth - 3, -beta, -(beta - 1));
+            let score = -negascout(p, depth - 3, -beta, -(beta - 1), stats);
             if score >= beta {
-                stats::null_move_prune();
                 return beta;
             }
         }
@@ -169,14 +162,13 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
     if let Some(mut m) = best_mv {
         first_iteration = false;
         make::make(p, &mut m, false);
-        let score = -negascout(p, depth - 1, -beta, -alpha);
+        let score = -negascout(p, depth - 1, -beta, -alpha, stats);
         if score > alpha {
             alpha = score;
             node_type = tt::EntryType::Exact;
         }
 
         if score >= beta {
-            stats::beta_prune();
             make::unmake(p, &mut m);
             history::set(&m, p.clr(), depth);
 
@@ -234,16 +226,16 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
             // Principle variation search
             // PV Node
             best_mv = Some(m);
-            score = -negascout(p, depth - 1, -beta, -alpha);
+            score = -negascout(p, depth - 1, -beta, -alpha, stats);
         } else {
             // Null window search
             if depth > 2 && i > LMR_MOVES && do_lmr {
                 // Late move reduction
                 let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
-                score = -negascout(p, reduced_depth, -alpha - 1, -alpha);
+                score = -negascout(p, reduced_depth, -alpha - 1, -alpha, stats);
             } else {
                 // Not reduced depth null window
-                score = -negascout(p, depth - 1, -alpha - 1, -alpha);
+                score = -negascout(p, depth - 1, -alpha - 1, -alpha, stats);
             }
 
             if alpha < score && score < beta {
@@ -252,7 +244,7 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
                     do_lmr = false;
                 }
                 // Failed high -> Full re-search
-                score = -negascout(p, depth - 1, -beta, -score);
+                score = -negascout(p, depth - 1, -beta, -score, stats);
             }
         }
 
@@ -264,7 +256,6 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32) -> i32 
 
         if score >= beta {
             // Cut Node
-            stats::beta_prune();
             node_type = tt::EntryType::Lower;
             make::unmake(p, &mut m);
             history::set(&m, p.clr(), depth);
@@ -306,6 +297,7 @@ fn parse_tt(
     depth: u8,
     alpha: &mut i32,
     beta: &mut i32,
+    stats: &mut Stats
 ) -> (bool, Option<Mv>, Option<i32>) {
     let mut replace = false;
     let mut pv_move = None;
@@ -317,10 +309,8 @@ fn parse_tt(
     }
 
     if !entry.is_null() {
-        if &entry.key != key {
-            stats::tt_collision();
-        } else {
-            stats::tt_hit();
+        if &entry.key == key {
+            stats.tt_hit();
             pv_move = Some(entry.mv);
             // If the depth is worse we cant use the score
             if depth <= entry.depth {
@@ -355,22 +345,9 @@ fn parse_tt(
     (replace, pv_move, return_val)
 }
 
-/// Prints the info string after every iteration
-fn print_info(best: Mv, depth: u8, time: u128, score: i32) {
-    let info_string = format!(
-        "info depth {} pv {} time {} score cp {} nodes {}",
-        depth,
-        best,
-        time,
-        score,
-        stats::nodes()
-    );
-    println!("{}", info_string);
-}
-
 /// Prints the bestmove & ponder cmds
 pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
-    stats::print_stats();
+    //stats::print_stats();
     *STOP.write().unwrap() = true;
     let best = TT.checked_get(&p.key());
     match best {
