@@ -94,7 +94,7 @@ fn gen_prom(p: &Pos, mvs: &mut BinaryHeap<Mv>, cap: bool) {
         let cap_right = (start_sq as i8 + 9 * p.clr().as_sign()) as u8;
         let cap_left = (start_sq as i8 + 7 * p.clr().as_sign()) as u8;
 
-        if !cap && p.piece_at_sq(end_quiet).is_none() {
+        if !cap && p.board_empty_at(end_quiet) {
             mvs.extend(Mv::mass_new_prom(start_sq, end_quiet));
         }
 
@@ -193,7 +193,7 @@ fn gen_pawn_double(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
         let one_move = (sq as i8 + (8 * p.clr().as_sign())) as u8;
         let two_move = (sq as i8 + (16 * p.clr().as_sign())) as u8;
 
-        if p.piece_at_sq(one_move).is_none() && p.piece_at_sq(two_move).is_none() {
+        if p.board_empty_at(one_move) && p.board_empty_at(two_move) {
             mvs.push(Mv::new_double(sq, two_move));
         }
     }
