@@ -12,7 +12,7 @@ use std::cell::UnsafeCell;
 
 #[derive(Default)]
 pub struct TT {
-    table: UnsafeCell<Vec<Entry>>,
+    table: UnsafeCell<Vec<Option<Entry>>>,
 }
 
 unsafe impl Sync for TT {}
@@ -26,30 +26,21 @@ impl TT {
 
     pub fn resize(&self, size: u64) {
         unsafe {
-            (*self.table.get()).resize(size as usize, Entry::default());
+            (*self.table.get()).resize(size as usize, None);
         }
     }
 
-    pub fn get(&self, key: &Key) -> Entry {
+    pub fn get(&self, key: &Key) -> Option<Entry> {
         unsafe {
             let index = key.val() % self.size();
             (&(*self.table.get())).get(index as usize).unwrap().clone()
         }
     }
 
-    pub fn checked_get(&self, key: &Key) -> Option<Entry> {
-        let entry = self.get(key);
-        if entry.is_null() {
-            None
-        } else {
-            Some(entry)
-        }
-    }
-
     pub fn set(&self, entry: Entry) {
         unsafe {
             let index = entry.key.val() % self.size();
-            (&mut (*self.table.get()))[index as usize] = entry;
+            (&mut (*self.table.get()))[index as usize] = Some(entry);
         }
     }
 
@@ -61,8 +52,7 @@ impl TT {
     pub fn load_factor(&self) -> (u64, u64) {
         let mut entry_count = 0;
         for index in unsafe { 0..(*self.table.get()).len() } {
-            let node_type = unsafe { (&(*self.table.get())).get(index).unwrap().node_type };
-            if node_type != EntryType::Null {
+            if unsafe { (&(*self.table.get())).get(index).unwrap().is_some() } {
                 entry_count += 1;
             }
         }
@@ -73,10 +63,10 @@ impl TT {
 /// Alignment:
 /// Key: u64 -> 8 bytes
 /// Score: i32 -> 4 bytes
-/// mv: u16 -> 2 byte
+/// Mv: Option<NonZeroU32> -> 4 bytes
 /// Depth: u8 -> 1 byte
-/// Node_type: i8 -> 1 byte
-/// => 16 Bytes/ 156 bit (-> No padding)
+/// Node_type: u8 -> 1 byte
+/// Total: 18 bytes (This should probably be used better since its aligned to 24)
 #[derive(Clone)]
 pub struct Entry {
     pub key: Key,
@@ -88,38 +78,9 @@ pub struct Entry {
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum EntryType {
-    Null,
     Upper,
     Lower,
     Exact,
-}
-
-impl Entry {
-    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: EntryType) -> Entry {
-        Entry {
-            key,
-            score,
-            mv,
-            depth,
-            node_type,
-        }
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.node_type == EntryType::Null
-    }
-}
-
-impl Default for Entry {
-    fn default() -> Self {
-        Entry {
-            key: Key::new_from(0),
-            score: 0,
-            mv: Mv::null(),
-            depth: 0,
-            node_type: EntryType::Null,
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Default, Eq, Copy, Debug)]

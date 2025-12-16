@@ -12,3 +12,4 @@ pub mod mv;
 pub mod runtime;
 pub mod search;
 pub mod stats2;
+pub mod thread_search;

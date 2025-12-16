@@ -74,13 +74,14 @@
 //! get searched quite shallowly.   
 //! There are a lot of formulas ans heuristic used to decide to what exactly we can reduce our depth.
 //! Rosa Chess uses a simple formula of: if depth < 6 {depth - 1} else {depth/3}
-//! This formulat is definitly open to changes with further testing
+//! This formula is definitely open to changes with further testing
 //! ## Node Types
 
-use crate::eval;
+use crate::eval::eval;
 use crate::make;
 use crate::mv::mv_gen;
-use crate::stats2::Stats;
+use crate::stats2::SearchStats;
+use crate::thread_search;
 
 use rosa_lib::history;
 use rosa_lib::mv::Mv;
@@ -88,71 +89,86 @@ use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-use std::sync::RwLock;
-use std::thread;
+use core::panic;
+use std::sync::atomic;
+use std::sync::mpsc;
 
 pub static TT: tt::TT = tt::TT::new();
 
-/// Used to asynchronisly stop the search function.
-/// The value is checked at every step of iterative deepening,
-/// which can cause issues at deeper depth
-/// (threads running for too long while the next thread already started)
-static STOP: RwLock<bool> = RwLock::new(false);
-
-/// Spawns a new thread & inits the STOP global
-pub fn thread_search(p: &pos::Pos) {
-    *STOP.write().unwrap() = false;
-    let pclone = p.clone();
-    thread::spawn(move || search(pclone));
-}
-
 /// Iterative deepening
-pub fn search(mut p: pos::Pos) {
+pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>) {
     // Iterative deepening
-    let mut depth = 1;
+    let mut depth = 0;
     let mut score;
-    let mut stats = Stats::new();
+    let mut pv = None;
     loop {
-        score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1, &mut stats);
-
-        if *STOP.read().unwrap() {
-            break;
+        if thread_search::search_done() {
+            return;
         }
 
-        stats.print_info(TT.get(&p.key()).mv, score);
-        stats.depth_done();
         depth += 1;
-    }
+        let mut search_stats = SearchStats::new();
+        let new_pv;
 
-    stats.search_done(TT.get(&p.key()).mv, score);
+        (score, new_pv) = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1, &mut search_stats);
+
+        if let Some(m) = new_pv {
+            pv = Some(m);
+        }
+
+        sender
+            .send(thread_search::ThreadReport::new(
+                depth,
+                score,
+                pv,
+                search_stats,
+            ))
+            .unwrap();
+    }
 }
 
 /// How many moves to do before starting late move reductions
 const LMR_MOVES: usize = 2;
 
 /// Main search functions; uses the optimizations described above
-fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut Stats) -> i32 {
+fn negascout(
+    p: &mut pos::Pos,
+    depth: u8,
+    mut alpha: i32,
+    mut beta: i32,
+    stats: &mut SearchStats,
+) -> (i32, Option<Mv>) {
     stats.node();
     if depth == 0 {
-        return eval::eval(p);
+        return (eval(p), None);
     }
 
-    let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta,stats);
-    if let Some(r) = return_val {
-        return r;
+    let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta);
+
+    if best_mv.is_some() {
+        stats.tt_hit();
+        if let Some(rv) = return_val {
+            return (rv, best_mv);
+        }
+    }
+
+    if depth < 5 && thread_search::search_done() {
+        // Time up
+        return (eval(p), best_mv);
     }
 
     // Null Move
     if depth > 3 {
         let (legal, was_ep) = make::make_null(p);
         if legal == make::Legal::LEGAL {
-            let score = -negascout(p, depth - 3, -beta, -(beta - 1), stats);
-            if score >= beta {
-                return beta;
+            let (score, _) = negascout(p, depth - 3, -beta, -(beta - 1), stats);
+            if -score >= beta {
+                return (beta, best_mv);
             }
+            make::unmake_null(p, was_ep);
+        } else {
+            make::unmake_null(p, was_ep);
         }
-
-        make::unmake_null(p, was_ep);
     }
 
     let mut node_type = tt::EntryType::Upper;
@@ -297,46 +313,49 @@ fn parse_tt(
     depth: u8,
     alpha: &mut i32,
     beta: &mut i32,
-    stats: &mut Stats
 ) -> (bool, Option<Mv>, Option<i32>) {
     let mut replace = false;
     let mut pv_move = None;
     let mut return_val = None;
 
     let entry = TT.get(key);
-    if depth > entry.depth {
-        replace = true;
-    }
+    match entry {
+        None => {
+            return (true, None, None);
+        }
+        Some(entry) => {
+            if entry.depth < depth {
+                replace = true;
+            }
 
-    if !entry.is_null() {
-        if &entry.key == key {
-            stats.tt_hit();
-            pv_move = Some(entry.mv);
-            // If the depth is worse we cant use the score
-            if depth <= entry.depth {
-                match entry.node_type {
-                    tt::EntryType::Exact => {
+            if &entry.key == key {
+                pv_move = Some(entry.mv);
+                // If the depth is worse we cant use the score
+                if depth <= entry.depth {
+                    match entry.node_type {
+                        tt::EntryType::Exact => {
+                            return_val = Some(entry.score);
+                        }
+                        tt::EntryType::Upper => {
+                            if entry.score <= *alpha {
+                                return_val = Some(entry.score);
+                            } else {
+                                *beta = i32::min(entry.score, *beta);
+                            }
+                        }
+                        tt::EntryType::Lower => {
+                            if entry.score >= *beta {
+                                return_val = Some(entry.score);
+                            } else {
+                                *alpha = i32::max(entry.score, *alpha);
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+
+                    if alpha >= beta {
                         return_val = Some(entry.score);
                     }
-                    tt::EntryType::Upper => {
-                        if entry.score <= *alpha {
-                            return_val = Some(entry.score);
-                        } else {
-                            *beta = i32::min(entry.score, *beta);
-                        }
-                    }
-                    tt::EntryType::Lower => {
-                        if entry.score >= *beta {
-                            return_val = Some(entry.score);
-                        } else {
-                            *alpha = i32::max(entry.score, *alpha);
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-
-                if alpha >= beta {
-                    return_val = Some(entry.score);
                 }
             }
         }
@@ -348,7 +367,9 @@ fn parse_tt(
 /// Prints the bestmove & ponder cmds
 pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
     //stats::print_stats();
-    *STOP.write().unwrap() = true;
+    {
+        STOP.store(true, atomic::Ordering::Relaxed);
+    }
     let best = TT.checked_get(&p.key());
     match best {
         None => panic!("Starting pos doesnt have a tt entry"),
