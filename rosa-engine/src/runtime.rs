@@ -8,18 +8,19 @@ use crate::eval::eval;
 use crate::fen;
 use crate::make;
 use crate::mv;
-use crate::search;
+use crate::thread_search;
 
+use crossbeam::channel;
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 use rosa_lib::tt;
 use rosa_lib::piece::Clr;
 
 use std::sync::Once;
-use std::sync::mpsc;
 use std::thread;
 use std::time;
 use std::time::Duration;
+
 
 static INIT: Once = Once::new();
 
@@ -28,7 +29,7 @@ pub fn init() {
         rosa_lib::lib_init();
         tt::init_zobrist_keys();
         mv::magic_init::init_magics();
-        search::TT.resize(config::TT_SIZE);
+        crate::search::TT.resize(config::TT_SIZE);
         eval::init_eval();
     });
 }
@@ -53,9 +54,11 @@ pub fn start() {
         if let Some((start, duration)) = time
             && start.elapsed() > duration
         {
-            ponder = search::stop_search(&mut p);
+            thread_search::stop_search();
             time = None
         }
+
+    channel:select! {
 
         let cmd = match rx.try_recv() {
             Err(mpsc::TryRecvError::Empty) => continue,
@@ -110,7 +113,7 @@ pub fn start() {
             }
 
             "stop" => {
-                ponder = search::stop_search(&mut p);
+                thread_search::stop_search();
                 time = None;
             }
 

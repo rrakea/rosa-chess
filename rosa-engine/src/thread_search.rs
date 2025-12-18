@@ -1,11 +1,10 @@
 //! # Multithreaded searching
 //! Not ready for multithreading yet, setting up infrastructure
- 
-use crate::search;
-use crate::stats2::{GlobalStats, SearchStats};
 
-use rosa_lib::pos;
+use crate::search;
+
 use rosa_lib::mv::Mv;
+use rosa_lib::pos;
 
 use std::sync::atomic;
 use std::sync::mpsc;
@@ -18,11 +17,15 @@ pub fn search_done() -> bool {
     STOP.load(atomic::Ordering::Relaxed)
 }
 
+pub fn stop_search() {
+    STOP.store(true, atomic::Ordering::Relaxed);
+}
+
 const THREAD_COUNT: usize = 1;
 
 /// Spawns threads and start search
 /// Collects the thread reports and compiles them
-pub fn thread_handler(p: &pos::Pos) {
+pub fn thread_handler(p: &pos::Pos, start_time: std::time::Instant) {
     STOP.store(false, atomic::Ordering::Relaxed);
     let (sender, reciever) = mpsc::channel::<ThreadReport>();
     for _ in 0..THREAD_COUNT {
@@ -33,36 +36,91 @@ pub fn thread_handler(p: &pos::Pos) {
         });
     }
 
-    let mut global_stats = GlobalStats::new();
+    let mut total_nodes = 0;
     let mut thread_reports: Vec<Vec<ThreadReport>> = Vec::new();
 
     for report in reciever.recv() {
-        thread_reports[report.depth as usize].push(report);
-        if thread_reports[report.depth as usize].len() == THREAD_COUNT {
-            global_stats.depth_end(
-                thread_reports[report.depth as usize].iter().map(|r| r.stats.clone()).collect(),
-                TT.get(&p.key()).mv,
-                report.score,
-                report.depth as u8,
+        let depth = report.depth as usize;
+        thread_reports[depth].push(report);
+        if thread_reports[depth].len() == THREAD_COUNT {
+            // All threads have reported for this depth
+            let mut best_score = i32::MIN;
+            let mut best_pv = thread_reports[depth][0].pv;
+            let mut tt_hits = 0;
+
+            for report in &thread_reports[depth] {
+                if report.score > best_score {
+                    best_score = report.score;
+                    best_pv = report.pv;
+                }
+                total_nodes += report.stats.nodes;
+                tt_hits += report.stats.tt_hits;
+            }
+
+            print_info(
+                best_pv,
+                best_score,
+                depth as u8,
+                total_nodes,
+                tt_hits,
+                start_time,
             );
         }
     }
 }
+
+fn print_info(pv: Mv, score: i32, depth: u8, nodes: u64, tt_hits: u64, start_time: std::time::Instant) {
+    let finish_time = std::time::Instant::now();
+    println!(
+        "info depth {} pv{} time {} score cp {} nodes {}, nps {}, tbhits {}",
+        depth,
+        pv,
+        finish_time.duration_since(start_time).as_millis(),
+        score,
+        nodes,
+        nodes / finish_time.duration_since(start_time).as_secs().max(1),
+        tt_hits,
+    )
+}
+
 pub struct ThreadReport {
     depth: u8,
     score: i32,
-    pv: Option<Mv>,
+    pv: Mv,
     stats: SearchStats,
 }
 
-
 impl ThreadReport {
-    pub fn new(depth: u8, score: i32, pv: Option<Mv>, stats: SearchStats) -> Self {
+    pub fn new(depth: u8, score: i32, pv: Mv, stats: SearchStats) -> Self {
         ThreadReport {
             depth,
             score,
             pv,
             stats,
         }
+    }
+}
+
+pub struct SearchStats {
+    pub depth: u8,
+    nodes: u64,
+    tt_hits: u64,
+}
+
+impl SearchStats {
+    pub fn new(depth: u8) -> Self {
+        SearchStats {
+            depth,
+            nodes: 0,
+            tt_hits: 0,
+        }
+    }
+
+    pub fn node(&mut self) {
+        self.nodes += 1;
+    }
+
+    pub fn tt_hit(&mut self) {
+        self.tt_hits += 1;
     }
 }

@@ -30,7 +30,7 @@ impl TT {
         }
     }
 
-    pub fn get(&self, key: &Key) -> Option<Entry> {
+    pub fn get(&self, key: Key) -> Option<Entry> {
         unsafe {
             let index = key.val() % self.size();
             (&(*self.table.get())).get(index as usize).unwrap().clone()
@@ -74,6 +74,18 @@ pub struct Entry {
     pub mv: Mv,
     pub depth: u8,
     pub node_type: EntryType,
+}
+
+impl Entry {
+    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: EntryType) -> Entry {
+        Entry {
+            key,
+            score,
+            mv,
+            depth,
+            node_type,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Copy)]

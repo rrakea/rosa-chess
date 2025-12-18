@@ -31,7 +31,7 @@ const WK_STARTING_SQ: u8 = 4;
 const BK_STARTING_SQ: u8 = 60;
 
 /// # Move Representation
-///  Mv encoded as a NonZeroU32. Since move ordering is done by value, so the most important
+///  Mv encoded as a u32. Since move ordering is done by value, so the most important
 ///  bits like captured piece and promoted piece are the most significant bits
 ///  <pre>
 ///                  Old ep file  
@@ -57,17 +57,8 @@ const BK_STARTING_SQ: u8 = 60;
 ///  The score value is either the mvvlva score for captures or history heuristic for non captures
 ///  We add 32 to the mvvlva score to a) mv order them higher and b) the very first bit becomes a is_cap() bit  
 ///  We also need to save the old en passant & castling data for unmake()
-///
-/// Mv is NonZero, since a 0 move would be from square a1 to a1
-/// It allows us to store Option Mv in 32 bits (e.g. in the TT)
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Mv(RawMv);
-
-type RawMv = std::num::NonZeroU32;
-
-const fn raw(val: u32)  -> RawMv {
-    unsafe { RawMv::new_unchecked(val) }
-}
+pub struct Mv(u32);
 
 #[derive(PartialEq, Debug)]
 #[repr(u8)]
@@ -90,7 +81,7 @@ impl Mv {
         let mut val: u32 = 0;
         val |= end as u32;
         val |= (start as u32) << START_OFFSET;
-        Mv(raw(val))
+        Mv(val)
     }
 
     pub fn new_quiet(start: u8, end: u8, clr: Clr) -> Mv {
@@ -237,10 +228,14 @@ impl Mv {
         mv
     }
 
+    pub const fn null() -> Mv {
+        Mv(0)
+    }
+
     pub fn sq(&self) -> (u8, u8) {
         (
-            ((self.0.get() & START) >> START_OFFSET) as u8,
-            (self.0.get() & END) as u8,
+            ((self.0 & START) >> START_OFFSET) as u8,
+            (self.0 & END) as u8,
         )
     }
 
@@ -249,7 +244,7 @@ impl Mv {
     }
 
     pub fn is_cap(&self) -> bool {
-        self.0.get() & CAP > 0
+        self.0 & CAP > 0
     }
 
     pub fn is_double(&self) -> bool {
@@ -257,14 +252,14 @@ impl Mv {
     }
 
     pub fn old_is_ep(&self) -> bool {
-        (self.0.get() & OLD_IS_EP) != 0
+        (self.0 & OLD_IS_EP) != 0
     }
 
     pub fn set_old_is_ep(&mut self, val: bool) {
         if val {
             self.0 |= OLD_IS_EP;
         } else {
-            self.0 = raw(self.0.get() & !OLD_IS_EP);
+            self.0 &= !OLD_IS_EP;
         }
     }
 
@@ -277,11 +272,11 @@ impl Mv {
     }
 
     pub fn prom_piece(&self) -> Piece {
-        Piece::decompress_prom((self.0.get() & PROM_PIECE) >> PROM_OFFSET)
+        Piece::decompress_prom((self.0 & PROM_PIECE) >> PROM_OFFSET)
     }
 
     pub fn flag(&self) -> Flag {
-        let val = ((self.0.get() & FLAG) >> FLAG_OFFSET) as u8;
+        let val = ((self.0 & FLAG) >> FLAG_OFFSET) as u8;
         debug_assert!(
             (1..11).contains(&val),
             "Mv flag not within bounds, val: {val}, Mv: {:032b}",
@@ -292,7 +287,7 @@ impl Mv {
 
     fn set_flag(&mut self, flag: Flag) {
         // Unset the prev flag
-        self.0 = raw(self.0.get() & !FLAG);
+        self.0 &= !FLAG;
         self.0 |= (flag as u32) << FLAG_OFFSET
     }
 
@@ -302,7 +297,7 @@ impl Mv {
     }
 
     fn capture_data(&self) -> (Piece, Piece) {
-        let data = (self.0.get() & SCORE) >> SCORE_OFFSET;
+        let data = (self.0 & SCORE) >> SCORE_OFFSET;
         mvvlva::decompress(data)
     }
 
@@ -315,7 +310,7 @@ impl Mv {
     }
 
     pub fn set_old_castle_rights(&mut self, rights: pos::Castling) {
-        self.0 = raw(self.0.get() & !OLD_CASTLE);
+        self.0 &= !OLD_CASTLE;
         let mut val = 0;
         if rights.wk {
             val |= WKC;
@@ -334,19 +329,19 @@ impl Mv {
 
     pub fn old_castle_rights(&self) -> pos::Castling {
         pos::Castling {
-            wk: self.0.get() & WKC > 0,
-            wq: self.0.get() & WQC > 0,
-            bk: self.0.get() & BKC > 0,
-            bq: self.0.get() & BQC > 0,
+            wk: self.0 & WKC > 0,
+            wq: self.0 & WQC > 0,
+            bk: self.0 & BKC > 0,
+            bq: self.0 & BQC > 0,
         }
     }
 
     pub fn old_ep_file(&self) -> u8 {
-        ((self.0.get() & OLD_EP_FILE) >> OLD_EP_FILE_OFFSET) as u8
+        ((self.0 & OLD_EP_FILE) >> OLD_EP_FILE_OFFSET) as u8
     }
 
     pub fn set_old_ep_file(&mut self, file: u8) {
-        self.0 = raw(self.0.get() & !OLD_EP_FILE);
+        self.0 &= !OLD_EP_FILE;
         self.0 |= (file as u32) << OLD_EP_FILE_OFFSET
     }
 }
