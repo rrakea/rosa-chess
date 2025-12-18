@@ -1,5 +1,8 @@
 //! # Multithreaded searching
 //! Not ready for multithreading yet, setting up infrastructure
+//! Threading Setup:
+//! One thread blocks on stdin & timeout, one blocks on pulling from the search reports
+//! Rest search
 
 use crate::search;
 
@@ -25,7 +28,8 @@ const THREAD_COUNT: usize = 1;
 
 /// Spawns threads and start search
 /// Collects the thread reports and compiles them
-pub fn thread_handler(p: &pos::Pos, start_time: std::time::Instant) {
+pub fn threaded_search(p: &pos::Pos) {
+    let start_time = std::time::Instant::now();
     STOP.store(false, atomic::Ordering::Relaxed);
     let (sender, reciever) = mpsc::channel::<ThreadReport>();
     for _ in 0..THREAD_COUNT {

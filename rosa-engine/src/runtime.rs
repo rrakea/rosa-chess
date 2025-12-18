@@ -2,7 +2,6 @@
 //! Spawns a separate thread to handle both stdin and timeouts
 
 use crate::config;
-use crate::debug_search;
 use crate::eval;
 use crate::eval::eval;
 use crate::fen;
@@ -11,16 +10,18 @@ use crate::mv;
 use crate::thread_search;
 
 use crossbeam::channel;
+use crossbeam::select;
+
 use rosa_lib::mv::Mv;
+use rosa_lib::piece::Clr;
 use rosa_lib::pos;
 use rosa_lib::tt;
-use rosa_lib::piece::Clr;
 
+use std::os::linux::raw::stat;
 use std::sync::Once;
 use std::thread;
 use std::time;
 use std::time::Duration;
-
 
 static INIT: Once = Once::new();
 
@@ -34,13 +35,22 @@ pub fn init() {
     });
 }
 
-pub fn start() {
-    let mut p = pos::Pos::default();
-    let mut ponder = None;
-    let mut time: Option<(time::Instant, time::Duration)> = None;
+#[derive(Debug, PartialEq, Eq)]
+enum State {
+    Start,
+    TimedSearch(time::Instant, time::Duration),
+    UntimedSearch,
+    Pondering,
+    Pause(Mv),
+}
 
-    // Spawn stdin reader
-    let (tx, rx) = mpsc::channel();
+impl State {
+    fn is_searching(&self) -> bool {
+        matches!(self, State::TimedSearch(_, _) | State::UntimedSearch | State::Pondering)
+    }
+
+pub fn start() {
+    let (tx, rx) = channel::unbounded::<String>();
     thread::spawn(move || {
         loop {
             let mut buf = String::new();
@@ -49,159 +59,200 @@ pub fn start() {
         }
     });
 
-    // Check timeout and stdin
+    let mut state = State::Start;
+    let mut pos: pos::Pos = fen::starting_pos(Vec::new());
+
     loop {
-        if let Some((start, duration)) = time
-            && start.elapsed() > duration
-        {
-            thread_search::stop_search();
-            time = None
-        }
-
-    channel:select! {
-
-        let cmd = match rx.try_recv() {
-            Err(mpsc::TryRecvError::Empty) => continue,
-            Err(mpsc::TryRecvError::Disconnected) => panic!("Channel DC"),
-            Ok(cmd) => cmd,
+        let timeout = if let State::TimedSearch(start_time, dur) = state {
+            let elapsed = start_time.elapsed();
+            if elapsed >= dur {
+                Duration::from_millis(0)
+            } else {
+                dur - elapsed
+            }
+        } else {
+            Duration::from_millis(u64::MAX)
         };
 
-        let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
-        if cmd_parts.is_empty() {
-            continue;
-        } 
-
-        match cmd_parts[0].to_lowercase().as_str() {
-            "uci" => {
-                println!("id name {} {}", config::NAME, config::VERSION);
-                println!("id author {}", config::AUTHOR);
-                print_options();
-                println!("uciok");
+        let cmd: String;
+        select! {
+            recv(rx) -> c => {
+                cmd = c.unwrap();
             }
-
-            "isready" => {
-                init();
-                println!("readyok");
-            }
-
-            "position" => {
-                if cmd_parts.len() == 1 {
-                    continue;
-                }
-                let split = cmd.split_once(" moves ");
-                let fen: Vec<&str>;
-                let mut moves = Vec::new();
-                match split {
-                    Some((f, m)) => {
-                        fen = f.split_ascii_whitespace().collect();
-                        moves = m.split_ascii_whitespace().collect();
-                    }
-                    None => {
-                        fen = cmd_parts[2..].to_vec();
-                    }
-                }
-
-                match cmd_parts[1] {
-                    "startpos" => p = fen::starting_pos(moves),
-                    "fen" => p = fen::fen(fen, moves),
-                    _ => continue,
-                }
-            }
-
-            "quit" => {
-                std::process::exit(0);
-            }
-
-            "stop" => {
+            default(timeout) => {
                 thread_search::stop_search();
-                time = None;
+                state = State::Pause;
+                continue;
             }
+        }
 
-            "go" => {
-                init();
-                if p.is_default() {
-                    p = fen::starting_pos(Vec::new());
+        let cmd_res = handle_cmd(cmd, &mut pos);
+        match cmd_res {
+            CmdRes::TimedSearch(duration) => {
+                // If pause or start do nothing
+                if state.is_searching() {
+                    thread_search::stop_search();
                 }
-
-                if cmd_parts.len() == 1 {
-                    // You dont need to set the search time vals
-                    search::thread_search(&p);
-                } else {
-                    match cmd_parts[1] {
-                        "perft" => {
-                            let depth = if cmd_parts.len() <= 2 {
-                                6
-                            } else {
-                                cmd_parts[2]
-                                    .parse()
-                                    .expect("Depth value in perft command not num")
-                            };
-                            debug_search::division_search(&mut p, depth);
-                        }
-                        "ponder" => {
-                            let mut clone = p.clone();
-                            if let Some(mut p) = ponder {
-                                make::make(&mut clone, &mut p, false);
-                            }
-                            search::thread_search(&p);
-                        }
-
-                        _ => {
-                            let search_duration = process_go(cmd_parts, p.clr());
-                            time = Some((time::Instant::now(), search_duration));
-                            search::thread_search(&p);
-                        }
+                state = State::TimedSearch(time::Instant::now(), duration);
+                thread_search::threaded_search(&pos);
+            }
+            CmdRes::UntimedSearch => {
+                state = State::UntimedSearch;
+                thread_search::threaded_search(&pos);
+            }
+            CmdRes::Stop => {
+                thread_search::stop_search();
+                state = State::Pause();
+            }
+            CmdRes::Ponder => {
+                match ponder {
+                    Some(mut mv) => {
+                        let mut p = pos.clone();
+                        make::make(&mut p, &mut mv, false);
+                        thread_search::threaded_search(&p);
                     }
+                    None => panic!("No ponder move set"),
                 }
             }
-
-            "moves" => {
+            CmdRes::PonderHit => {
                 init();
-                if p.is_default() {
-                    p = fen::starting_pos(Vec::new())
+                thread_search::stop_search();
+                match ponder {
+                    Some(mut mv) => {
+                        make::make(&mut pos, &mut mv, false);
+                        stop_time = Some((time::Instant::now(), time::Duration::from_millis(0)));
+                        thread_search::threaded_search(&pos);
+                    }
+                    None => panic!("No ponder move set"),
                 }
-                println!("Warning: Does not check legality");
-                if cmd_parts.len() < 2 {
-                    println!("No move specified");
-                    continue;
-                }
-                let mv = cmd_parts[1];
-                let mut mv = Mv::new_from_str(mv, &p);
-                println!("{:?}", mv);
-                make::make(&mut p, &mut mv, false);
             }
-
-            "print" | "p" | "d" => {
-                init();
-                println!("{}", &p);
-            }
-
-            "printfull" => {
-                init();
-                println!("{}", &p.full());
-            }
-
-            "magics" => {
-                mv::gen_magics::gen_magics();
-            }
-
-            "eval" => {
-                init();
-                if p.is_default() {
-                    p = fen::starting_pos(Vec::new());
-                }
-                let eval = eval(&p);
-                println!("Eval: {eval}");
-            }
-
-            "ponderhit" => {
-                ponder = search::stop_search(&mut p);
-            }
-
-            "setoption" => {}
-            _ => {}
+            CmdRes::Nothing => (),
+            CmdRes::Quit => break,
         }
     }
+}
+
+enum CmdRes {
+    UntimedSearch,
+    TimedSearch(time::Duration),
+    Nothing,
+    Stop,
+    Ponder,
+    Quit,
+    PonderHit,
+}
+
+fn handle_cmd(cmd: String, pos: &mut pos::Pos) -> CmdRes {
+    let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
+    if cmd_parts.is_empty() {
+        return CmdRes::Nothing;
+    }
+
+    match cmd_parts[0].to_lowercase().as_str() {
+        "uci" => {
+            println!("id name {} {}", config::NAME, config::VERSION);
+            println!("id author {}", config::AUTHOR);
+            print_options();
+            println!("uciok");
+        }
+
+        "isready" => {
+            init();
+            println!("readyok");
+        }
+
+        "position" => {
+            if cmd_parts.len() == 1 {
+                return CmdRes::Nothing;
+            }
+
+            let split = cmd.split_once(" moves ");
+            let fen: Vec<&str>;
+            let mut moves = Vec::new();
+            match split {
+                Some((f, m)) => {
+                    fen = f.split_ascii_whitespace().collect();
+                    moves = m.split_ascii_whitespace().collect();
+                }
+                None => {
+                    fen = cmd_parts[2..].to_vec();
+                }
+            }
+
+            match cmd_parts[1] {
+                "startpos" => *pos = fen::starting_pos(moves),
+                "fen" => *pos = fen::fen(fen, moves),
+                _ => return CmdRes::Nothing,
+            }
+        }
+
+        "quit" => {
+            return CmdRes::Quit;
+        }
+
+        "stop" => {
+            return CmdRes::Stop;
+        }
+
+        "go" => {
+            if cmd_parts.len() == 1 {
+                return CmdRes::UntimedSearch;
+            } else {
+                match cmd_parts[1] {
+                    "ponder" => {
+                        return CmdRes::Ponder;
+                    }
+
+                    _ => {
+                        let search_duration = process_go(cmd_parts, pos.clr());
+                        return CmdRes::TimedSearch(search_duration);
+                    }
+                }
+            }
+        }
+
+        "moves" => {
+            init();
+            println!("Warning: Does not check legality");
+            if cmd_parts.len() < 2 {
+                return CmdRes::Nothing;
+            }
+            let mv = cmd_parts[1];
+            let mut mv = Mv::new_from_str(mv, &pos);
+            println!("{:?}", mv);
+            make::make(pos, &mut mv, false);
+        }
+
+        "print" | "p" | "d" => {
+            init();
+            println!("{}", &pos);
+        }
+
+        "printfull" => {
+            init();
+            println!("{}", &pos.full());
+        }
+
+        "magics" => {
+            mv::gen_magics::gen_magics();
+        }
+
+        "eval" => {
+            init();
+            let eval = eval(&pos);
+            println!("Eval: {eval}");
+        }
+
+        "ponderhit" => {
+            return CmdRes::PonderHit;
+        }
+
+        "setoption" => {
+            println!("Options currently not supported");
+        }
+        _ => {}
+    }
+    return CmdRes::Nothing;
 }
 
 fn print_options() {
@@ -220,6 +271,15 @@ fn print_options() {
 }
 
 fn process_go(cmd: Vec<&str>, color: Clr) -> time::Duration {
+    let check_next = |cmd: &[&str], index: usize| -> u64 {
+        match cmd[index].parse() {
+            Ok(o) => o,
+            Err(e) => {
+                panic!("Value after command not int, {e}, part: {}", cmd[index + 1]);
+            }
+        }
+    };
+
     let mut index = 1;
 
     let mut wtime = 0;
@@ -272,14 +332,4 @@ fn process_go(cmd: Vec<&str>, color: Clr) -> time::Duration {
     };
 
     Duration::from_millis(time)
-}
-
-fn check_next(cmd: &[&str], index: usize) -> u64 {
-    match cmd[index].parse() {
-        Ok(o) => o,
-        Err(e) => {
-            println!("Value after command not int, {e}, part: {}", cmd[index + 1]);
-            0
-        }
-    }
 }

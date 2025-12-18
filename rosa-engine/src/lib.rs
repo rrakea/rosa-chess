@@ -4,7 +4,6 @@
 //! __rosa-engine__ for runtime code  
 
 pub mod config;
-pub mod debug_search;
 pub mod eval;
 pub mod fen;
 pub mod make;
