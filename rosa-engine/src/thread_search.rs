@@ -4,8 +4,10 @@
 //! One thread blocks on stdin & timeout, one blocks on pulling from the search reports
 //! Rest search
 
+use crate::make;
 use crate::search;
 
+use crossbeam::channel;
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 
@@ -26,9 +28,16 @@ pub fn stop_search() {
 
 const THREAD_COUNT: usize = 1;
 
+pub fn start_thread_search(p: &pos::Pos) -> channel::Receiver<Mv> {
+    let (tx, rx) = channel::bounded::<Mv>(THREAD_COUNT);
+    let p = p.clone();
+    thread::spawn(|| thread_handler(p, tx));
+    rx
+}
+
 /// Spawns threads and start search
 /// Collects the thread reports and compiles them
-pub fn threaded_search(p: &pos::Pos) {
+fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
     let start_time = std::time::Instant::now();
     STOP.store(false, atomic::Ordering::Relaxed);
     let (sender, reciever) = mpsc::channel::<ThreadReport>();
@@ -43,7 +52,7 @@ pub fn threaded_search(p: &pos::Pos) {
     let mut total_nodes = 0;
     let mut thread_reports: Vec<Vec<ThreadReport>> = Vec::new();
 
-    for report in reciever.recv() {
+    while let Ok(report) = reciever.recv() {
         let depth = report.depth as usize;
         thread_reports[depth].push(report);
         if thread_reports[depth].len() == THREAD_COUNT {
@@ -71,9 +80,42 @@ pub fn threaded_search(p: &pos::Pos) {
             );
         }
     }
+
+    let mut pv;
+    let ponder;
+    // You might think that the position might get overwritten, but the root node will always write to TT at the very end
+    // Same for ponder, given root key != ponder key but thats unlikely if our hashing is any good
+    // We dont bounce up the moves in the search to save & simplyfy logic
+    match search::TT.get(p.key()) {
+        Some(e) => {
+            pv = e.mv;
+            let mut pclone = p.clone();
+            make::make(&mut pclone, &mut pv, false);
+            match search::TT.get(pclone.key()) {
+                Some(e) => {
+                    ponder = e.mv;
+                }
+                None => {
+                    panic!("Ponder position not in TT");
+                }
+            }
+        }
+        None => {
+            panic!("Root Position not in TT");
+        }
+    }
+    print_best_move(pv);
+    tx.send(ponder).unwrap();
 }
 
-fn print_info(pv: Mv, score: i32, depth: u8, nodes: u64, tt_hits: u64, start_time: std::time::Instant) {
+fn print_info(
+    pv: Mv,
+    score: i32,
+    depth: u8,
+    nodes: u64,
+    tt_hits: u64,
+    start_time: std::time::Instant,
+) {
     let finish_time = std::time::Instant::now();
     println!(
         "info depth {} pv{} time {} score cp {} nodes {}, nps {}, tbhits {}",
@@ -85,6 +127,10 @@ fn print_info(pv: Mv, score: i32, depth: u8, nodes: u64, tt_hits: u64, start_tim
         nodes / finish_time.duration_since(start_time).as_secs().max(1),
         tt_hits,
     )
+}
+
+fn print_best_move(pv: Mv) {
+    println!("bestmove {}", pv);
 }
 
 pub struct ThreadReport {

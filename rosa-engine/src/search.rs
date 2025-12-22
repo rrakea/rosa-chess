@@ -88,12 +88,9 @@ use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-use std::sync::RwLock;
 use std::sync::mpsc;
 
 pub static TT: tt::TT = tt::TT::new();
-
-thread_local! {static PV: RwLock<Mv> = RwLock::new(Mv::null());}
 
 /// Iterative deepening
 pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>) {
@@ -334,16 +331,11 @@ fn negascout(
         Some(best_mv) => {
             if replace_entry {
                 TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
-                if stats.depth == depth {
-                    // We cant just pull pv from the tt since it might get overwritten
-                    PV.with(|pv| {
-                        *pv.write().unwrap() = best_mv;
-                    });
-                }
             }
-            return SearchRes::Node(alpha);
         }
     }
+
+    return SearchRes::Node(alpha);
 }
 
 /// Reading from the transposition table.
