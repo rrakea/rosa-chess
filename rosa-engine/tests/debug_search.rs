@@ -1,8 +1,8 @@
 //! # Variations on the search functions
 //! Used in debugging. Extremly slow but very thorough
-use crate::make;
-use crate::mv;
-use crate::search::TT;
+use rosa_engine::make;
+use rosa_engine::mv;
+use rosa_engine::search::TT;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
@@ -13,11 +13,11 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
         return 1;
     }
 
-    let entry = TT.get(&p.key());
+    let entry = TT.get(p.key());
 
-    if entry.node_type == tt::EntryType::Exact && entry.key == p.key() && entry.depth == depth {
+    if let Some(e) = entry && e.key == p.key() && e.depth == depth {
         // We found a valid entry
-        return entry.score as u64;
+        return e.score as u64;
     }
 
     let mut count: u64 = 0;

@@ -1,15 +1,17 @@
+mod debug_search;
+
 use rosa_engine::*;
 use rosa_lib::pos;
 
-use rosa_engine::debug_search::*;
 use rosa_engine::runtime::init;
+
+use debug_search::*;
 
 const DEBUG_SEARCH: bool = true;
 
 fn start_search(p: &mut pos::Pos, expected: [u64; 6]) {
     if !DEBUG_SEARCH {
         for (i, res) in expected.iter().enumerate() {
-            println!("Starting Depth: {i}");
             let count = counting_search(p, i as u8);
             println!("Depth: {i}, Count: {count}");
             assert_eq!(count, *res);
