@@ -14,30 +14,18 @@ use crossbeam::channel;
 use crossbeam::select;
 
 use rosa_lib::mv::Mv;
-use rosa_lib::pos;
+use rosa_lib::pos::*;
 use rosa_lib::tt;
 
 use core::panic;
-use std::sync::Once;
 use std::thread;
 use std::time::{Duration, Instant};
 
-static INIT: Once = Once::new();
-
-pub fn init() {
-    INIT.call_once(|| {
-        rosa_lib::lib_init();
-        tt::init_zobrist_keys();
-        mv::magic_init::init_magics();
-        crate::search::TT.resize(config::TT_SIZE);
-        eval::init_eval();
-    });
-}
-
 enum State {
-    Start,
-    Search(SearchState, channel::Receiver<Mv>),
-    Pause(Mv),
+    UnInit,
+    Init(Pos),
+    Search(Pos, SearchState, channel::Receiver<Mv>),
+    Pause(Pos, Mv),
 }
 
 pub enum SearchState {
@@ -47,63 +35,77 @@ pub enum SearchState {
 }
 
 impl State {
-    fn pause_search(&mut self) {
+    fn init(self) -> Self {
         match self {
-            State::Search(_, rec) => {
+            State::UnInit => {
+                // These should only be called once
+                rosa_lib::lib_init();
+                tt::init_zobrist_keys();
+                mv::magic_init::init_magics();
+                crate::search::TT.resize(config::TT_SIZE);
+                eval::init_eval();
+
+                let pos = fen::starting_pos(Vec::new());
+                return State::Init(pos);
+            }
+            _ => {
+                println!("Init while already initialized");
+                return self;
+            }
+        }
+    }
+
+    fn start_search(mut self, search_state: SearchState) -> Self {
+        match self {
+            State::UnInit => {
+                self = self.init();
+                return self.start_search(search_state);
+            }
+            State::Init(p) => {
+                if matches!(search_state, SearchState::Ponder(_)) {
+                    panic!("Pondering without having searched first")
+                }
+                let rec = thread_search::start_thread_search(&p);
+                return State::Search(p, search_state, rec);
+            }
+            State::Pause(mut p, mut ponder) => {
+                if matches!(search_state, SearchState::Ponder(_)) {
+                    make::make(&mut p, &mut ponder, false);
+                }
+                let rec = thread_search::start_thread_search(&p);
+                return State::Search(p, search_state, rec);
+            }
+            State::Search(..) => {
+                self = self.pause_search();
+                return self.start_search(search_state);
+            }
+        }
+    }
+
+    fn pause_search(self) -> Self {
+        match self {
+            State::Search(p, _, rec) => {
                 thread_search::stop_search();
                 let ponder = rec.recv().unwrap();
-                *self = State::Pause(ponder);
+                return State::Pause(p, ponder);
             }
-            State::Pause(_) => (),
-            _ => panic!("Pause while not initialized"),
+            _ => {
+                println!("Pause while not searching");
+                return self;
+            }
         }
     }
 
-    fn start_search(&mut self, p: &pos::Pos, search_state: SearchState) {
-        let mut ponder = None;
-        match self {
-            State::Pause(p) => {
-                ponder = Some(p);
-            }
-            State::Search(_, _) => {
-                self.pause_search();
-                ponder = match self {
-                    State::Pause(p) => Some(p),
-                    _ => unreachable!(),
-                }
-            }
-            _ => (),
-        }
-
-        let rec = match (ponder, matches!(search_state, SearchState::Ponder(_))) {
-            (None, true) => panic!("Starting ponder search while not paused"),
-            (Some(mv), true) => {
-                let mut pclone = p.clone();
-                make::make(&mut pclone, mv, false);
-                thread_search::start_thread_search(&pclone)
-            }
-            (_, false) => thread_search::start_thread_search(p),
-        };
-
-        *self = State::Search(search_state, rec);
-    }
-
-    fn ponder_hit(&mut self) {
-        match self {
-            State::Search(search_state, rec) => match search_state {
-                SearchState::Ponder(dur) => {
-                    *self = State::Search(SearchState::Timed(Instant::now(), *dur), rec.clone());
-                }
-                _ => panic!("Ponder hit while not pondering"),
-            },
-            _ => panic!("Ponder hit while not pondering"),
+    fn ponder_hit(self) -> Self {
+        if let State::Search(p, SearchState::Ponder(dur), rec) = self {
+            return State::Search(p, SearchState::Timed(Instant::now(), dur), rec);
+        } else {
+            panic!("Ponder hit while not pondering")
         }
     }
 
     fn get_timeout(&self) -> Duration {
-        if let State::Search(search_state, _) = self
-            && let SearchState::Timed(start, dur) = search_state
-        {
+        if let State::Search(_, SearchState::Timed(start, dur), _) = self {
             let elapsed = start.elapsed();
             if elapsed >= *dur {
                 return Duration::from_millis(0);
@@ -112,6 +114,20 @@ impl State {
             }
         }
         return Duration::from_millis(u64::MAX);
+    }
+
+    fn get_pos(&self) -> Pos {
+        match self {
+            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p.clone(),
+            State::UnInit => panic!(""),
+        }
+    }
+
+    fn modify_pos(&mut self, new_pos: Pos) {
+        match self {
+            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => *p = new_pos,
+            State::UnInit => panic!(),
+        }
     }
 }
 
@@ -125,8 +141,7 @@ pub fn start() {
         }
     });
 
-    let mut state = State::Start;
-    let mut pos: pos::Pos = fen::starting_pos(Vec::new());
+    let mut state = State::UnInit;
 
     loop {
         let timeout = state.get_timeout();
@@ -136,7 +151,7 @@ pub fn start() {
                 cmd = c.unwrap();
             }
             default(timeout) => {
-                state.pause_search();
+                state = state.pause_search();
                 continue;
             }
         }
@@ -155,7 +170,7 @@ pub fn start() {
             }
 
             "isready" => {
-                init();
+                state = state.init();
                 println!("readyok");
             }
 
@@ -178,43 +193,44 @@ pub fn start() {
                 }
 
                 match cmd_parts[1] {
-                    "startpos" => pos = fen::starting_pos(moves),
-                    "fen" => pos = fen::fen(fen, moves),
+                    "startpos" => state.modify_pos(fen::starting_pos(moves)),
+                    "fen" => state.modify_pos(fen::fen(fen, moves)),
                     _ => continue,
                 }
             }
 
-            "quit" => return,
+            "quit" => std::process::exit(0),
 
             "stop" => {
-                state.pause_search();
+                state = state.pause_search();
             }
 
             "go" => {
-                let go_res = time::parse_time_from_go(cmd_parts, pos.clr());
-                state.start_search(&pos, go_res);
+                let go_res = time::parse_time_from_go(cmd_parts, state.get_pos().clr());
+                state = state.start_search(go_res);
             }
 
             "moves" => {
-                init();
                 println!("Warning: Does not check legality");
                 if cmd_parts.len() < 2 {
                     continue;
                 }
+
                 let mv = cmd_parts[1];
+                let mut pos = state.get_pos();
                 let mut mv = Mv::new_from_str(mv, &pos);
                 println!("{:?}", mv);
+
                 make::make(&mut pos, &mut mv, false);
+                state.modify_pos(pos);
             }
 
             "print" | "p" | "d" => {
-                init();
-                println!("{}", &pos);
+                println!("{}", state.get_pos());
             }
 
-            "printfull" => {
-                init();
-                println!("{}", &pos.full());
+            "key" => {
+                println!("Key: {:?}", state.get_pos().key());
             }
 
             "magics" => {
@@ -222,13 +238,12 @@ pub fn start() {
             }
 
             "eval" => {
-                init();
-                let eval = eval(&pos);
+                let eval = eval(&state.get_pos());
                 println!("Eval: {eval}");
             }
 
             "ponderhit" => {
-                state.ponder_hit();
+                state = state.ponder_hit();
             }
 
             "setoption" => {
