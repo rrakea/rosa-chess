@@ -54,7 +54,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
 
     while let Ok(report) = reciever.recv() {
         let depth = report.depth as usize;
-        if depth > thread_reports.len() {
+        while depth >= thread_reports.len() {
             thread_reports.push(Vec::new());
         }
         thread_reports[depth].push(report);

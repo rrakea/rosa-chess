@@ -116,9 +116,9 @@ impl State {
         return Duration::from_millis(u64::MAX);
     }
 
-    fn get_pos(&self) -> Pos {
+    fn get_pos(&mut self) -> &Pos {
         match self {
-            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p.clone(),
+            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p,
             State::UnInit => panic!(""),
         }
     }
@@ -217,7 +217,7 @@ pub fn start() {
                 }
 
                 let mv = cmd_parts[1];
-                let mut pos = state.get_pos();
+                let mut pos = state.get_pos().clone();
                 let mut mv = Mv::new_from_str(mv, &pos);
                 println!("{:?}", mv);
 
