@@ -29,7 +29,7 @@
 //! Negamax is a variation of the classic Minmax algorithm for opposed games
 //! Negascout is also known as PVS (Principle variation search). They are functionally equivalent
 //! ### Scout
-//! Scout assumes that moves later in the move ordering are likely not as good and
+//! Scout assumes that moves  in the move ordering are likely not as good and
 //! and therefore searches them in a so called null window (alpha' = -alpha - 1; beta' = -alpha)  
 //! As such any move better than the current posited best move will trigger an alpha cutoff
 //! which is detected and researched at a normal alpha beta window
@@ -77,7 +77,7 @@
 //! This formula is definitely open to changes with further testing
 //! ## Node Types
 
-use crate::eval::eval;
+use crate::eval;
 use crate::make;
 use crate::mv::mv_gen;
 use crate::thread_search;
@@ -103,7 +103,7 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>
         depth += 1;
         let mut search_stats = thread_search::SearchStats::new(depth);
 
-        match negascout(&mut p, depth, i32::MIN, i32::MAX, &mut search_stats) {
+        match negascout(&mut p, depth, eval::SAFE_MIN_SCORE, eval::SAFE_MAX_SCORE, &mut search_stats) {
             SearchRes::TimeOut => {
                 return;
             }
@@ -142,7 +142,7 @@ fn negascout(
 ) -> SearchRes {
     stats.node();
     if depth == 0 {
-        return SearchRes::Node(eval(p));
+        return SearchRes::Node(eval::eval(p));
     }
 
     let (replace_entry, mut best_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
@@ -292,6 +292,12 @@ fn negascout(
                 // Failed high -> Full re-search
                 match negascout(p, depth - 1, -beta, -score, stats) {
                     SearchRes::TimeOut => {
+
+        if score > alpha {
+            alpha = score;
+            best_mv = Some(m);
+            node_type = tt::EntryType::Exact;
+        }
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -325,7 +331,7 @@ fn negascout(
                 return SearchRes::Node(0);
             } else {
                 // Checkmate
-                return SearchRes::Node(i32::MIN);
+                return SearchRes::Node(eval::SAFE_MIN_SCORE);
             }
         }
         Some(best_mv) => {

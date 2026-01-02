@@ -5,6 +5,9 @@
 
 use rosa_lib::pos;
 
+pub const SAFE_MAX_SCORE: i32 = i32::MAX;
+pub const SAFE_MIN_SCORE: i32 = i32::MIN + 1;
+
 // Stolen from: https://www.chessprogramming.org/Tapered_Eval
 pub fn eval(p: &pos::Pos) -> i32 {
     let mut middelgame = 0;

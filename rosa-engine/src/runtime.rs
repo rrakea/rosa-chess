@@ -119,14 +119,14 @@ impl State {
     fn get_pos(&mut self) -> &Pos {
         match self {
             State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p,
-            State::UnInit => panic!(""),
+            State::UnInit => panic!("Command used before initialized (isready)"),
         }
     }
 
     fn modify_pos(&mut self, new_pos: Pos) {
         match self {
             State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => *p = new_pos,
-            State::UnInit => panic!(),
+            State::UnInit => panic!("Command used before initialized (isready)"),
         }
     }
 }

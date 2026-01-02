@@ -121,7 +121,7 @@ fn print_info(
 ) {
     let finish_time = std::time::Instant::now();
     println!(
-        "info depth {} pv{} time {} score cp {} nodes {}, nps {}, tbhits {}",
+        "info depth {} pv {} time {} score cp {} nodes {}, nps {}, tbhits {}",
         depth,
         pv,
         finish_time.duration_since(start_time).as_millis(),
