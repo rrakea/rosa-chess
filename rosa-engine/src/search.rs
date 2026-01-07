@@ -165,6 +165,7 @@ fn negascout(
             let null_score = {
                 match negascout(p, depth - 3, -beta, -(beta - 1), stats) {
                     SearchRes::TimeOut => {
+                        make::unmake_null(p, was_ep, null_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(score) => -score,
@@ -192,6 +193,7 @@ fn negascout(
         let (_legal, pv_guard) = make::make(p, &mut m, false);
         match negascout(p, depth - 1, -beta, -alpha, stats) {
             SearchRes::TimeOut => {
+                make::unmake(p, &mut m, pv_guard);
                 return SearchRes::TimeOut;
             }
             SearchRes::Node(s) => score = -s,
@@ -260,6 +262,7 @@ fn negascout(
             // PV Node
             match negascout(p, depth - 1, -beta, -alpha, stats) {
                 SearchRes::TimeOut => {
+                    make::unmake(p, &mut m, make_guard);
                     return SearchRes::TimeOut;
                 }
                 SearchRes::Node(s) => score = -s,
@@ -271,6 +274,7 @@ fn negascout(
                 let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
                 match negascout(p, reduced_depth, -alpha - 1, -alpha, stats) {
                     SearchRes::TimeOut => {
+                        make::unmake(p, &mut m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -279,6 +283,7 @@ fn negascout(
                 // Not reduced depth null window
                 match negascout(p, depth - 1, -alpha - 1, -alpha, stats) {
                     SearchRes::TimeOut => {
+                        make::unmake(p, &mut m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -292,6 +297,7 @@ fn negascout(
                 // Failed high -> Full re-search
                 match negascout(p, depth - 1, -beta, -score, stats) {
                     SearchRes::TimeOut => {
+                        make::unmake(p, &mut m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,

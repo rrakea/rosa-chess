@@ -48,6 +48,8 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
             search::search(pclone, thread_sender);
         });
     }
+    // So we properly end the while loop
+    drop(sender);
 
     let mut total_nodes = 0;
     let mut thread_reports: Vec<Vec<ThreadReport>> = Vec::new();

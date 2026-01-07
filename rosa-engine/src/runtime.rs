@@ -8,10 +8,10 @@ use crate::fen;
 use crate::make;
 use crate::make::MakeGuard;
 use crate::mv;
+use crate::search;
 use crate::thread_search;
 use crate::time;
 use crate::time::StartSearch;
-use crate::search;
 
 use crossbeam::channel;
 use crossbeam::select;
@@ -21,9 +21,9 @@ use rosa_lib::pos::*;
 use rosa_lib::tt;
 
 use core::panic;
+use std::sync::Once;
 use std::thread;
 use std::time::{Duration, Instant};
-use std::sync::Once;
 
 enum State {
     UnInit,
@@ -51,6 +51,7 @@ pub fn init() {
 }
 
 impl State {
+    #[must_use]
     fn init(self) -> Self {
         match self {
             State::UnInit => {
@@ -59,12 +60,13 @@ impl State {
                 return State::Init(pos);
             }
             _ => {
-                println!("Init while already initialized");
+                //println!("Init while already initialized");
                 return self;
             }
         }
     }
 
+    #[must_use]
     fn start_search(mut self, state: time::StartSearch) -> Self {
         match self {
             State::UnInit => {
@@ -102,6 +104,7 @@ impl State {
         }
     }
 
+    #[must_use]
     fn pause_search(self) -> Self {
         match self {
             State::Search(p, _, rec) => {
@@ -116,6 +119,7 @@ impl State {
         }
     }
 
+    #[must_use]
     fn ponder_hit(self) -> Self {
         if let State::Search(p, SearchState::Ponder(dur, _, guard), rec) = self {
             // SAFETY: The move has been played -> we no longer need to unmake it
@@ -140,18 +144,25 @@ impl State {
         return Duration::from_millis(u64::MAX);
     }
 
-    fn get_pos(&mut self) -> &Pos {
+    fn get_pos(&self) -> &Pos {
         match self {
             State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p,
             State::UnInit => panic!("Command used before initialized (isready)"),
         }
     }
 
-    fn modify_pos(&mut self, new_pos: Pos) {
-        match self {
-            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => *p = new_pos,
-            State::UnInit => panic!("Command used before initialized (isready)"),
-        }
+    #[must_use]
+    fn set_pos(mut self, new_pos: Pos) -> Self {
+        self = match self {
+            State::Init(_) => State::Init(new_pos),
+            State::Pause(_, ponder) => State::Pause(new_pos, ponder),
+            State::Search(_, state, rec) => State::Search(new_pos, state, rec),
+            State::UnInit => {
+                self = self.init();
+                self.set_pos(new_pos)
+            }
+        };
+        self
     }
 }
 
@@ -217,8 +228,8 @@ pub fn start() {
                 }
 
                 match cmd_parts[1] {
-                    "startpos" => state.modify_pos(fen::starting_pos(moves)),
-                    "fen" => state.modify_pos(fen::fen(fen, moves)),
+                    "startpos" => state = state.set_pos(fen::starting_pos(moves)),
+                    "fen" => state = state.set_pos(fen::fen(fen, moves)),
                     _ => continue,
                 }
             }
@@ -251,7 +262,7 @@ pub fn start() {
                     guard.verified_drop();
                 }
 
-                state.modify_pos(pos);
+                state = state.set_pos(pos);
             }
 
             "print" | "p" | "d" => {
@@ -276,7 +287,7 @@ pub fn start() {
             }
 
             "setoption" => {
-                println!("Options currently not supported");
+                //println!("Options currently not supported");
             }
             _ => {}
         }

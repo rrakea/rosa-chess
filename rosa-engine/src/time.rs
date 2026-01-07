@@ -61,7 +61,7 @@ pub fn parse_time_from_go(cmd: Vec<&str>, clr: Clr) -> StartSearch {
             "infinite" => return StartSearch::Untimed,
 
             // Ignore for now
-            "moves_to_go" => i += 1,
+            "movestogo" => i += 1,
             "mate" => i += 1,
             "depth" => i += 1,
             "nodes" => i += 1,

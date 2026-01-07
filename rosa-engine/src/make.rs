@@ -303,6 +303,6 @@ impl MakeGuard {
 
 impl Drop for MakeGuard {
     fn drop(&mut self) {
-        panic!("rrakea: Make Guard not properly dropped")
+        panic!("Make Guard not properly dropped")
     }
 }
