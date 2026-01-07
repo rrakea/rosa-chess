@@ -15,8 +15,8 @@ pub fn eval(p: &pos::Pos) -> i32 {
     let mut phase = STARTPHASE;
 
     for (sq, piece) in p.piece_iter().enumerate() {
-        if let Some(p) = piece {
-            let index = p.index();
+        if let Some(piece) = piece {
+            let index = piece.index();
             middelgame += unsafe { MIDDLEGAME_TABLE[index][sq] };
             endgame += unsafe { ENDGAME_TABLE[index][sq] };
             phase -= PHASEARRAY[index];

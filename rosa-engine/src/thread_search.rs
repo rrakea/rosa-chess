@@ -77,7 +77,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
 
             print_info(
                 best_pv,
-                best_score,
+                best_score * p.clr().as_sign() as i32,
                 depth as u8,
                 total_nodes,
                 tt_hits,

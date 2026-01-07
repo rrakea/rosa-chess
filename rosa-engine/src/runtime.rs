@@ -282,6 +282,12 @@ pub fn start() {
                 println!("Eval: {eval}");
             }
 
+            "color" => {
+                let mut pos_clone = state.get_pos().clone();
+                pos_clone.flip_color();
+                state = state.set_pos(pos_clone);
+            }
+
             "ponderhit" => {
                 state = state.ponder_hit();
             }

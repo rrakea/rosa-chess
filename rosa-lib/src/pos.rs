@@ -270,6 +270,7 @@ impl std::fmt::Display for Pos {
             }
             board += "\n"
         }
+        board += format!("To move: {}\n", self.clr).as_str();
         write!(f, "{}", board)
     }
 }

@@ -62,7 +62,7 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
     count
 }
 
-pub fn division_search(p: &mut pos::Pos, depth: u8) {
+pub fn _division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
     for mut mv in mv::mv_gen::gen_mvs(p) {
