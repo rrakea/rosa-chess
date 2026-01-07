@@ -2,28 +2,45 @@
 //! Spawns a separate thread to handle both stdin and timeouts
 
 use crate::config;
-use crate::debug_search;
 use crate::eval;
 use crate::eval::eval;
 use crate::fen;
 use crate::make;
+use crate::make::MakeGuard;
 use crate::mv;
 use crate::search;
+use crate::thread_search;
+use crate::time;
+use crate::time::StartSearch;
+
+use crossbeam::channel;
+use crossbeam::select;
 
 use rosa_lib::mv::Mv;
-use rosa_lib::pos;
+use rosa_lib::pos::*;
 use rosa_lib::tt;
-use rosa_lib::piece::Clr;
 
+use core::panic;
 use std::sync::Once;
-use std::sync::mpsc;
 use std::thread;
-use std::time;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+enum State {
+    UnInit,
+    Init(Pos),
+    Search(Pos, SearchState, channel::Receiver<Mv>),
+    Pause(Pos, Mv),
+}
+
+pub enum SearchState {
+    Timed(Instant, Duration),
+    Untimed,
+    Ponder(Duration, Mv, MakeGuard),
+}
 static INIT: Once = Once::new();
 
 pub fn init() {
+    // These should only be called once
     INIT.call_once(|| {
         rosa_lib::lib_init();
         tt::init_zobrist_keys();
@@ -33,13 +50,124 @@ pub fn init() {
     });
 }
 
-pub fn start() {
-    let mut p = pos::Pos::default();
-    let mut ponder = None;
-    let mut time: Option<(time::Instant, time::Duration)> = None;
+impl State {
+    #[must_use]
+    fn init(self) -> Self {
+        match self {
+            State::UnInit => {
+                init();
+                let pos = fen::starting_pos(Vec::new());
+                return State::Init(pos);
+            }
+            _ => {
+                //println!("Init while already initialized");
+                return self;
+            }
+        }
+    }
 
-    // Spawn stdin reader
-    let (tx, rx) = mpsc::channel();
+    #[must_use]
+    fn start_search(mut self, state: time::StartSearch) -> Self {
+        match self {
+            State::UnInit => {
+                self = self.init();
+                return self.start_search(state);
+            }
+            State::Init(p) => {
+                if matches!(state, StartSearch::Ponder(..)) {}
+                let search_state = match state {
+                    StartSearch::Ponder(_dur) => {
+                        panic!("Pondering without having searched first")
+                    }
+                    StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
+                    StartSearch::Untimed => SearchState::Untimed,
+                };
+                let rec = thread_search::start_thread_search(&p);
+                return State::Search(p, search_state, rec);
+            }
+            State::Pause(mut p, mut ponder) => {
+                let rec = thread_search::start_thread_search(&p);
+                let search_state = match state {
+                    StartSearch::Ponder(dur) => {
+                        let (_legal, guard) = make::make(&mut p, &mut ponder, false);
+                        SearchState::Ponder(dur, ponder, guard)
+                    }
+                    StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
+                    StartSearch::Untimed => SearchState::Untimed,
+                };
+                return State::Search(p, search_state, rec);
+            }
+            State::Search(..) => {
+                self = self.pause_search();
+                return self.start_search(state);
+            }
+        }
+    }
+
+    #[must_use]
+    fn pause_search(self) -> Self {
+        match self {
+            State::Search(p, _, rec) => {
+                thread_search::stop_search();
+                let ponder = rec.recv().unwrap();
+                return State::Pause(p, ponder);
+            }
+            _ => {
+                println!("Pause while not searching");
+                return self;
+            }
+        }
+    }
+
+    #[must_use]
+    fn ponder_hit(self) -> Self {
+        if let State::Search(p, SearchState::Ponder(dur, _, guard), rec) = self {
+            // SAFETY: The move has been played -> we no longer need to unmake it
+            unsafe {
+                guard.verified_drop();
+            }
+            return State::Search(p, SearchState::Timed(Instant::now(), dur), rec);
+        } else {
+            panic!("Ponder hit while not pondering")
+        }
+    }
+
+    fn get_timeout(&self) -> Duration {
+        if let State::Search(_, SearchState::Timed(start, dur), _) = self {
+            let elapsed = start.elapsed();
+            if elapsed >= *dur {
+                return Duration::from_millis(0);
+            } else {
+                return *dur - elapsed;
+            }
+        }
+        return Duration::from_millis(u64::MAX);
+    }
+
+    fn get_pos(&self) -> &Pos {
+        match self {
+            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p,
+            State::UnInit => panic!("Command used before initialized (isready)"),
+        }
+    }
+
+    #[must_use]
+    fn set_pos(mut self, new_pos: Pos) -> Self {
+        self = match self {
+            State::Init(_) => State::Init(new_pos),
+            State::Pause(_, ponder) => State::Pause(new_pos, ponder),
+            State::Search(_, state, rec) => State::Search(new_pos, state, rec),
+            State::UnInit => {
+                self = self.init();
+                self.set_pos(new_pos)
+            }
+        };
+        self
+    }
+}
+
+pub fn start() {
+    let (tx, rx) = channel::unbounded::<String>();
     thread::spawn(move || {
         loop {
             let mut buf = String::new();
@@ -48,25 +176,25 @@ pub fn start() {
         }
     });
 
-    // Check timeout and stdin
-    loop {
-        if let Some((start, duration)) = time
-            && start.elapsed() > duration
-        {
-            ponder = search::stop_search(&mut p);
-            time = None
-        }
+    let mut state = State::UnInit;
 
-        let cmd = match rx.try_recv() {
-            Err(mpsc::TryRecvError::Empty) => continue,
-            Err(mpsc::TryRecvError::Disconnected) => panic!("Channel DC"),
-            Ok(cmd) => cmd,
-        };
+    loop {
+        let timeout = state.get_timeout();
+        let cmd: String;
+        select! {
+            recv(rx) -> c => {
+                cmd = c.unwrap();
+            }
+            default(timeout) => {
+                state = state.pause_search();
+                continue;
+            }
+        }
 
         let cmd_parts: Vec<&str> = cmd.split_ascii_whitespace().collect();
         if cmd_parts.is_empty() {
             continue;
-        } 
+        }
 
         match cmd_parts[0].to_lowercase().as_str() {
             "uci" => {
@@ -77,7 +205,7 @@ pub fn start() {
             }
 
             "isready" => {
-                init();
+                state = state.init();
                 println!("readyok");
             }
 
@@ -85,6 +213,7 @@ pub fn start() {
                 if cmd_parts.len() == 1 {
                     continue;
                 }
+
                 let split = cmd.split_once(" moves ");
                 let fen: Vec<&str>;
                 let mut moves = Vec::new();
@@ -99,83 +228,49 @@ pub fn start() {
                 }
 
                 match cmd_parts[1] {
-                    "startpos" => p = fen::starting_pos(moves),
-                    "fen" => p = fen::fen(fen, moves),
+                    "startpos" => state = state.set_pos(fen::starting_pos(moves)),
+                    "fen" => state = state.set_pos(fen::fen(fen, moves)),
                     _ => continue,
                 }
             }
 
-            "quit" => {
-                std::process::exit(0);
-            }
+            "quit" => std::process::exit(0),
 
             "stop" => {
-                ponder = search::stop_search(&mut p);
-                time = None;
+                state = state.pause_search();
             }
 
             "go" => {
-                init();
-                if p.is_default() {
-                    p = fen::starting_pos(Vec::new());
-                }
-
-                if cmd_parts.len() == 1 {
-                    // You dont need to set the search time vals
-                    search::thread_search(&p);
-                } else {
-                    match cmd_parts[1] {
-                        "perft" => {
-                            let depth = if cmd_parts.len() <= 2 {
-                                6
-                            } else {
-                                cmd_parts[2]
-                                    .parse()
-                                    .expect("Depth value in perft command not num")
-                            };
-                            debug_search::division_search(&mut p, depth);
-                        }
-                        "ponder" => {
-                            let mut clone = p.clone();
-                            if let Some(mut p) = ponder {
-                                make::make(&mut clone, &mut p, false);
-                            }
-                            search::thread_search(&p);
-                        }
-
-                        _ => {
-                            let search_duration = process_go(cmd_parts, p.clr());
-                            time = Some((time::Instant::now(), search_duration));
-                            search::thread_search(&p);
-                        }
-                    }
-                }
+                let go_res = time::parse_time_from_go(cmd_parts, state.get_pos().clr());
+                state = state.start_search(go_res);
             }
 
             "moves" => {
-                init();
-                if p.is_default() {
-                    p = fen::starting_pos(Vec::new())
-                }
                 println!("Warning: Does not check legality");
                 if cmd_parts.len() < 2 {
-                    println!("No move specified");
                     continue;
                 }
+
                 let mv = cmd_parts[1];
-                let mut mv = Mv::new_from_str(mv, &p);
+                let mut pos = state.get_pos().clone();
+                let mut mv = Mv::new_from_str(mv, &pos);
                 println!("{:?}", mv);
-                make::make(&mut p, &mut mv, false);
+
+                let (_, guard) = make::make(&mut pos, &mut mv, false);
+                // SAFETY: The user wants to actually make these moves
+                unsafe {
+                    guard.verified_drop();
+                }
+
+                state = state.set_pos(pos);
             }
 
             "print" | "p" | "d" => {
-                init();
-                println!("{}", &p);
+                println!("{}", state.get_pos());
             }
 
-            "printfull" => {
-                init();
-                println!("{}", &p.full());
+            "key" => {
+                println!("Key: {:?}", state.get_pos().key());
             }
 
             "magics" => {
@@ -183,19 +278,23 @@ pub fn start() {
             }
 
             "eval" => {
-                init();
-                if p.is_default() {
-                    p = fen::starting_pos(Vec::new());
-                }
-                let eval = eval(&p);
+                let eval = eval(&state.get_pos());
                 println!("Eval: {eval}");
             }
 
-            "ponderhit" => {
-                ponder = search::stop_search(&mut p);
+            "color" => {
+                let mut pos_clone = state.get_pos().clone();
+                pos_clone.flip_color();
+                state = state.set_pos(pos_clone);
             }
 
-            "setoption" => {}
+            "ponderhit" => {
+                state = state.ponder_hit();
+            }
+
+            "setoption" => {
+                //println!("Options currently not supported");
+            }
             _ => {}
         }
     }
@@ -213,70 +312,5 @@ fn print_options() {
     }
     if config::SHOW_CURRENT_LINE {
         println!("option name UCI_ShowCurrLine type check default false");
-    }
-}
-
-fn process_go(cmd: Vec<&str>, color: Clr) -> time::Duration {
-    let mut index = 1;
-
-    let mut wtime = 0;
-    let mut btime = 0;
-    let mut winc = 0;
-    let mut binc = 0;
-    let mut _mvs_to_go = 0;
-
-    while index < cmd.len() {
-        let cmd_part = cmd[index];
-
-        match cmd_part.to_lowercase().as_str() {
-            "wtime" => {
-                index += 1;
-                wtime = check_next(&cmd, index)
-            }
-            "btime" => {
-                index += 1;
-                btime = check_next(&cmd, index)
-            }
-            "winc" => {
-                index += 1;
-                winc = check_next(&cmd, index)
-            }
-            "binc" => {
-                index += 1;
-                binc = check_next(&cmd, index)
-            }
-            "moves_to_go" => {
-                index += 1;
-                _mvs_to_go = check_next(&cmd, index)
-            }
-            "movetime" => {
-                index += 1;
-                return Duration::from_millis(check_next(&cmd, index));
-            }
-            "ponder" | "infinite" => return Duration::from_millis(0),
-            _ => println!("Go command part not understood: {cmd_part}"),
-        }
-        index += 1;
-    }
-    if wtime + btime + winc + binc == 0 {
-        return Duration::from_millis(0);
-    }
-
-    let time = if color.is_white() {
-        (wtime / 20) + (winc / 2)
-    } else {
-        (btime / 20) + (binc / 2)
-    };
-
-    Duration::from_millis(time)
-}
-
-fn check_next(cmd: &[&str], index: usize) -> u64 {
-    match cmd[index].parse() {
-        Ok(o) => o,
-        Err(e) => {
-            println!("Value after command not int, {e}, part: {}", cmd[index + 1]);
-            0
-        }
     }
 }

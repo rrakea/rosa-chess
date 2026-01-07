@@ -9,6 +9,7 @@ For docs run "cargo docs --open --workspace --document-private-items"
 
 # Timeline
 ## Short Term
+- Fix bugs :(
 - Promotion mv gen separate + mv ordering?
 - Quisence Search
 

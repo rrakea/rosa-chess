@@ -92,7 +92,12 @@ pub fn fen(fen: Vec<&str>, moves: Vec<&str>) -> pos::Pos {
 
     for mv in moves {
         let mut mv = Mv::new_from_str(mv, &pos);
-        make::make(&mut pos, &mut mv, false);
+        let (_, guard) = make::make(&mut pos, &mut mv, false);
+
+        // SAFETY: We actually want to search from the position past these moves
+        unsafe {
+            guard.verified_drop();
+        }
     }
 
     pos

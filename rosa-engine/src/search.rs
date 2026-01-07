@@ -29,7 +29,7 @@
 //! Negamax is a variation of the classic Minmax algorithm for opposed games
 //! Negascout is also known as PVS (Principle variation search). They are functionally equivalent
 //! ### Scout
-//! Scout assumes that moves later in the move ordering are likely not as good and
+//! Scout assumes that moves  in the move ordering are likely not as good and
 //! and therefore searches them in a so called null window (alpha' = -alpha - 1; beta' = -alpha)  
 //! As such any move better than the current posited best move will trigger an alpha cutoff
 //! which is detected and researched at a normal alpha beta window
@@ -74,13 +74,13 @@
 //! get searched quite shallowly.   
 //! There are a lot of formulas ans heuristic used to decide to what exactly we can reduce our depth.
 //! Rosa Chess uses a simple formula of: if depth < 6 {depth - 1} else {depth/3}
-//! This formulat is definitly open to changes with further testing
+//! This formula is definitely open to changes with further testing
 //! ## Node Types
 
 use crate::eval;
 use crate::make;
 use crate::mv::mv_gen;
-use crate::stats2::Stats;
+use crate::thread_search;
 
 use rosa_lib::history;
 use rosa_lib::mv::Mv;
@@ -88,71 +88,98 @@ use rosa_lib::piece::*;
 use rosa_lib::pos;
 use rosa_lib::tt;
 
-use std::sync::RwLock;
-use std::thread;
+use std::sync::mpsc;
 
 pub static TT: tt::TT = tt::TT::new();
 
-/// Used to asynchronisly stop the search function.
-/// The value is checked at every step of iterative deepening,
-/// which can cause issues at deeper depth
-/// (threads running for too long while the next thread already started)
-static STOP: RwLock<bool> = RwLock::new(false);
-
-/// Spawns a new thread & inits the STOP global
-pub fn thread_search(p: &pos::Pos) {
-    *STOP.write().unwrap() = false;
-    let pclone = p.clone();
-    thread::spawn(move || search(pclone));
-}
-
 /// Iterative deepening
-pub fn search(mut p: pos::Pos) {
+pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>) {
     // Iterative deepening
-    let mut depth = 1;
+    let mut depth = 0;
     let mut score;
-    let mut stats = Stats::new();
-    loop {
-        score = negascout(&mut p, depth, i32::MIN + 1, i32::MAX - 1, &mut stats);
+    let mut best_mv;
 
-        if *STOP.read().unwrap() {
-            break;
+    loop {
+        depth += 1;
+        let mut search_stats = thread_search::SearchStats::new(depth);
+
+        match negascout(&mut p, depth, eval::SAFE_MIN_SCORE, eval::SAFE_MAX_SCORE, &mut search_stats) {
+            SearchRes::TimeOut => {
+                return;
+            }
+            SearchRes::Node(s) => {
+                score = s;
+                best_mv = TT.get(p.key()).unwrap().mv;
+            }
         }
 
-        stats.print_info(TT.get(&p.key()).mv, score);
-        stats.depth_done();
-        depth += 1;
+        sender
+            .send(thread_search::ThreadReport::new(
+                depth,
+                score,
+                best_mv,
+                search_stats,
+            ))
+            .unwrap();
     }
-
-    stats.search_done(TT.get(&p.key()).mv, score);
 }
 
 /// How many moves to do before starting late move reductions
 const LMR_MOVES: usize = 2;
 
+enum SearchRes {
+    TimeOut,
+    Node(i32),
+}
+
 /// Main search functions; uses the optimizations described above
-fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut Stats) -> i32 {
+fn negascout(
+    p: &mut pos::Pos,
+    depth: u8,
+    mut alpha: i32,
+    mut beta: i32,
+    stats: &mut thread_search::SearchStats,
+) -> SearchRes {
     stats.node();
     if depth == 0 {
-        return eval::eval(p);
+        return SearchRes::Node(eval::eval(p));
     }
 
-    let (replace_entry, mut best_mv, return_val) = parse_tt(&p.key(), depth, &mut alpha, &mut beta,stats);
-    if let Some(r) = return_val {
-        return r;
+    let (replace_entry, mut best_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
+
+    if let Some(_) = best_mv {
+        stats.tt_hit();
+        if let Some(rv) = return_val {
+            return SearchRes::Node(rv);
+        }
+    }
+
+    if depth < 5 && thread_search::search_done() {
+        return SearchRes::TimeOut;
     }
 
     // Null Move
     if depth > 3 {
-        let (legal, was_ep) = make::make_null(p);
+        let (legal, was_ep, null_guard) = make::make_null(p);
         if legal == make::Legal::LEGAL {
-            let score = -negascout(p, depth - 3, -beta, -(beta - 1), stats);
-            if score >= beta {
-                return beta;
+            let null_score = {
+                match negascout(p, depth - 3, -beta, -(beta - 1), stats) {
+                    SearchRes::TimeOut => {
+                        make::unmake_null(p, was_ep, null_guard);
+                        return SearchRes::TimeOut;
+                    }
+                    SearchRes::Node(score) => -score,
+                }
+            };
+
+            // The null move sets the baseline for what we think we can achive
+            // Even if we dont make a move we are still outside of the window
+            if null_score >= beta {
+                make::unmake_null(p, was_ep, null_guard);
+                return SearchRes::Node(beta);
             }
         }
-
-        make::unmake_null(p, was_ep);
+        make::unmake_null(p, was_ep, null_guard);
     }
 
     let mut node_type = tt::EntryType::Upper;
@@ -161,32 +188,40 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: 
     // Process PV move
     if let Some(mut m) = best_mv {
         first_iteration = false;
-        make::make(p, &mut m, false);
-        let score = -negascout(p, depth - 1, -beta, -alpha, stats);
+
+        let score;
+        let (_legal, pv_guard) = make::make(p, &mut m, false);
+        match negascout(p, depth - 1, -beta, -alpha, stats) {
+            SearchRes::TimeOut => {
+                make::unmake(p, &mut m, pv_guard);
+                return SearchRes::TimeOut;
+            }
+            SearchRes::Node(s) => score = -s,
+        }
+        make::unmake(p, &mut m, pv_guard);
+
         if score > alpha {
             alpha = score;
             node_type = tt::EntryType::Exact;
         }
 
         if score >= beta {
-            make::unmake(p, &mut m);
             history::set(&m, p.clr(), depth);
 
             if replace_entry {
                 TT.set(tt::Entry::new(
                     p.key(),
                     alpha,
-                    best_mv.unwrap(),
+                    m,
                     depth,
                     tt::EntryType::Lower,
                 ));
             }
-            return alpha;
+            return SearchRes::Node(alpha);
         }
-
-        make::unmake(p, &mut m);
     }
 
+    // Generating the move iter
     let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
         None => Box::new(
             mv_gen::gen_mvs_stages(p, true)
@@ -214,9 +249,9 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: 
     let mut do_lmr = true;
 
     for (i, mut m) in iter.enumerate() {
-        let legal = make::make(p, &mut m, true);
+        let (legal, make_guard) = make::make(p, &mut m, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut m);
+            make::unmake(p, &mut m, make_guard);
             continue;
         }
 
@@ -226,25 +261,48 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: 
             // Principle variation search
             // PV Node
             best_mv = Some(m);
-            score = -negascout(p, depth - 1, -beta, -alpha, stats);
+            match negascout(p, depth - 1, -beta, -alpha, stats) {
+                SearchRes::TimeOut => {
+                    make::unmake(p, &mut m, make_guard);
+                    return SearchRes::TimeOut;
+                }
+                SearchRes::Node(s) => score = -s,
+            }
         } else {
             // Null window search
             if depth > 2 && i > LMR_MOVES && do_lmr {
                 // Late move reduction
                 let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
-                score = -negascout(p, reduced_depth, -alpha - 1, -alpha, stats);
+                match negascout(p, reduced_depth, -alpha - 1, -alpha, stats) {
+                    SearchRes::TimeOut => {
+                        make::unmake(p, &mut m, make_guard);
+                        return SearchRes::TimeOut;
+                    }
+                    SearchRes::Node(s) => score = -s,
+                }
             } else {
                 // Not reduced depth null window
-                score = -negascout(p, depth - 1, -alpha - 1, -alpha, stats);
+                match negascout(p, depth - 1, -alpha - 1, -alpha, stats) {
+                    SearchRes::TimeOut => {
+                        make::unmake(p, &mut m, make_guard);
+                        return SearchRes::TimeOut;
+                    }
+                    SearchRes::Node(s) => score = -s,
+                }
             }
-
             if alpha < score && score < beta {
                 // Unstable Node -> Dont do LMR
                 if i <= LMR_MOVES {
                     do_lmr = false;
                 }
                 // Failed high -> Full re-search
-                score = -negascout(p, depth - 1, -beta, -score, stats);
+                match negascout(p, depth - 1, -beta, -score, stats) {
+                    SearchRes::TimeOut => {
+                        make::unmake(p, &mut m, make_guard);
+                        return SearchRes::TimeOut;
+                    }
+                    SearchRes::Node(s) => score = -s,
+                }
             }
         }
 
@@ -257,115 +315,90 @@ fn negascout(p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: 
         if score >= beta {
             // Cut Node
             node_type = tt::EntryType::Lower;
-            make::unmake(p, &mut m);
+            make::unmake(p, &mut m, make_guard);
             history::set(&m, p.clr(), depth);
             break; // Prune :)
         }
 
-        make::unmake(p, &mut m);
+        make::unmake(p, &mut m, make_guard);
     }
 
-    // We never encountered a valid move
-    if first_iteration {
-        let king_pos = p.piece(Piece::King.clr(p.clr())).get_ones_single();
-        if !make::square_attacked(p, p.clr(), king_pos) {
-            // Stalemate
-            return 0;
-        } else {
-            // Checkmate
-            return i32::MIN + 2;
+    match best_mv {
+        None => {
+            // We never encountered a valid move
+            debug_assert!(!first_iteration);
+            let king_pos = p.piece(Piece::King.clr(p.clr())).get_ones_single();
+            if !make::square_attacked(p, p.clr(), king_pos) {
+                // Stalemate
+                return SearchRes::Node(0);
+            } else {
+                // Checkmate
+                return SearchRes::Node(eval::SAFE_MIN_SCORE);
+            }
+        }
+        Some(best_mv) => {
+            if replace_entry {
+                TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
+            }
         }
     }
 
-    if replace_entry {
-        TT.set(tt::Entry::new(
-            p.key(),
-            alpha,
-            best_mv.unwrap(),
-            depth,
-            node_type,
-        ));
-    }
-
-    alpha
+    return SearchRes::Node(alpha);
 }
 
 /// Reading from the transposition table.
 /// Split into its own function to decrease complexity of the negascout function
 fn parse_tt(
-    key: &tt::Key,
+    key: tt::Key,
     depth: u8,
     alpha: &mut i32,
     beta: &mut i32,
-    stats: &mut Stats
 ) -> (bool, Option<Mv>, Option<i32>) {
     let mut replace = false;
     let mut pv_move = None;
     let mut return_val = None;
 
     let entry = TT.get(key);
-    if depth > entry.depth {
-        replace = true;
-    }
+    match entry {
+        None => {
+            return (true, None, None);
+        }
+        Some(entry) => {
+            if entry.depth < depth {
+                replace = true;
+            }
 
-    if !entry.is_null() {
-        if &entry.key == key {
-            stats.tt_hit();
-            pv_move = Some(entry.mv);
-            // If the depth is worse we cant use the score
-            if depth <= entry.depth {
-                match entry.node_type {
-                    tt::EntryType::Exact => {
+            if entry.key == key {
+                pv_move = Some(entry.mv);
+                // If the depth is worse we cant use the score
+                if depth <= entry.depth {
+                    match entry.node_type {
+                        tt::EntryType::Exact => {
+                            return_val = Some(entry.score);
+                        }
+                        tt::EntryType::Upper => {
+                            if entry.score <= *alpha {
+                                return_val = Some(entry.score);
+                            } else {
+                                *beta = i32::min(entry.score, *beta);
+                            }
+                        }
+                        tt::EntryType::Lower => {
+                            if entry.score >= *beta {
+                                return_val = Some(entry.score);
+                            } else {
+                                *alpha = i32::max(entry.score, *alpha);
+                            }
+                        }
+                    }
+
+                    if alpha >= beta {
                         return_val = Some(entry.score);
                     }
-                    tt::EntryType::Upper => {
-                        if entry.score <= *alpha {
-                            return_val = Some(entry.score);
-                        } else {
-                            *beta = i32::min(entry.score, *beta);
-                        }
-                    }
-                    tt::EntryType::Lower => {
-                        if entry.score >= *beta {
-                            return_val = Some(entry.score);
-                        } else {
-                            *alpha = i32::max(entry.score, *alpha);
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-
-                if alpha >= beta {
-                    return_val = Some(entry.score);
                 }
             }
         }
     }
 
     (replace, pv_move, return_val)
-}
-
-/// Prints the bestmove & ponder cmds
-pub fn stop_search(p: &mut pos::Pos) -> Option<Mv> {
-    //stats::print_stats();
-    *STOP.write().unwrap() = true;
-    let best = TT.checked_get(&p.key());
-    match best {
-        None => panic!("Starting pos doesnt have a tt entry"),
-        Some(e) => {
-            let mut best = e.mv;
-            print!("bestmove {}", best);
-            make::make(p, &mut best, false);
-            let ponder = TT.checked_get(&p.key());
-            match ponder {
-                Some(pe) => {
-                    println!(" ponder {}", pe.mv);
-                    return Some(pe.mv);
-                }
-                None => println!(),
-            }
-            make::unmake(p, &mut best);
-        }
-    }
-    None
 }

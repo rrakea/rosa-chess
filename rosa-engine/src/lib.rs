@@ -3,12 +3,14 @@
 //! __rosa-lib__ for struct and static code  
 //! __rosa-engine__ for runtime code  
 
+#![deny(unused_must_use)]
+
 pub mod config;
-pub mod debug_search;
 pub mod eval;
 pub mod fen;
 pub mod make;
 pub mod mv;
 pub mod runtime;
 pub mod search;
-pub mod stats2;
+pub mod thread_search;
+pub mod time;

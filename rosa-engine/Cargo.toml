@@ -16,4 +16,5 @@ rosa-lib = { path = "../rosa-lib"}
 rand = "0.9.1"
 rand_pcg = "0.9.0"
 rayon = "1.10.0"
+crossbeam = "0.8.4"
 
