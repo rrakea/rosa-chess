@@ -260,6 +260,7 @@ fn negascout(
             first_iteration = false;
             // Principle variation search
             // PV Node
+            best_mv = Some(m);
             match negascout(p, depth - 1, -beta, -alpha, stats) {
                 SearchRes::TimeOut => {
                     make::unmake(p, &mut m, make_guard);
@@ -325,6 +326,7 @@ fn negascout(
     match best_mv {
         None => {
             // We never encountered a valid move
+            debug_assert!(!first_iteration);
             let king_pos = p.piece(Piece::King.clr(p.clr())).get_ones_single();
             if !make::square_attacked(p, p.clr(), king_pos) {
                 // Stalemate
