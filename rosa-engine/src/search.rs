@@ -160,7 +160,7 @@ fn negascout(
 
     // Null Move
     if depth > 3 {
-        let (legal, was_ep) = make::make_null(p);
+        let (legal, was_ep, null_guard) = make::make_null(p);
         if legal == make::Legal::LEGAL {
             let null_score = {
                 match negascout(p, depth - 3, -beta, -(beta - 1), stats) {
@@ -174,11 +174,11 @@ fn negascout(
             // The null move sets the baseline for what we think we can achive
             // Even if we dont make a move we are still outside of the window
             if null_score >= beta {
-                make::unmake_null(p, was_ep);
+                make::unmake_null(p, was_ep, null_guard);
                 return SearchRes::Node(beta);
             }
         }
-        make::unmake_null(p, was_ep);
+        make::unmake_null(p, was_ep, null_guard);
     }
 
     let mut node_type = tt::EntryType::Upper;
@@ -189,14 +189,14 @@ fn negascout(
         first_iteration = false;
 
         let score;
-        make::make(p, &mut m, false);
+        let (_legal, pv_guard) = make::make(p, &mut m, false);
         match negascout(p, depth - 1, -beta, -alpha, stats) {
             SearchRes::TimeOut => {
                 return SearchRes::TimeOut;
             }
             SearchRes::Node(s) => score = -s,
         }
-        make::unmake(p, &mut m);
+        make::unmake(p, &mut m, pv_guard);
 
         if score > alpha {
             alpha = score;
@@ -247,9 +247,9 @@ fn negascout(
     let mut do_lmr = true;
 
     for (i, mut m) in iter.enumerate() {
-        let legal = make::make(p, &mut m, true);
+        let (legal, make_guard) = make::make(p, &mut m, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut m);
+            make::unmake(p, &mut m, make_guard);
             continue;
         }
 
@@ -292,12 +292,6 @@ fn negascout(
                 // Failed high -> Full re-search
                 match negascout(p, depth - 1, -beta, -score, stats) {
                     SearchRes::TimeOut => {
-
-        if score > alpha {
-            alpha = score;
-            best_mv = Some(m);
-            node_type = tt::EntryType::Exact;
-        }
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -314,12 +308,12 @@ fn negascout(
         if score >= beta {
             // Cut Node
             node_type = tt::EntryType::Lower;
-            make::unmake(p, &mut m);
+            make::unmake(p, &mut m, make_guard);
             history::set(&m, p.clr(), depth);
             break; // Prune :)
         }
 
-        make::unmake(p, &mut m);
+        make::unmake(p, &mut m, make_guard);
     }
 
     match best_mv {

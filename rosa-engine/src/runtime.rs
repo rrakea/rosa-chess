@@ -6,9 +6,12 @@ use crate::eval;
 use crate::eval::eval;
 use crate::fen;
 use crate::make;
+use crate::make::MakeGuard;
 use crate::mv;
 use crate::thread_search;
 use crate::time;
+use crate::time::StartSearch;
+use crate::search;
 
 use crossbeam::channel;
 use crossbeam::select;
@@ -20,6 +23,7 @@ use rosa_lib::tt;
 use core::panic;
 use std::thread;
 use std::time::{Duration, Instant};
+use std::sync::Once;
 
 enum State {
     UnInit,
@@ -31,20 +35,26 @@ enum State {
 pub enum SearchState {
     Timed(Instant, Duration),
     Untimed,
-    Ponder(Duration),
+    Ponder(Duration, Mv, MakeGuard),
+}
+static INIT: Once = Once::new();
+
+pub fn init() {
+    // These should only be called once
+    INIT.call_once(|| {
+        rosa_lib::lib_init();
+        tt::init_zobrist_keys();
+        mv::magic_init::init_magics();
+        search::TT.resize(config::TT_SIZE);
+        eval::init_eval();
+    });
 }
 
 impl State {
     fn init(self) -> Self {
         match self {
             State::UnInit => {
-                // These should only be called once
-                rosa_lib::lib_init();
-                tt::init_zobrist_keys();
-                mv::magic_init::init_magics();
-                crate::search::TT.resize(config::TT_SIZE);
-                eval::init_eval();
-
+                init();
                 let pos = fen::starting_pos(Vec::new());
                 return State::Init(pos);
             }
@@ -55,29 +65,39 @@ impl State {
         }
     }
 
-    fn start_search(mut self, search_state: SearchState) -> Self {
+    fn start_search(mut self, state: time::StartSearch) -> Self {
         match self {
             State::UnInit => {
                 self = self.init();
-                return self.start_search(search_state);
+                return self.start_search(state);
             }
             State::Init(p) => {
-                if matches!(search_state, SearchState::Ponder(_)) {
-                    panic!("Pondering without having searched first")
-                }
+                if matches!(state, StartSearch::Ponder(..)) {}
+                let search_state = match state {
+                    StartSearch::Ponder(_dur) => {
+                        panic!("Pondering without having searched first")
+                    }
+                    StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
+                    StartSearch::Untimed => SearchState::Untimed,
+                };
                 let rec = thread_search::start_thread_search(&p);
                 return State::Search(p, search_state, rec);
             }
             State::Pause(mut p, mut ponder) => {
-                if matches!(search_state, SearchState::Ponder(_)) {
-                    make::make(&mut p, &mut ponder, false);
-                }
                 let rec = thread_search::start_thread_search(&p);
+                let search_state = match state {
+                    StartSearch::Ponder(dur) => {
+                        let (_legal, guard) = make::make(&mut p, &mut ponder, false);
+                        SearchState::Ponder(dur, ponder, guard)
+                    }
+                    StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
+                    StartSearch::Untimed => SearchState::Untimed,
+                };
                 return State::Search(p, search_state, rec);
             }
             State::Search(..) => {
                 self = self.pause_search();
-                return self.start_search(search_state);
+                return self.start_search(state);
             }
         }
     }
@@ -97,7 +117,11 @@ impl State {
     }
 
     fn ponder_hit(self) -> Self {
-        if let State::Search(p, SearchState::Ponder(dur), rec) = self {
+        if let State::Search(p, SearchState::Ponder(dur, _, guard), rec) = self {
+            // SAFETY: The move has been played -> we no longer need to unmake it
+            unsafe {
+                guard.verified_drop();
+            }
             return State::Search(p, SearchState::Timed(Instant::now(), dur), rec);
         } else {
             panic!("Ponder hit while not pondering")
@@ -221,7 +245,12 @@ pub fn start() {
                 let mut mv = Mv::new_from_str(mv, &pos);
                 println!("{:?}", mv);
 
-                make::make(&mut pos, &mut mv, false);
+                let (_, guard) = make::make(&mut pos, &mut mv, false);
+                // SAFETY: The user wants to actually make these moves
+                unsafe {
+                    guard.verified_drop();
+                }
+
                 state.modify_pos(pos);
             }
 

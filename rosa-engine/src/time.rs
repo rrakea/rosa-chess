@@ -1,10 +1,7 @@
 use core::panic;
 use std::time::Duration;
-use std::time::Instant;
 
 use rosa_lib::piece::Clr;
-
-use crate::runtime::SearchState;
 
 fn time(wtime: u64, btime: u64, winc: u64, binc: u64, clr: Clr) -> Duration {
     let time = match clr {
@@ -15,7 +12,13 @@ fn time(wtime: u64, btime: u64, winc: u64, binc: u64, clr: Clr) -> Duration {
     Duration::from_millis(time)
 }
 
-pub fn parse_time_from_go(cmd: Vec<&str>, clr: Clr) -> SearchState {
+pub enum StartSearch {
+    Untimed,
+    Timed(std::time::Duration),
+    Ponder(std::time::Duration),
+}
+
+pub fn parse_time_from_go(cmd: Vec<&str>, clr: Clr) -> StartSearch {
     let mut wtime = 0;
     let mut btime = 0;
     let mut winc = 0;
@@ -24,7 +27,7 @@ pub fn parse_time_from_go(cmd: Vec<&str>, clr: Clr) -> SearchState {
     let mut ponder = false;
 
     if cmd.len() < 2 {
-        return SearchState::Untimed;
+        return StartSearch::Untimed;
     }
 
     // Skip "go"
@@ -53,9 +56,9 @@ pub fn parse_time_from_go(cmd: Vec<&str>, clr: Clr) -> SearchState {
             }
             "movetime" => {
                 let movetime = cmd[i + 1].parse().unwrap_or(0);
-                return SearchState::Timed(Instant::now(), Duration::from_millis(movetime));
+                return StartSearch::Timed(Duration::from_millis(movetime));
             }
-            "infinite" => return SearchState::Untimed,
+            "infinite" => return StartSearch::Untimed,
 
             // Ignore for now
             "moves_to_go" => i += 1,
@@ -71,8 +74,8 @@ pub fn parse_time_from_go(cmd: Vec<&str>, clr: Clr) -> SearchState {
     }
 
     if !ponder {
-        SearchState::Timed(Instant::now(), time(wtime, btime, winc, binc, clr))
+        StartSearch::Timed(time(wtime, btime, winc, binc, clr))
     } else {
-        SearchState::Ponder(time(wtime, btime, winc, binc, clr))
+        StartSearch::Ponder(time(wtime, btime, winc, binc, clr))
     }
 }

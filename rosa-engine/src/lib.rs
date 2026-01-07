@@ -3,6 +3,8 @@
 //! __rosa-lib__ for struct and static code  
 //! __rosa-engine__ for runtime code  
 
+#![deny(unused_must_use)]
+
 pub mod config;
 pub mod eval;
 pub mod fen;

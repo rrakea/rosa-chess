@@ -15,7 +15,10 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
 
     let entry = TT.get(p.key());
 
-    if let Some(e) = entry && e.key == p.key() && e.depth == depth {
+    if let Some(e) = entry
+        && e.key == p.key()
+        && e.depth == depth
+    {
         // We found a valid entry
         return e.score as u64;
     }
@@ -33,16 +36,16 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
 
     for mut mv in iter {
         let prev_key = p.key();
-        let legal = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut mv);
+            make::unmake(p, &mut mv, guard);
             if p.key() != prev_key {
                 panic!("Key mismatch after move: {:?}", mv);
             }
             continue;
         }
         count += counting_search(p, depth - 1);
-        make::unmake(p, &mut mv);
+        make::unmake(p, &mut mv, guard);
         if p.key() != prev_key {
             panic!("Key mismatch after move: {:?}", mv);
         }
@@ -63,13 +66,13 @@ pub fn division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
     TT.resize(10000);
     for mut mv in mv::mv_gen::gen_mvs(p) {
-        let legal = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut mv);
+            make::unmake(p, &mut mv, guard);
             continue;
         }
         let count = counting_search(p, depth - 1);
-        make::unmake(p, &mut mv);
+        make::unmake(p, &mut mv, guard);
         total += count;
         println!("{}: {}", mv, count);
     }
@@ -84,11 +87,11 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
     if depth > 2 {
         let prev_key = p.key();
         let prev_pos = p.clone();
-        let (legal, was_ep) = make::make_null(p);
+        let (legal, was_ep, guard) = make::make_null(p);
         if legal == make::Legal::LEGAL {
             debug_search(p, depth - 1, previous_mvs);
         }
-        make::unmake_null(p, was_ep);
+        make::unmake_null(p, was_ep, guard);
         if p.key() != prev_key {
             panic!(
                 "Null move key mismatch, Report: {}",
@@ -112,10 +115,11 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             make::make(p, &mut mv, true)
         }));
+        let guard;
         match err {
-            Ok(legal) => {
+            Ok((legal, ok_guard)) => {
                 if legal == make::Legal::ILLEGAL {
-                    make::unmake(p, &mut mv);
+                    make::unmake(p, &mut mv, ok_guard);
                     if p.key() != prev_key {
                         panic!(
                             "Key mismatch after illegal move: {:?}\nPrevious Mvs: {:?}\nREPORT: {}",
@@ -126,6 +130,7 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
                     }
                     continue;
                 }
+                guard = ok_guard;
             }
             Err(_e) => {
                 panic!(
@@ -137,7 +142,7 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         let mut clone = previous_mvs.clone();
         clone.push(mv);
         debug_search(p, depth - 1, &mut clone);
-        make::unmake(p, &mut mv);
+        make::unmake(p, &mut mv, guard);
         if p.key() != prev_key {
             panic!(
                 "Key mismatch after move: {:?}\nPrevious Mvs:\n{:?}, Pos before make:\n{}, Pos after unmake:\n{}\nREPORT: {}",

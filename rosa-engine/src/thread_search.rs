@@ -87,13 +87,17 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
     let mut pv;
     let ponder;
     // You might think that the position might get overwritten, but the root node will always write to TT at the very end
-    // Same for ponder, given root key != ponder key but thats unlikely if our hashing is any good
-    // We dont bounce up the moves in the search to save & simplyfy logic
+    // Same for ponder (except root key != ponder key but thats unlikely if our hashing is any good)
+    // We dont bounce up the moves in the search to save mem & simplify logic
     match search::TT.get(p.key()) {
         Some(e) => {
             pv = e.mv;
             let mut pclone = p.clone();
-            make::make(&mut pclone, &mut pv, false);
+            let (_, guard) = make::make(&mut pclone, &mut pv, false);
+            // Safety: Pos gets dropped after this
+            unsafe {
+                guard.verified_drop();
+            }
             match search::TT.get(pclone.key()) {
                 Some(e) => {
                     ponder = e.mv;
