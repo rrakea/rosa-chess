@@ -309,6 +309,16 @@ impl Mv {
         self.capture_data().1
     }
 
+    pub fn sanitize_tt(&mut self) {
+        self.0 &= !OLD_CASTLE;
+        self.0 &= !OLD_EP_FILE;
+        self.0 &= !OLD_IS_EP;
+    }
+
+    pub fn val(&self) -> u32 {
+        return self.0;
+    }
+
     pub fn set_old_castle_rights(&mut self, rights: pos::Castling) {
         self.0 &= !OLD_CASTLE;
         let mut val = 0;

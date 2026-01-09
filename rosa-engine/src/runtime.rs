@@ -245,6 +245,10 @@ pub fn start() {
                 state = state.start_search(go_res);
             }
 
+            "ucinewgame" => {
+                
+            }
+
             "moves" => {
                 println!("Warning: Does not check legality");
                 if cmd_parts.len() < 2 {

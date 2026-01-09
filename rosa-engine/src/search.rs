@@ -83,7 +83,9 @@ use crate::mv::mv_gen;
 use crate::testing_config::*;
 use crate::thread_search;
 
+use rayon::iter;
 use rosa_lib::history;
+use rosa_lib::mv;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
@@ -202,6 +204,36 @@ fn negascout(
         first_iteration = false;
 
         let score;
+
+        {
+            // DEBUG
+            let mv_iter = mv_gen::gen_mvs(p);
+            let mut found = false;
+            for iter_mv in mv_iter {
+                if m.sq() == iter_mv.sq() {
+                    let mut m_masked = m.val();
+                    let mut iter_masked = iter_mv.val();
+                    if !m.is_cap() {
+                        const MASK: u32 = 0b_1111_1100_0000_0000_0000_0000_0000_0000;
+                        m_masked &= !MASK;
+                        iter_masked &= !MASK;
+                    }
+                    if m_masked == iter_masked {
+                        found = true;
+                        break;
+                    } else {
+                        panic!(
+                            "Square Match, Not full match. Mv 1: {}, Mv 2: {}, Mv 1 Debug: {:?}, Mv 2 Debug: {:?}\nPos: {}\n",
+                            m, iter_mv, m, iter_mv, p
+                        );
+                    }
+                }
+            }
+            if !found {
+                panic!("Move not found: {}; Position: \n{}", m, p);
+            }
+        }
+
         let (_legal, pv_guard) = make::make(p, &mut m, false);
         match negascout(p, depth - 1, -beta, -alpha, stats) {
             SearchRes::TimeOut => {
@@ -259,11 +291,7 @@ fn negascout(
             },
         }
     } else {
-        Box::new(
-            mv_gen::gen_mvs_stages(p, true)
-                .into_iter()
-                .chain(mv_gen::gen_mvs_stages(p, false)),
-        )
+        Box::new(mv_gen::gen_mvs(p).into_iter())
     };
 
     let mut do_lmr = LATE_MOVE_REDUCTION;
