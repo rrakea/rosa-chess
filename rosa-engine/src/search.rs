@@ -83,9 +83,7 @@ use crate::mv::mv_gen;
 use crate::testing_config::*;
 use crate::thread_search;
 
-use rayon::iter;
 use rosa_lib::history;
-use rosa_lib::mv;
 use rosa_lib::mv::Mv;
 use rosa_lib::piece::*;
 use rosa_lib::pos;
@@ -211,6 +209,11 @@ fn negascout(
             let mut found = false;
             for iter_mv in mv_iter {
                 if m.sq() == iter_mv.sq() {
+                    if m.is_prom() {
+                        if m.prom_piece() != iter_mv.prom_piece() {
+                            continue;
+                        }
+                    }
                     let mut m_masked = m.val();
                     let mut iter_masked = iter_mv.val();
                     if !m.is_cap() {
