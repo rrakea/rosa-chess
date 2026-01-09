@@ -77,7 +77,8 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(key: Key, score: i32, mv: Mv, depth: u8, node_type: EntryType) -> Entry {
+    pub fn new(key: Key, score: i32, mut mv: Mv, depth: u8, node_type: EntryType) -> Entry {
+        mv.sanitize_tt();
         Entry {
             key,
             score,

@@ -103,7 +103,13 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>
         depth += 1;
         let mut search_stats = thread_search::SearchStats::new(depth);
 
-        match negascout(&mut p, depth, eval::SAFE_MIN_SCORE, eval::SAFE_MAX_SCORE, &mut search_stats) {
+        match negascout(
+            &mut p,
+            depth,
+            eval::SAFE_MIN_SCORE,
+            eval::SAFE_MAX_SCORE,
+            &mut search_stats,
+        ) {
             SearchRes::TimeOut => {
                 return;
             }
@@ -193,12 +199,12 @@ fn negascout(
         let (_legal, pv_guard) = make::make(p, &mut m, false);
         match negascout(p, depth - 1, -beta, -alpha, stats) {
             SearchRes::TimeOut => {
-                make::unmake(p, &mut m, pv_guard);
+                make::unmake(p, m, pv_guard);
                 return SearchRes::TimeOut;
             }
             SearchRes::Node(s) => score = -s,
         }
-        make::unmake(p, &mut m, pv_guard);
+        make::unmake(p, m, pv_guard);
 
         if score > alpha {
             alpha = score;
@@ -251,7 +257,7 @@ fn negascout(
     for (i, mut m) in iter.enumerate() {
         let (legal, make_guard) = make::make(p, &mut m, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut m, make_guard);
+            make::unmake(p, m, make_guard);
             continue;
         }
 
@@ -263,7 +269,7 @@ fn negascout(
             best_mv = Some(m);
             match negascout(p, depth - 1, -beta, -alpha, stats) {
                 SearchRes::TimeOut => {
-                    make::unmake(p, &mut m, make_guard);
+                    make::unmake(p, m, make_guard);
                     return SearchRes::TimeOut;
                 }
                 SearchRes::Node(s) => score = -s,
@@ -275,7 +281,7 @@ fn negascout(
                 let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
                 match negascout(p, reduced_depth, -alpha - 1, -alpha, stats) {
                     SearchRes::TimeOut => {
-                        make::unmake(p, &mut m, make_guard);
+                        make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -284,7 +290,7 @@ fn negascout(
                 // Not reduced depth null window
                 match negascout(p, depth - 1, -alpha - 1, -alpha, stats) {
                     SearchRes::TimeOut => {
-                        make::unmake(p, &mut m, make_guard);
+                        make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -298,7 +304,7 @@ fn negascout(
                 // Failed high -> Full re-search
                 match negascout(p, depth - 1, -beta, -score, stats) {
                     SearchRes::TimeOut => {
-                        make::unmake(p, &mut m, make_guard);
+                        make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -315,12 +321,12 @@ fn negascout(
         if score >= beta {
             // Cut Node
             node_type = tt::EntryType::Lower;
-            make::unmake(p, &mut m, make_guard);
+            make::unmake(p, m, make_guard);
             history::set(&m, p.clr(), depth);
             break; // Prune :)
         }
 
-        make::unmake(p, &mut m, make_guard);
+        make::unmake(p, m, make_guard);
     }
 
     match best_mv {

@@ -309,6 +309,14 @@ impl Mv {
         self.capture_data().1
     }
 
+    // You could also sanitize history heuristic, but since thats only relevant
+    // for move ordering we can ignore it here
+    pub fn sanitize_tt(&mut self) {
+        self.0 &= !OLD_IS_EP;
+        self.0 &= !OLD_CASTLE;
+        self.0 &= !OLD_EP_FILE;
+    }
+
     pub fn set_old_castle_rights(&mut self, rights: pos::Castling) {
         self.0 &= !OLD_CASTLE;
         let mut val = 0;

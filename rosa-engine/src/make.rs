@@ -153,7 +153,7 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard
     (Legal::LEGAL, MakeGuard {})
 }
 
-pub fn unmake(p: &mut Pos, mv: &mut Mv, guard: MakeGuard) {
+pub fn unmake(p: &mut Pos, mv: Mv, guard: MakeGuard) {
     // SAFETY: Currently in unmake
     unsafe {
         guard.verified_drop();
