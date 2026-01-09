@@ -240,7 +240,7 @@ impl Mv {
     }
 
     pub fn is_prom(&self) -> bool {
-        self.flag() == Flag::Prom
+        matches!(self.flag(), Flag::Prom | Flag::PromCap)
     }
 
     pub fn is_cap(&self) -> bool {
