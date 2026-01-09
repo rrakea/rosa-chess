@@ -38,14 +38,14 @@ pub fn counting_search(p: &mut pos::Pos, depth: u8) -> u64 {
         let prev_key = p.key();
         let (legal, guard) = make::make(p, &mut mv, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut mv, guard);
+            make::unmake(p, mv, guard);
             if p.key() != prev_key {
                 panic!("Key mismatch after move: {:?}", mv);
             }
             continue;
         }
         count += counting_search(p, depth - 1);
-        make::unmake(p, &mut mv, guard);
+        make::unmake(p, mv, guard);
         if p.key() != prev_key {
             panic!("Key mismatch after move: {:?}", mv);
         }
@@ -68,11 +68,11 @@ pub fn _division_search(p: &mut pos::Pos, depth: u8) {
     for mut mv in mv::mv_gen::gen_mvs(p) {
         let (legal, guard) = make::make(p, &mut mv, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut mv, guard);
+            make::unmake(p, mv, guard);
             continue;
         }
         let count = counting_search(p, depth - 1);
-        make::unmake(p, &mut mv, guard);
+        make::unmake(p, mv, guard);
         total += count;
         println!("{}: {}", mv, count);
     }
@@ -119,7 +119,7 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         match err {
             Ok((legal, ok_guard)) => {
                 if legal == make::Legal::ILLEGAL {
-                    make::unmake(p, &mut mv, ok_guard);
+                    make::unmake(p, mv, ok_guard);
                     if p.key() != prev_key {
                         panic!(
                             "Key mismatch after illegal move: {:?}\nPrevious Mvs: {:?}\nREPORT: {}",
@@ -142,7 +142,7 @@ pub fn debug_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) {
         let mut clone = previous_mvs.clone();
         clone.push(mv);
         debug_search(p, depth - 1, &mut clone);
-        make::unmake(p, &mut mv, guard);
+        make::unmake(p, mv, guard);
         if p.key() != prev_key {
             panic!(
                 "Key mismatch after move: {:?}\nPrevious Mvs:\n{:?}, Pos before make:\n{}, Pos after unmake:\n{}\nREPORT: {}",

@@ -214,14 +214,11 @@ fn negascout(
                             continue;
                         }
                     }
-                    let mut m_masked = m.val();
-                    let mut iter_masked = iter_mv.val();
-                    if !m.is_cap() {
-                        const MASK: u32 = 0b_1111_1100_0000_0000_0000_0000_0000_0000;
-                        m_masked &= !MASK;
-                        iter_masked &= !MASK;
-                    }
-                    if m_masked == iter_masked {
+                    let mut m_clean = m.clone();
+                    m_clean.complete_sanitize();
+                    let mut iter_m_clean = iter_mv.clone();
+                    iter_m_clean.complete_sanitize();
+                    if m_clean == iter_m_clean {
                         found = true;
                         break;
                     } else {
@@ -240,12 +237,12 @@ fn negascout(
         let (_legal, pv_guard) = make::make(p, &mut m, false);
         match negascout(p, depth - 1, -beta, -alpha, stats) {
             SearchRes::TimeOut => {
-                make::unmake(p, &mut m, pv_guard);
+                make::unmake(p, m, pv_guard);
                 return SearchRes::TimeOut;
             }
             SearchRes::Node(s) => score = -s,
         }
-        make::unmake(p, &mut m, pv_guard);
+        make::unmake(p, m, pv_guard);
 
         if score > alpha {
             alpha = score;
@@ -302,7 +299,7 @@ fn negascout(
     for (i, mut m) in iter.enumerate() {
         let (legal, make_guard) = make::make(p, &mut m, true);
         if legal == make::Legal::ILLEGAL {
-            make::unmake(p, &mut m, make_guard);
+            make::unmake(p, m, make_guard);
             continue;
         }
 
@@ -315,7 +312,7 @@ fn negascout(
                 best_mv = Some(m);
                 match negascout(p, depth - 1, -beta, -alpha, stats) {
                     SearchRes::TimeOut => {
-                        make::unmake(p, &mut m, make_guard);
+                        make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -327,7 +324,7 @@ fn negascout(
                     let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
                     match negascout(p, reduced_depth, -alpha - 1, -alpha, stats) {
                         SearchRes::TimeOut => {
-                            make::unmake(p, &mut m, make_guard);
+                            make::unmake(p, m, make_guard);
                             return SearchRes::TimeOut;
                         }
                         SearchRes::Node(s) => score = -s,
@@ -336,7 +333,7 @@ fn negascout(
                     // Not reduced depth null window
                     match negascout(p, depth - 1, -alpha - 1, -alpha, stats) {
                         SearchRes::TimeOut => {
-                            make::unmake(p, &mut m, make_guard);
+                            make::unmake(p, m, make_guard);
                             return SearchRes::TimeOut;
                         }
                         SearchRes::Node(s) => score = -s,
@@ -351,7 +348,7 @@ fn negascout(
                 // Failed high -> Full re-search
                 match negascout(p, depth - 1, -beta, -score, stats) {
                     SearchRes::TimeOut => {
-                        make::unmake(p, &mut m, make_guard);
+                        make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
                     SearchRes::Node(s) => score = -s,
@@ -361,7 +358,7 @@ fn negascout(
             // No Scout
             match negascout(p, depth - 1, -beta, -alpha, stats) {
                 SearchRes::TimeOut => {
-                    make::unmake(p, &mut m, make_guard);
+                    make::unmake(p, m, make_guard);
                     return SearchRes::TimeOut;
                 }
                 SearchRes::Node(s) => score = -s,
@@ -377,12 +374,12 @@ fn negascout(
         if BETA_PRUNE && score >= beta {
             // Cut Node
             node_type = tt::EntryType::Lower;
-            make::unmake(p, &mut m, make_guard);
+            make::unmake(p, m, make_guard);
             history::set(&m, p.clr(), depth);
             break; // Prune :)
         }
 
-        make::unmake(p, &mut m, make_guard);
+        make::unmake(p, m, make_guard);
     }
 
     match best_mv {
