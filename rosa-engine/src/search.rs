@@ -360,51 +360,48 @@ fn parse_tt(
     alpha: &mut i32,
     beta: &mut i32,
 ) -> (bool, Option<Mv>, Option<i32>) {
-    let mut replace = false;
-    let mut pv_move = None;
-    let mut return_val = None;
-
     let entry = TT.get(key);
     match entry {
         None => {
             return (true, None, None);
         }
         Some(entry) => {
-            if entry.depth < depth {
-                replace = true;
+            if entry.key != key {
+                let replace = entry.depth < depth;
+                return (replace, None, None);
             }
 
-            if entry.key == key {
-                pv_move = Some(entry.mv);
-                // If the depth is worse we cant use the score
-                if depth <= entry.depth {
-                    match entry.node_type {
-                        tt::EntryType::Exact => {
-                            return_val = Some(entry.score);
-                        }
-                        tt::EntryType::Upper => {
-                            if entry.score <= *alpha {
-                                return_val = Some(entry.score);
-                            } else {
-                                *beta = i32::min(entry.score, *beta);
-                            }
-                        }
-                        tt::EntryType::Lower => {
-                            if entry.score >= *beta {
-                                return_val = Some(entry.score);
-                            } else {
-                                *alpha = i32::max(entry.score, *alpha);
-                            }
-                        }
-                    }
+            let pv_move = Some(entry.mv);
+            let mut return_val = None;
+            if entry.depth < depth {
+                // The Entry knows less than we want to known
+                // -> Still use PV move for move ordering
+                return (true, pv_move, return_val);
+            }
 
-                    if alpha >= beta {
+            match entry.node_type {
+                // The Node is at a greater depth && exact -> Just use that value
+                tt::EntryType::Exact => return (false, pv_move, Some(entry.score)),
+                tt::EntryType::Upper => {
+                    if entry.score <= *alpha {
                         return_val = Some(entry.score);
+                    } else {
+                        *beta = i32::min(entry.score, *beta);
+                    }
+                }
+                tt::EntryType::Lower => {
+                    if entry.score >= *beta {
+                        return_val = Some(entry.score);
+                    } else {
+                        *alpha = i32::max(entry.score, *alpha);
                     }
                 }
             }
+
+            if alpha >= beta {
+                return_val = Some(entry.score);
+            }
+            (false, pv_move, return_val)
         }
     }
-
-    (replace, pv_move, return_val)
 }
