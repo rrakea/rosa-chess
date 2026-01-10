@@ -419,3 +419,35 @@ fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>
 fn late_move_reduction(depth: u8) -> u8 {
     if depth < 6 { depth - 1 } else { depth / 3 }
 }
+
+pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
+    let mut total = 0;
+
+    for mut mv in mv_gen::gen_mvs(p) {
+        let (legal, guard) = make::make(p, &mut mv, true);
+        make::unmake(p, mv, guard);
+        if legal == make::Legal::ILLEGAL {
+            continue;
+        }
+
+        let count = div_search_helper(p, depth - 1);
+        total += count;
+        println!("{}: {}", mv, count);
+    }
+    println!("Total: {total}")
+}
+
+fn div_search_helper(p: &mut pos::Pos, depth: u8) -> u64 {
+    let mut total = 0;
+    for mut mv in mv_gen::gen_mvs(p) {
+        let (legal, guard) = make::make(p, &mut mv, true);
+        make::unmake(p, mv, guard);
+        if legal == make::Legal::ILLEGAL {
+            continue;
+        }
+
+        total += div_search_helper(p, depth - 1);
+    }
+
+    total
+}
