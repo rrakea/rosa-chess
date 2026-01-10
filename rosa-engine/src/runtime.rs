@@ -245,10 +245,6 @@ pub fn start() {
                 state = state.start_search(go_res);
             }
 
-            "ucinewgame" => {
-                
-            }
-
             "moves" => {
                 println!("Warning: Does not check legality");
                 if cmd_parts.len() < 2 {
@@ -267,6 +263,14 @@ pub fn start() {
                 }
 
                 state = state.set_pos(pos);
+            }
+
+            // Start division search at current node
+            // Only for debugging
+            "div" => {
+                let mut pos = state.get_pos().clone();
+                let depth = cmd_parts[1].parse().unwrap();
+                search::debug_division_search(&mut pos, depth);
             }
 
             "print" | "p" | "d" => {
@@ -299,6 +303,8 @@ pub fn start() {
             "setoption" => {
                 //println!("Options currently not supported");
             }
+
+            "ucinewgame" => {}
             _ => {}
         }
     }
