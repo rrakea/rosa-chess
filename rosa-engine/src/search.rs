@@ -438,6 +438,10 @@ pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
 }
 
 fn div_search_helper(p: &mut pos::Pos, depth: u8) -> u64 {
+    if depth <= 0 {
+        return 1;
+    }
+
     let mut total = 0;
     for mut mv in mv_gen::gen_mvs(p) {
         let (legal, guard) = make::make(p, &mut mv, true);
