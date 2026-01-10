@@ -133,7 +133,7 @@ fn print_info(
         finish_time.duration_since(start_time).as_millis(),
         score,
         nodes,
-        nodes / finish_time.duration_since(start_time).as_secs().max(1),
+        (nodes / finish_time.duration_since(start_time).as_millis().max(1) as u64) * 1000,
         tt_hits,
     )
 }
