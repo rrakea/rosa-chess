@@ -202,7 +202,6 @@ fn negascout(
         first_iteration = false;
 
         let score;
-
         {
             // DEBUG
             let mv_iter = mv_gen::gen_mvs(p);

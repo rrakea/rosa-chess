@@ -37,7 +37,7 @@ pub fn start_thread_search(p: &pos::Pos) -> channel::Receiver<Mv> {
 
 /// Spawns threads and start search
 /// Collects the thread reports and compiles them
-fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
+fn thread_handler(p: pos::Pos, ponder_chan: channel::Sender<Mv>) {
     let start_time = std::time::Instant::now();
     STOP.store(false, atomic::Ordering::Relaxed);
     let (sender, reciever) = mpsc::channel::<ThreadReport>();
@@ -114,7 +114,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
         }
     }
     print_best_move(pv);
-    tx.send(ponder).unwrap();
+    ponder_chan.send(ponder).unwrap();
 }
 
 fn print_info(
