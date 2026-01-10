@@ -155,9 +155,9 @@ fn negascout(
 
     if let Some(_) = best_mv {
         stats.tt_hit();
-        if let Some(rv) = return_val {
-            return SearchRes::Node(rv);
-        }
+    }
+    if let Some(rv) = return_val {
+        return SearchRes::Node(rv);
     }
 
     if depth < 5 && thread_search::search_done() {
@@ -227,32 +227,9 @@ fn negascout(
         }
     }
 
-    // Generating the move iter
-    let iter: Box<dyn Iterator<Item = Mv>> = match best_mv {
-        None => Box::new(
-            mv_gen::gen_mvs_stages(p, true)
-                .into_iter()
-                .chain(mv_gen::gen_mvs_stages(p, false)),
-        ),
-        // Since we dont need to check the non cap mvs if pv is a cap
-        Some(pv) => match pv.is_cap() {
-            true => Box::new(
-                mv_gen::gen_mvs_stages(p, true)
-                    .into_iter()
-                    .filter(move |m| m != &pv)
-                    .chain(mv_gen::gen_mvs_stages(p, false)),
-            ),
-            false => Box::new(
-                mv_gen::gen_mvs_stages(p, true).into_iter().chain(
-                    mv_gen::gen_mvs_stages(p, false)
-                        .into_iter()
-                        .filter(move |m| m != &pv),
-                ),
-            ),
-        },
-    };
-
     let mut do_lmr = true;
+
+    let iter = get_mv_iter(p, best_mv);
 
     for (i, mut m) in iter.enumerate() {
         let (legal, make_guard) = make::make(p, &mut m, true);
@@ -277,8 +254,7 @@ fn negascout(
         } else {
             // Null window search
             if depth > 2 && i > LMR_MOVES && do_lmr {
-                // Late move reduction
-                let reduced_depth = if depth < 6 { depth - 1 } else { depth / 3 };
+                let reduced_depth = late_move_reduction(depth);
                 match negascout(p, reduced_depth, -alpha - 1, -alpha, stats) {
                     SearchRes::TimeOut => {
                         make::unmake(p, m, make_guard);
@@ -354,6 +330,7 @@ fn negascout(
 
 /// Reading from the transposition table.
 /// Split into its own function to decrease complexity of the negascout function
+#[inline(always)]
 fn parse_tt(
     key: tt::Key,
     depth: u8,
@@ -404,4 +381,41 @@ fn parse_tt(
             (false, pv_move, return_val)
         }
     }
+}
+
+/// Get the move iter depending on the move we got from the transposition table
+/// -> We have to exclude it if tt lookup was succesful
+#[inline(always)]
+fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>> {
+    // Generating the move iter
+    match best_mv {
+        None => Box::new(
+            mv_gen::gen_mvs_stages(p, true)
+                .into_iter()
+                .chain(mv_gen::gen_mvs_stages(p, false)),
+        ),
+        // Since we dont need to check the non cap mvs if pv is a cap
+        Some(pv) => match pv.is_cap() {
+            true => Box::new(
+                mv_gen::gen_mvs_stages(p, true)
+                    .into_iter()
+                    .filter(move |m| m != &pv)
+                    .chain(mv_gen::gen_mvs_stages(p, false)),
+            ),
+            false => Box::new(
+                mv_gen::gen_mvs_stages(p, true).into_iter().chain(
+                    mv_gen::gen_mvs_stages(p, false)
+                        .into_iter()
+                        .filter(move |m| m != &pv),
+                ),
+            ),
+        },
+    }
+}
+
+/// Calc LMR reduction depending on depth
+/// Very basic right now; subject to change
+#[inline(always)]
+fn late_move_reduction(depth: u8) -> u8 {
+    if depth < 6 { depth - 1 } else { depth / 3 }
 }
