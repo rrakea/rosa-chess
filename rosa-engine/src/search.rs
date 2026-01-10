@@ -127,6 +127,11 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>
                 search_stats,
             ))
             .unwrap();
+
+        // Checkmate
+        if score == eval::SAFE_MIN_SCORE || score == eval::SAFE_MAX_SCORE || score == 0{
+            return;
+        }
     }
 }
 
