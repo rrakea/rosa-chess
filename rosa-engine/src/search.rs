@@ -422,6 +422,7 @@ fn late_move_reduction(depth: u8) -> u8 {
 
 pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
     let mut total = 0;
+    let mut moves = Vec::new();
 
     for mut mv in mv_gen::gen_mvs(p) {
         let (legal, guard) = make::make(p, &mut mv, true);
@@ -432,7 +433,12 @@ pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
 
         let count = div_search_helper(p, depth - 1);
         total += count;
-        println!("{}: {}", mv, count);
+        moves.push(format!("{}: {}", mv, count));
+    }
+
+    moves.sort();
+    for m in moves {
+        print!("{m}\n");
     }
     println!("Total: {total}")
 }

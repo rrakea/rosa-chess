@@ -271,6 +271,8 @@ impl std::fmt::Display for Pos {
             board += "\n"
         }
         board += format!("To move: {}\n", self.clr).as_str();
+        board += format!("Castling right: {:?}\n", self.castle()).as_str();
+        board += format!("En passant file: {:?}\n", self.ep()).as_str();
         write!(f, "{}", board)
     }
 }
