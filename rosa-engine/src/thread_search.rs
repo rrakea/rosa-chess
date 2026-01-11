@@ -11,45 +11,39 @@ use crossbeam::channel;
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;
 
+use std::sync::Arc;
 use std::sync::atomic;
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc;
 use std::thread;
 
-/// Used to asynchronisly stop the search function.
-static STOP: atomic::AtomicBool = atomic::AtomicBool::new(false);
-
-pub fn search_done() -> bool {
-    STOP.load(atomic::Ordering::Relaxed)
-}
-
-pub fn stop_search() {
-    STOP.store(true, atomic::Ordering::Relaxed);
-}
-
 const THREAD_COUNT: usize = 1;
 
-pub fn start_thread_search(p: &pos::Pos) -> channel::Receiver<Mv> {
+pub fn start_thread_search(p: &pos::Pos) -> (channel::Receiver<Mv>, Stop) {
     let (tx, rx) = channel::bounded::<Mv>(THREAD_COUNT);
     let p = p.clone();
-    thread::spawn(|| thread_handler(p, tx));
-    rx
+    let stop = Stop::new();
+    let stop_c = stop.clone();
+    thread::spawn(|| thread_handler(p, tx, stop_c));
+    (rx, stop)
 }
 
 /// Spawns threads and start search
 /// Collects the thread reports and compiles them
-fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>) {
+fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>, stop: Stop) {
     let start_time = std::time::Instant::now();
-    STOP.store(false, atomic::Ordering::Relaxed);
     let (sender, reciever) = mpsc::channel::<ThreadReport>();
     for _ in 0..THREAD_COUNT {
         let pclone = p.clone();
         let thread_sender = sender.clone();
+        let stop_clone = stop.clone();
         thread::spawn(move || {
-            search::search(pclone, thread_sender);
+            search::search(pclone, thread_sender, stop_clone);
         });
     }
     // So we properly end the while loop
     drop(sender);
+    drop(stop);
 
     let mut total_nodes = 0;
     let mut thread_reports: Vec<Vec<ThreadReport>> = Vec::new();
@@ -181,5 +175,26 @@ impl SearchStats {
 
     pub fn tt_hit(&mut self) {
         self.tt_hits += 1;
+    }
+}
+
+
+pub struct Stop (Arc<AtomicBool>);
+
+impl Stop {
+    pub fn new() -> Self {
+        Stop(Arc::new(AtomicBool::new(false)))
+    }
+
+    pub fn stop_search(&mut self) {
+        self.0.store(true, atomic::Ordering::Relaxed);
+    }
+
+    pub fn clone(&self) -> Self {
+        Stop(Arc::clone(&self.0))
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.0.load(atomic::Ordering::Relaxed)
     }
 }

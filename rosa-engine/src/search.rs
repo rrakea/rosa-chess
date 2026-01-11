@@ -80,7 +80,7 @@
 use crate::eval;
 use crate::make;
 use crate::mv::mv_gen;
-use crate::thread_search;
+use crate::thread_search::*;
 
 use rosa_lib::history;
 use rosa_lib::mv::Mv;
@@ -93,7 +93,7 @@ use std::sync::mpsc;
 pub static TT: tt::TT = tt::TT::new();
 
 /// Iterative deepening
-pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>) {
+pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
     // Iterative deepening
     let mut depth = 0;
     let mut score;
@@ -101,7 +101,8 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>
 
     loop {
         depth += 1;
-        let mut search_stats = thread_search::SearchStats::new(depth);
+        let mut search_stats = SearchStats::new(depth);
+
 
         match negascout(
             &mut p,
@@ -109,6 +110,7 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>
             eval::SAFE_MIN_SCORE,
             eval::SAFE_MAX_SCORE,
             &mut search_stats,
+            &stop
         ) {
             SearchRes::TimeOut => {
                 return;
@@ -120,16 +122,11 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<thread_search::ThreadReport>
         }
 
         sender
-            .send(thread_search::ThreadReport::new(
-                depth,
-                score,
-                best_mv,
-                search_stats,
-            ))
+            .send(ThreadReport::new(depth, score, best_mv, search_stats))
             .unwrap();
 
         // Checkmate
-        if score == eval::SAFE_MIN_SCORE || score == eval::SAFE_MAX_SCORE || score == 0{
+        if score == eval::SAFE_MIN_SCORE || score == eval::SAFE_MAX_SCORE || score == 0 {
             return;
         }
     }
@@ -149,7 +146,8 @@ fn negascout(
     depth: u8,
     mut alpha: i32,
     mut beta: i32,
-    stats: &mut thread_search::SearchStats,
+    stats: &mut SearchStats,
+    stop: &Stop,
 ) -> SearchRes {
     stats.node();
     if depth == 0 {
@@ -165,7 +163,7 @@ fn negascout(
         return SearchRes::Node(rv);
     }
 
-    if depth < 5 && thread_search::search_done() {
+    if depth < 5 && stop.is_done() {
         return SearchRes::TimeOut;
     }
 
@@ -174,7 +172,7 @@ fn negascout(
         let (legal, was_ep, null_guard) = make::make_null(p);
         if legal == make::Legal::LEGAL {
             let null_score = {
-                match negascout(p, depth - 3, -beta, -(beta - 1), stats) {
+                match negascout(p, depth - 3, -beta, -(beta - 1), stats, stop) {
                     SearchRes::TimeOut => {
                         make::unmake_null(p, was_ep, null_guard);
                         return SearchRes::TimeOut;
@@ -202,7 +200,7 @@ fn negascout(
 
         let score;
         let (_legal, pv_guard) = make::make(p, &mut m, false);
-        match negascout(p, depth - 1, -beta, -alpha, stats) {
+        match negascout(p, depth - 1, -beta, -alpha, stats, stop) {
             SearchRes::TimeOut => {
                 make::unmake(p, m, pv_guard);
                 return SearchRes::TimeOut;
@@ -249,7 +247,7 @@ fn negascout(
             // Principle variation search
             // PV Node
             best_mv = Some(m);
-            match negascout(p, depth - 1, -beta, -alpha, stats) {
+            match negascout(p, depth - 1, -beta, -alpha, stats, stop) {
                 SearchRes::TimeOut => {
                     make::unmake(p, m, make_guard);
                     return SearchRes::TimeOut;
@@ -260,7 +258,7 @@ fn negascout(
             // Null window search
             if depth > 2 && i > LMR_MOVES && do_lmr {
                 let reduced_depth = late_move_reduction(depth);
-                match negascout(p, reduced_depth, -alpha - 1, -alpha, stats) {
+                match negascout(p, reduced_depth, -alpha - 1, -alpha, stats, stop) {
                     SearchRes::TimeOut => {
                         make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
@@ -269,7 +267,7 @@ fn negascout(
                 }
             } else {
                 // Not reduced depth null window
-                match negascout(p, depth - 1, -alpha - 1, -alpha, stats) {
+                match negascout(p, depth - 1, -alpha - 1, -alpha, stats, stop) {
                     SearchRes::TimeOut => {
                         make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
@@ -283,7 +281,7 @@ fn negascout(
                     do_lmr = false;
                 }
                 // Failed high -> Full re-search
-                match negascout(p, depth - 1, -beta, -score, stats) {
+                match negascout(p, depth - 1, -beta, -score, stats, stop) {
                     SearchRes::TimeOut => {
                         make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
