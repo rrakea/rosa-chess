@@ -103,21 +103,24 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
         depth += 1;
         let mut search_stats = SearchStats::new(depth);
 
-
         match negascout(
             &mut p,
             depth,
             eval::SAFE_MIN_SCORE,
             eval::SAFE_MAX_SCORE,
             &mut search_stats,
-            &stop
+            &stop,
         ) {
             SearchRes::TimeOut => {
                 return;
             }
             SearchRes::Node(s) => {
                 score = s;
-                best_mv = TT.get(p.key()).unwrap().mv;
+                let start_pos_entry = TT.get(p.key()).unwrap();
+                if start_pos_entry.key != p.key() {
+                    panic!("Start pos not in TT")
+                }
+                best_mv = start_pos_entry.mv;
             }
         }
 
@@ -311,6 +314,7 @@ fn negascout(
     match best_mv {
         None => {
             // We never encountered a valid move
+            // Cant be root
             debug_assert!(!first_iteration);
             let king_pos = p.piece(Piece::King.clr(p.clr())).get_ones_single();
             if !make::square_attacked(p, p.clr(), king_pos) {
@@ -322,6 +326,8 @@ fn negascout(
             }
         }
         Some(best_mv) => {
+            // BUG!!!!: If we are searching at a low depth and previous searches
+            // have filled tt with higher depth entries root does not get written.
             if replace_entry {
                 TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
             }

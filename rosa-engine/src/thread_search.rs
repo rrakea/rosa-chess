@@ -87,6 +87,9 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>, stop: Stop) {
     // We dont bounce up the moves in the search to save mem & simplify logic
     match search::TT.get(p.key()) {
         Some(e) => {
+            if e.key != p.key() {
+                panic!("TT didnt have starting pos");
+            }
             pv = e.mv;
             let mut pclone = p.clone();
             let (_, guard) = make::make(&mut pclone, &mut pv, false);
@@ -96,6 +99,9 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>, stop: Stop) {
             }
             match search::TT.get(pclone.key()) {
                 Some(e) => {
+                    if e.key != pclone.key() {
+                        panic!("Ponder not in TT");
+                    }
                     ponder = e.mv;
                 }
                 None => {
