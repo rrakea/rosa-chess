@@ -28,8 +28,14 @@ use std::time::{Duration, Instant};
 enum State {
     UnInit,
     Init(Pos),
-    Search(Pos, SearchState, channel::Receiver<Mv>, thread_search::Stop),
+    Search(
+        Pos,
+        SearchState,
+        channel::Receiver<Option<Mv>>,
+        thread_search::Stop,
+    ),
     Pause(Pos, Mv),
+    NoLegalMovesPause(Pos),
 }
 
 pub enum SearchState {
@@ -101,6 +107,9 @@ impl State {
                 self = self.pause_search();
                 return self.start_search(state);
             }
+            State::NoLegalMovesPause(..) => {
+                panic!("No legal moves in this position")
+            }
         }
     }
 
@@ -110,7 +119,14 @@ impl State {
             State::Search(p, _, rec, mut stop) => {
                 stop.stop_search();
                 let ponder = rec.recv().unwrap();
-                return State::Pause(p, ponder);
+                match ponder {
+                    Some(pon) => {
+                        return State::Pause(p, pon);
+                    }
+                    None => {
+                        return State::NoLegalMovesPause(p);
+                    }
+                }
             }
             _ => {
                 println!("Pause while not searching");
@@ -146,7 +162,10 @@ impl State {
 
     fn get_pos(&self) -> &Pos {
         match self {
-            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _, _) => return p,
+            State::Init(p)
+            | State::Pause(p, _)
+            | State::NoLegalMovesPause(p)
+            | State::Search(p, _, _, _) => return p,
             State::UnInit => panic!("Command used before initialized (isready)"),
         }
     }
@@ -156,6 +175,7 @@ impl State {
         self = match self {
             State::Init(_) => State::Init(new_pos),
             State::Pause(_, ponder) => State::Pause(new_pos, ponder),
+            State::NoLegalMovesPause(_) => State::NoLegalMovesPause(new_pos),
             State::Search(_, state, rec, stop) => State::Search(new_pos, state, rec, stop),
             State::UnInit => {
                 self = self.init();

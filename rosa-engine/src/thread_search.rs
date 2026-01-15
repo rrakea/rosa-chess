@@ -19,8 +19,8 @@ use std::thread;
 
 const THREAD_COUNT: usize = 1;
 
-pub fn start_thread_search(p: &pos::Pos) -> (channel::Receiver<Mv>, Stop) {
-    let (tx, rx) = channel::bounded::<Mv>(THREAD_COUNT);
+pub fn start_thread_search(p: &pos::Pos) -> (channel::Receiver<Option<Mv>>, Stop) {
+    let (tx, rx) = channel::unbounded();
     let p = p.clone();
     let stop = Stop::new();
     let stop_c = stop.clone();
@@ -30,7 +30,7 @@ pub fn start_thread_search(p: &pos::Pos) -> (channel::Receiver<Mv>, Stop) {
 
 /// Spawns threads and start search
 /// Collects the thread reports and compiles them
-fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>, stop: Stop) {
+fn thread_handler(p: pos::Pos, tx: channel::Sender<Option<Mv>>, stop: Stop) {
     let start_time = std::time::Instant::now();
     let (sender, reciever) = mpsc::channel::<ThreadReport>();
     for _ in 0..THREAD_COUNT {
@@ -80,41 +80,30 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Mv>, stop: Stop) {
         }
     }
 
-    let mut pv;
-    let ponder;
-    // You might think that the position might get overwritten, but the root node will always write to TT at the very end
-    // Same for ponder (except root key != ponder key but thats unlikely if our hashing is any good)
-    // We dont bounce up the moves in the search to save mem & simplify logic
-    match search::TT.get(p.key()) {
-        Some(e) => {
-            if e.key != p.key() {
-                panic!("TT didnt have starting pos");
-            }
-            pv = e.mv;
-            let mut pclone = p.clone();
-            let (_, guard) = make::make(&mut pclone, &mut pv, false);
-            // Safety: Pos gets dropped after this
+    let report = thread_reports.last().unwrap().first().unwrap();
+    let mut pv = report.pv;
+
+    match report.ponder {
+        Some(pon) => {
+            println!("bestmove {} ponder {}", pv, pon);
+            tx.send(Some(pon)).unwrap();
+        }
+        None => {
+            // This can only happen if
+            // a) Search times out before any position has been searched to depth 2
+            // -> Quit unlikely
+            // b) We have just played a checkmating move
+            // -> The resulting position has no legal moves
+            let mut p_after_move = p.clone();
+            let (_, guard) = make::make(&mut p_after_move, &mut pv, false);
+            // SAFETY: Debug code working on a clone
             unsafe {
                 guard.verified_drop();
             }
-            match search::TT.get(pclone.key()) {
-                Some(e) => {
-                    if e.key != pclone.key() {
-                        panic!("Ponder not in TT");
-                    }
-                    ponder = e.mv;
-                }
-                None => {
-                    panic!("Ponder position not in TT");
-                }
-            }
-        }
-        None => {
-            panic!("Root Position not in TT");
+            println!("bestmove {}", pv);
+            tx.send(None).unwrap();
         }
     }
-    print_best_move(pv);
-    tx.send(ponder).unwrap();
 }
 
 fn print_info(
@@ -138,28 +127,28 @@ fn print_info(
     )
 }
 
-fn print_best_move(pv: Mv) {
-    println!("bestmove {}", pv);
-}
-
+#[derive(Clone)]
 pub struct ThreadReport {
     depth: u8,
     score: i32,
     pv: Mv,
+    ponder: Option<Mv>,
     stats: SearchStats,
 }
 
 impl ThreadReport {
-    pub fn new(depth: u8, score: i32, pv: Mv, stats: SearchStats) -> Self {
+    pub fn new(depth: u8, score: i32, pv: Mv, ponder: Option<Mv>, stats: SearchStats) -> Self {
         ThreadReport {
             depth,
             score,
             pv,
+            ponder,
             stats,
         }
     }
 }
 
+#[derive(Clone)]
 pub struct SearchStats {
     pub depth: u8,
     nodes: u64,
@@ -184,8 +173,7 @@ impl SearchStats {
     }
 }
 
-
-pub struct Stop (Arc<AtomicBool>);
+pub struct Stop(Arc<AtomicBool>);
 
 impl Stop {
     pub fn new() -> Self {

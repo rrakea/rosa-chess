@@ -94,13 +94,14 @@ pub static TT: tt::TT = tt::TT::new();
 
 /// Iterative deepening
 pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
-    // Iterative deepening
     let mut depth = 0;
-    let mut score;
-    let mut best_mv;
 
     loop {
         depth += 1;
+
+        let score;
+        let mut best_mv;
+        let mut ponder = None;
         let mut search_stats = SearchStats::new(depth);
 
         match negascout(
@@ -114,33 +115,79 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
             SearchRes::TimeOut => {
                 return;
             }
-            SearchRes::Node(s) => {
+            SearchRes::Node(mv, pon, s) => {
                 score = s;
-                let start_pos_entry = TT.get(p.key()).unwrap();
-                if start_pos_entry.key != p.key() {
-                    panic!("Start pos not in TT")
-                }
-                best_mv = start_pos_entry.mv;
+                best_mv = mv;
+                ponder = Some(pon);
+            }
+            SearchRes::Leaf(s) => {
+                panic!("Root is a leaf Node. Score: {}", s)
+            }
+            SearchRes::NoPonderNode(mv, s) => {
+                score = s;
+                best_mv = mv;
+            }
+        }
+
+        // Only sende no ponder move is there really is no legal move
+        if ponder.is_none() {
+            let mut p = p.clone();
+            let (_, guard) = make::make(&mut p, &mut best_mv, false);
+            unsafe {
+                guard.verified_drop();
+            }
+            // Ponder is in TT
+            if let Some(entry) = TT.get(p.key())
+                && entry.key == p.key()
+            {
+                ponder = Some(entry.mv);
+            } else {
+                // If there are no legal moves -> ponder = none
+                // Will return since we are mate / stalemate in 1 
+                ponder = mv_gen::gen_mvs(&p).pop();
             }
         }
 
         sender
-            .send(ThreadReport::new(depth, score, best_mv, search_stats))
+            .send(ThreadReport::new(
+                depth,
+                score,
+                best_mv,
+                ponder,
+                search_stats.clone(),
+            ))
             .unwrap();
 
-        // Checkmate
         if score == eval::SAFE_MIN_SCORE || score == eval::SAFE_MAX_SCORE || score == 0 {
-            return;
+            // If the TT entry for the current position is at the current depth
+            // -> So we dont spin infinitly on a small tree
+            if let Some(entry) = TT.get(p.key())
+                && depth > 5
+                && entry.depth <= depth
+            {
+                return;
+            }
         }
     }
 }
 
-/// How many moves to do before starting late move reductions
-const LMR_MOVES: usize = 2;
-
 enum SearchRes {
     TimeOut,
-    Node(i32),
+    Leaf(i32),
+    NoPonderNode(Mv, i32),
+    Node(Mv, Mv, i32),
+}
+
+impl SearchRes {
+    fn from_mvs(mv: Option<(Mv, Option<Mv>)>, score: i32) -> SearchRes {
+        match mv {
+            Some((m, ponder)) => match ponder {
+                Some(p) => SearchRes::Node(m, p, score),
+                None => SearchRes::NoPonderNode(m, score),
+            },
+            None => SearchRes::Leaf(score),
+        }
+    }
 }
 
 /// Main search functions; uses the optimizations described above
@@ -154,16 +201,19 @@ fn negascout(
 ) -> SearchRes {
     stats.node();
     if depth == 0 {
-        return SearchRes::Node(eval::eval(p));
+        return SearchRes::Leaf(eval::eval(p));
     }
 
-    let (replace_entry, mut best_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
+    let mut best_mvs: Option<(Mv, Option<Mv>)> = None;
 
-    if let Some(_) = best_mv {
+    let (replace_entry, tt_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
+
+    if let Some(m) = tt_mv {
         stats.tt_hit();
+        best_mvs = Some((m, None));
     }
     if let Some(rv) = return_val {
-        return SearchRes::Node(rv);
+        return SearchRes::from_mvs(best_mvs, rv);
     }
 
     if depth < 5 && stop.is_done() {
@@ -180,7 +230,9 @@ fn negascout(
                         make::unmake_null(p, was_ep, null_guard);
                         return SearchRes::TimeOut;
                     }
-                    SearchRes::Node(score) => -score,
+                    SearchRes::Node(_, _, score)
+                    | SearchRes::Leaf(score)
+                    | SearchRes::NoPonderNode(_, score) => -score,
                 }
             };
 
@@ -188,7 +240,7 @@ fn negascout(
             // Even if we dont make a move we are still outside of the window
             if null_score >= beta {
                 make::unmake_null(p, was_ep, null_guard);
-                return SearchRes::Node(beta);
+                return SearchRes::from_mvs(best_mvs, beta);
             }
         }
         make::unmake_null(p, was_ep, null_guard);
@@ -198,7 +250,7 @@ fn negascout(
     let mut first_iteration = true;
 
     // Process PV move
-    if let Some(mut m) = best_mv {
+    if let Some((mut m, _)) = best_mvs {
         first_iteration = false;
 
         let score;
@@ -208,7 +260,11 @@ fn negascout(
                 make::unmake(p, m, pv_guard);
                 return SearchRes::TimeOut;
             }
-            SearchRes::Node(s) => score = -s,
+            SearchRes::Node(ponder, _, s) | SearchRes::NoPonderNode(ponder, s) => {
+                best_mvs = Some((m, Some(ponder)));
+                score = -s;
+            }
+            SearchRes::Leaf(s) => score = -s,
         }
         make::unmake(p, m, pv_guard);
 
@@ -229,13 +285,13 @@ fn negascout(
                     tt::EntryType::Lower,
                 ));
             }
-            return SearchRes::Node(alpha);
+            return SearchRes::from_mvs(best_mvs, alpha);
         }
     }
 
     let mut do_lmr = true;
 
-    let iter = get_mv_iter(p, best_mv);
+    let iter = get_mv_iter(p, best_mvs);
 
     for (i, mut m) in iter.enumerate() {
         let (legal, make_guard) = make::make(p, &mut m, true);
@@ -245,17 +301,22 @@ fn negascout(
         }
 
         let mut score;
+        let mut response = None;
         if first_iteration {
             first_iteration = false;
-            // Principle variation search
-            // PV Node
-            best_mv = Some(m);
+            // Set best mv since we didnt find it in tt
+            best_mvs = Some((m, None));
             match negascout(p, depth - 1, -beta, -alpha, stats, stop) {
                 SearchRes::TimeOut => {
                     make::unmake(p, m, make_guard);
                     return SearchRes::TimeOut;
                 }
-                SearchRes::Node(s) => score = -s,
+                SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
+                    response = Some(res);
+                    best_mvs = Some((m, response));
+                    score = s;
+                }
+                SearchRes::Leaf(s) => score = -s,
             }
         } else {
             // Null window search
@@ -266,7 +327,11 @@ fn negascout(
                         make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
-                    SearchRes::Node(s) => score = -s,
+                    SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
+                        response = Some(res);
+                        score = -s;
+                    }
+                    SearchRes::Leaf(s) => score = -s,
                 }
             } else {
                 // Not reduced depth null window
@@ -275,7 +340,11 @@ fn negascout(
                         make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
-                    SearchRes::Node(s) => score = -s,
+                    SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
+                        response = Some(res);
+                        score = -s;
+                    }
+                    SearchRes::Leaf(s) => score = -s,
                 }
             }
             if alpha < score && score < beta {
@@ -289,14 +358,18 @@ fn negascout(
                         make::unmake(p, m, make_guard);
                         return SearchRes::TimeOut;
                     }
-                    SearchRes::Node(s) => score = -s,
+                    SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
+                        response = Some(res);
+                        score = -s;
+                    }
+                    SearchRes::Leaf(s) => score = -s,
                 }
             }
         }
 
         if score > alpha {
             alpha = score;
-            best_mv = Some(m);
+            best_mvs = Some((m, response));
             node_type = tt::EntryType::Exact;
         }
 
@@ -311,7 +384,7 @@ fn negascout(
         make::unmake(p, m, make_guard);
     }
 
-    match best_mv {
+    match best_mvs {
         None => {
             // We never encountered a valid move
             // Cant be root
@@ -319,22 +392,19 @@ fn negascout(
             let king_pos = p.piece(Piece::King.clr(p.clr())).get_ones_single();
             if !make::square_attacked(p, p.clr(), king_pos) {
                 // Stalemate
-                return SearchRes::Node(0);
+                return SearchRes::Leaf(0);
             } else {
                 // Checkmate
-                return SearchRes::Node(eval::SAFE_MIN_SCORE);
+                return SearchRes::Leaf(eval::SAFE_MIN_SCORE);
             }
         }
-        Some(best_mv) => {
-            // BUG!!!!: If we are searching at a low depth and previous searches
-            // have filled tt with higher depth entries root does not get written.
+        Some((best_mv, ponder)) => {
             if replace_entry {
                 TT.set(tt::Entry::new(p.key(), alpha, best_mv, depth, node_type));
             }
+            return SearchRes::from_mvs(Some((best_mv, ponder)), alpha);
         }
     }
-
-    return SearchRes::Node(alpha);
 }
 
 /// Reading from the transposition table.
@@ -395,7 +465,7 @@ fn parse_tt(
 /// Get the move iter depending on the move we got from the transposition table
 /// -> We have to exclude it if tt lookup was succesful
 #[inline(always)]
-fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>> {
+fn get_mv_iter(p: &pos::Pos, best_mv: Option<(Mv, Option<Mv>)>) -> Box<dyn Iterator<Item = Mv>> {
     // Generating the move iter
     match best_mv {
         None => Box::new(
@@ -404,7 +474,7 @@ fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>
                 .chain(mv_gen::gen_mvs_stages(p, false)),
         ),
         // Since we dont need to check the non cap mvs if pv is a cap
-        Some(pv) => match pv.is_cap() {
+        Some((pv, _)) => match pv.is_cap() {
             true => Box::new(
                 mv_gen::gen_mvs_stages(p, true)
                     .into_iter()
@@ -421,6 +491,9 @@ fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>
         },
     }
 }
+
+/// How many moves to do before starting late move reductions
+const LMR_MOVES: usize = 2;
 
 /// Calc LMR reduction depending on depth
 /// Very basic right now; subject to change
