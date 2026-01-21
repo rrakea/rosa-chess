@@ -243,6 +243,7 @@ fn negascout(
         // Process PV move
         let (legal, pv_guard) = make::make(p, &mut pv, true);
         if legal == Legal::ILLEGAL {
+            make::unmake(p, pv, pv_guard);
             continue;
         }
 
@@ -400,7 +401,7 @@ fn do_null_move(
     stats: &mut SearchStats,
     stop: &Stop,
 ) -> Option<SearchRes> {
-    if !crate::config::DO_NULL_MV || depth < 3 {
+    if !crate::config::DO_NULL_MV || depth < 4 {
         return None;
     }
 

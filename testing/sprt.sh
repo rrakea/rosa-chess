@@ -8,6 +8,6 @@ fastchess -engine cmd="${path}/testing/baseline" name=Baseline\
     -each tc=15+1\
     -rounds 50\
     -concurrency 4\
-    -log file=${path}/testing/log.txt level=warn\
+    -log file=${path}/testing/log.txt level=warn engine=true\
 
 echo -e "\n\n\n\n\n" >> ${path}/testing/log.txt
