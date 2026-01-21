@@ -67,7 +67,7 @@ impl Pos {
             full: Board::new(),
             key: tt::Key::default(),
             ep: is_ep.then(|| ep_file),
-            repetition: Vec::new(),
+            repetition: Vec::with_capacity(20),
         };
 
         newp.gen_new_full();
@@ -231,22 +231,6 @@ impl Pos {
         }
 
         report
-    }
-}
-
-impl Default for Pos {
-    // You cant define default for a type alias ahhh
-    fn default() -> Self {
-        Pos {
-            boards: [Board::default(); 12],
-            full: Board::default(),
-            sq: [None; 64],
-            key: tt::Key::default(),
-            castle: Castling::default(),
-            clr: Clr::default(),
-            ep: Option::default(),
-            repetition: Vec::new(),
-        }
     }
 }
 

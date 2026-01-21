@@ -100,10 +100,6 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
     loop {
         depth += 1;
 
-        // Ensure root position is included in repetition tracking for accurate detection
-        p.repetition.clear();
-        p.repetition.push(p.key());
-
         let score;
         let mut best_mv;
         let mut ponder = None;
