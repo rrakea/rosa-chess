@@ -10,6 +10,10 @@ pub const SAFE_MIN_SCORE: i32 = i32::MIN + 1;
 
 // Stolen from: https://www.chessprogramming.org/Tapered_Eval
 pub fn eval(p: &pos::Pos) -> i32 {
+    if p.halfmove >= 50 {
+        return 0;
+    }
+
     let mut middelgame = 0;
     let mut endgame = 0;
     let mut phase = STARTPHASE;

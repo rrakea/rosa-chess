@@ -26,6 +26,7 @@ pub enum Legal {
 }
 
 pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard) {
+    p.halfmove += 1;
     let color = p.clr();
     let op_color = color.flip();
     let mut castle = p.castle();
@@ -105,6 +106,10 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard
         p.piece_toggle(mv.cap_victim().clr(op_color), captured_piece_sq);
     }
 
+    if mv.is_cap() || piece.de_clr() == Piece::Pawn {
+        p.halfmove = 0;
+    }
+
     // This has to be at the end since we need to unset the captured
     // piece first & change the moving piece during a promotion
     p.piece_toggle(piece, end);
@@ -113,18 +118,22 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard
     if castle.wk && (piece == ClrPiece::WKing || start == BOTTOM_RIGHT_SQ || end == BOTTOM_RIGHT_SQ)
     {
         castle.wk = false;
+        p.halfmove = 0;
     }
 
     if castle.wq && (piece == ClrPiece::WKing || start == BOTTOM_LEFT_SQ || end == BOTTOM_LEFT_SQ) {
         castle.wq = false;
+        p.halfmove = 0;
     }
 
     if castle.bk && (piece == ClrPiece::BKing || start == TOP_RIGHT_SQ || end == TOP_RIGHT_SQ) {
         castle.bk = false;
+        p.halfmove = 0;
     }
 
     if castle.bq && (piece == ClrPiece::BKing || start == TOP_LEFT_SQ || end == TOP_LEFT_SQ) {
         castle.bq = false;
+        p.halfmove = 0;
     }
 
     p.set_castling(castle);

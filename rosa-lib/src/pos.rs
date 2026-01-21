@@ -32,6 +32,7 @@ pub struct Pos {
     clr: Clr,
     ep: Option<u8>,
     castle: Castling,
+    pub halfmove: u8
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Default, Debug)]
@@ -65,6 +66,7 @@ impl Pos {
             full: Board::new(),
             key: tt::Key::default(),
             ep: is_ep.then(|| ep_file),
+            halfmove: 0
         };
 
         newp.gen_new_full();
@@ -241,6 +243,7 @@ impl Default for Pos {
             castle: Castling::default(),
             clr: Clr::default(),
             ep: Option::default(),
+            halfmove: 0
         }
     }
 }
