@@ -157,26 +157,28 @@ fn gen_castle(p: &Pos, mvs: &mut BinaryHeap<Mv>) {
 
     // We can skip checking the last square, since that is where the kings ends up
     // -> It is searched again in checking for legal moves
-    let queenside_free = |king_pos| { p.board_empty_at(king_pos - 1)
-        && p.board_empty_at(king_pos - 2)
-        && p.board_empty_at(king_pos - 3)
+    let queenside_free = |king_pos| {
+        p.board_empty_at(king_pos - 1)
+            && p.board_empty_at(king_pos - 2)
+            && p.board_empty_at(king_pos - 3)
     };
-    let kingside_free =
-        |king_pos| p.board_empty_at(king_pos + 1) && p.board_empty_at(king_pos + 2);
+    let kingside_free = |king_pos| p.board_empty_at(king_pos + 1) && p.board_empty_at(king_pos + 2);
 
     // We need to check for color first, since it might go out of bounds otherwise
     match p.clr() {
         Clr::White => {
             if castle.wk && kingside_free(king_pos) {
                 mvs.push(Mv::new_castle(0));
-            } else if castle.wq && queenside_free(king_pos) {
+            }
+            if castle.wq && queenside_free(king_pos) {
                 mvs.push(Mv::new_castle(1));
             }
         }
         Clr::Black => {
             if castle.bk && kingside_free(king_pos) {
                 mvs.push(Mv::new_castle(2));
-            } else if castle.bq && queenside_free(king_pos) {
+            }
+            if castle.bq && queenside_free(king_pos) {
                 mvs.push(Mv::new_castle(3));
             }
         }

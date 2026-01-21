@@ -27,6 +27,8 @@ pub struct Pos {
     // Using the consts defined above
     sq: [ClrPieceOption; 64],
 
+    pub repetition: Vec<tt::Key>,
+
     key: tt::Key,
 
     clr: Clr,
@@ -65,10 +67,12 @@ impl Pos {
             full: Board::new(),
             key: tt::Key::default(),
             ep: is_ep.then(|| ep_file),
+            repetition: Vec::with_capacity(20),
         };
 
         newp.gen_new_full();
         newp.gen_new_key();
+        newp.repetition.push(newp.key);
         newp
     }
 
@@ -230,21 +234,6 @@ impl Pos {
     }
 }
 
-impl Default for Pos {
-    // You cant define default for a type alias ahhh
-    fn default() -> Self {
-        Pos {
-            boards: [Board::default(); 12],
-            full: Board::default(),
-            sq: [None; 64],
-            key: tt::Key::default(),
-            castle: Castling::default(),
-            clr: Clr::default(),
-            ep: Option::default(),
-        }
-    }
-}
-
 impl std::fmt::Display for Pos {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut ranks = Vec::new();
@@ -271,6 +260,8 @@ impl std::fmt::Display for Pos {
             board += "\n"
         }
         board += format!("To move: {}\n", self.clr).as_str();
+        board += format!("Castling right: {:?}\n", self.castle()).as_str();
+        board += format!("En passant file: {:?}\n", self.ep()).as_str();
         write!(f, "{}", board)
     }
 }

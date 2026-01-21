@@ -39,12 +39,12 @@ pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
         let score;
         match legal {
             make::Legal::ILLEGAL => {
-                make::unmake(pos, &mut mv, guard);
+                make::unmake(pos, mv, guard);
                 continue;
             }
             make::Legal::LEGAL => {
                 score = -quiscence_search(pos, -beta, -alpha);
-                make::unmake(pos, &mut mv, guard);
+                make::unmake(pos, mv, guard);
             }
         }
 

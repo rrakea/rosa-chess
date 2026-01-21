@@ -240,7 +240,7 @@ impl Mv {
     }
 
     pub fn is_prom(&self) -> bool {
-        self.flag() == Flag::Prom
+        matches!(self.flag(), Flag::Prom | Flag::PromCap)
     }
 
     pub fn is_cap(&self) -> bool {
@@ -307,6 +307,14 @@ impl Mv {
 
     pub fn cap_victim(&self) -> Piece {
         self.capture_data().1
+    }
+
+    // You could also sanitize history heuristic, but since thats only relevant
+    // for move ordering we can ignore it here
+    pub fn sanitize_tt(&mut self) {
+        self.0 &= !OLD_IS_EP;
+        self.0 &= !OLD_CASTLE;
+        self.0 &= !OLD_EP_FILE;
     }
 
     pub fn set_old_castle_rights(&mut self, rights: pos::Castling) {

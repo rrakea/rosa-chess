@@ -28,8 +28,14 @@ use std::time::{Duration, Instant};
 enum State {
     UnInit,
     Init(Pos),
-    Search(Pos, SearchState, channel::Receiver<Mv>),
+    Search(
+        Pos,
+        SearchState,
+        channel::Receiver<Option<Mv>>,
+        thread_search::Stop,
+    ),
     Pause(Pos, Mv),
+    NoLegalMovesPause(Pos),
 }
 
 pub enum SearchState {
@@ -82,11 +88,11 @@ impl State {
                     StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
                     StartSearch::Untimed => SearchState::Untimed,
                 };
-                let rec = thread_search::start_thread_search(&p);
-                return State::Search(p, search_state, rec);
+                let (rec, stop) = thread_search::start_thread_search(&p);
+                return State::Search(p, search_state, rec, stop);
             }
             State::Pause(mut p, mut ponder) => {
-                let rec = thread_search::start_thread_search(&p);
+                let (rec, stop) = thread_search::start_thread_search(&p);
                 let search_state = match state {
                     StartSearch::Ponder(dur) => {
                         let (_legal, guard) = make::make(&mut p, &mut ponder, false);
@@ -95,11 +101,14 @@ impl State {
                     StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
                     StartSearch::Untimed => SearchState::Untimed,
                 };
-                return State::Search(p, search_state, rec);
+                return State::Search(p, search_state, rec, stop);
             }
             State::Search(..) => {
                 self = self.pause_search();
                 return self.start_search(state);
+            }
+            State::NoLegalMovesPause(..) => {
+                panic!("No legal moves in this position")
             }
         }
     }
@@ -107,10 +116,17 @@ impl State {
     #[must_use]
     fn pause_search(self) -> Self {
         match self {
-            State::Search(p, _, rec) => {
-                thread_search::stop_search();
+            State::Search(p, _, rec, mut stop) => {
+                stop.stop_search();
                 let ponder = rec.recv().unwrap();
-                return State::Pause(p, ponder);
+                match ponder {
+                    Some(pon) => {
+                        return State::Pause(p, pon);
+                    }
+                    None => {
+                        return State::NoLegalMovesPause(p);
+                    }
+                }
             }
             _ => {
                 println!("Pause while not searching");
@@ -121,19 +137,19 @@ impl State {
 
     #[must_use]
     fn ponder_hit(self) -> Self {
-        if let State::Search(p, SearchState::Ponder(dur, _, guard), rec) = self {
+        if let State::Search(p, SearchState::Ponder(dur, _, guard), rec, stop) = self {
             // SAFETY: The move has been played -> we no longer need to unmake it
             unsafe {
                 guard.verified_drop();
             }
-            return State::Search(p, SearchState::Timed(Instant::now(), dur), rec);
+            return State::Search(p, SearchState::Timed(Instant::now(), dur), rec, stop);
         } else {
             panic!("Ponder hit while not pondering")
         }
     }
 
     fn get_timeout(&self) -> Duration {
-        if let State::Search(_, SearchState::Timed(start, dur), _) = self {
+        if let State::Search(_, SearchState::Timed(start, dur), _, _) = self {
             let elapsed = start.elapsed();
             if elapsed >= *dur {
                 return Duration::from_millis(0);
@@ -146,7 +162,10 @@ impl State {
 
     fn get_pos(&self) -> &Pos {
         match self {
-            State::Init(p) | State::Pause(p, _) | State::Search(p, _, _) => return p,
+            State::Init(p)
+            | State::Pause(p, _)
+            | State::NoLegalMovesPause(p)
+            | State::Search(p, _, _, _) => return p,
             State::UnInit => panic!("Command used before initialized (isready)"),
         }
     }
@@ -156,7 +175,8 @@ impl State {
         self = match self {
             State::Init(_) => State::Init(new_pos),
             State::Pause(_, ponder) => State::Pause(new_pos, ponder),
-            State::Search(_, state, rec) => State::Search(new_pos, state, rec),
+            State::NoLegalMovesPause(_) => State::NoLegalMovesPause(new_pos),
+            State::Search(_, state, rec, stop) => State::Search(new_pos, state, rec, stop),
             State::UnInit => {
                 self = self.init();
                 self.set_pos(new_pos)
@@ -265,6 +285,14 @@ pub fn start() {
                 state = state.set_pos(pos);
             }
 
+            // Start division search at current node
+            // Only for debugging
+            "div" => {
+                let mut pos = state.get_pos().clone();
+                let depth = cmd_parts[1].parse().unwrap();
+                search::debug_division_search(&mut pos, depth);
+            }
+
             "print" | "p" | "d" => {
                 println!("{}", state.get_pos());
             }
@@ -295,6 +323,8 @@ pub fn start() {
             "setoption" => {
                 //println!("Options currently not supported");
             }
+
+            "ucinewgame" => {}
             _ => {}
         }
     }
