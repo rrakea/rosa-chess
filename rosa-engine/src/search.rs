@@ -295,22 +295,36 @@ fn negascout(
 
         let mut response = None;
         // Null window search & Late move reduction
-        if do_lmr(lmr_stable, depth, i) {
-            let reduced_depth = late_move_reduction(depth);
-            match negascout(p, reduced_depth, -alpha - 1, -alpha, stats, stop) {
-                SearchRes::TimeOut => {
-                    make::unmake(p, m, make_guard);
-                    return SearchRes::TimeOut;
+        if crate::config::DO_SCOUT {
+            if do_lmr(lmr_stable, depth, i) {
+                let reduced_depth = late_move_reduction(depth);
+                match negascout(p, reduced_depth, -alpha - 1, -alpha, stats, stop) {
+                    SearchRes::TimeOut => {
+                        make::unmake(p, m, make_guard);
+                        return SearchRes::TimeOut;
+                    }
+                    SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
+                        response = Some(res);
+                        score = -s;
+                    }
+                    SearchRes::Leaf(s) => score = -s,
                 }
-                SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
-                    response = Some(res);
-                    score = -s;
+            } else {
+                // Not reduced depth null window
+                match negascout(p, depth - 1, -alpha - 1, -alpha, stats, stop) {
+                    SearchRes::TimeOut => {
+                        make::unmake(p, m, make_guard);
+                        return SearchRes::TimeOut;
+                    }
+                    SearchRes::Node(res, _, s) | SearchRes::NoPonderNode(res, s) => {
+                        response = Some(res);
+                        score = -s;
+                    }
+                    SearchRes::Leaf(s) => score = -s,
                 }
-                SearchRes::Leaf(s) => score = -s,
             }
         } else {
-            // Not reduced depth null window
-            match negascout(p, depth - 1, -alpha - 1, -alpha, stats, stop) {
+            match negascout(p, depth, -beta, -alpha, stats, stop) {
                 SearchRes::TimeOut => {
                     make::unmake(p, m, make_guard);
                     return SearchRes::TimeOut;
@@ -386,7 +400,7 @@ fn do_null_move(
     stats: &mut SearchStats,
     stop: &Stop,
 ) -> Option<SearchRes> {
-    if depth < 3 {
+    if !crate::config::DO_NULL_MV || depth < 3 {
         return None;
     }
 
@@ -426,6 +440,10 @@ fn parse_tt(
     beta: &mut i32,
 ) -> (bool, Option<Mv>, Option<i32>) {
     let entry = TT.get(key);
+    if !crate::config::DO_TT_PULL {
+        return (true, None, None);
+    }
+
     match entry {
         None => {
             return (true, None, None);
@@ -517,7 +535,7 @@ fn late_move_reduction(depth: u8) -> u8 {
 
 #[inline(always)]
 fn do_lmr(do_lmr: bool, depth: u8, i: usize) -> bool {
-    do_lmr && depth > 2 && i > LMR_MOVES
+    crate::config::DO_LMR && do_lmr && depth > 2 && i > LMR_MOVES
 }
 
 pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {

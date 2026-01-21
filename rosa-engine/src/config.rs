@@ -13,3 +13,8 @@ pub const TT_SIZE: u64 =
 pub const PONDER: bool = true;
 pub const SHOW_CURRENT_LINE: bool = true;
 pub const REPORT_STATS: bool = true;
+
+pub const DO_SCOUT: bool = true;
+pub const DO_NULL_MV: bool = false;
+pub const DO_LMR: bool = true;
+pub const DO_TT_PULL: bool = true;
