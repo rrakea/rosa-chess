@@ -27,6 +27,8 @@ pub struct Pos {
     // Using the consts defined above
     sq: [ClrPieceOption; 64],
 
+    pub repetition: Vec<tt::Key>,
+
     key: tt::Key,
 
     clr: Clr,
@@ -65,10 +67,12 @@ impl Pos {
             full: Board::new(),
             key: tt::Key::default(),
             ep: is_ep.then(|| ep_file),
+            repetition: Vec::new(),
         };
 
         newp.gen_new_full();
         newp.gen_new_key();
+        newp.repetition.push(newp.key);
         newp
     }
 
@@ -241,6 +245,7 @@ impl Default for Pos {
             castle: Castling::default(),
             clr: Clr::default(),
             ep: Option::default(),
+            repetition: Vec::new(),
         }
     }
 }

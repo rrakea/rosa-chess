@@ -100,6 +100,10 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
     loop {
         depth += 1;
 
+        // Ensure root position is included in repetition tracking for accurate detection
+        p.repetition.clear();
+        p.repetition.push(p.key());
+
         let score;
         let mut best_mv;
         let mut ponder = None;
@@ -224,6 +228,14 @@ fn negascout(
     let null_mv_return = do_null_move(p, depth, beta, tt_mv, stats, stop);
     if let Some(res) = null_mv_return {
         return res;
+    }
+
+    // Check for repetitions
+    // Null moves are added, so we can only check every second (same color)
+    for key in p.repetition.iter().rev().skip(1).step_by(2) {
+        if *key == p.key() {
+            return SearchRes::from_tt(tt_mv, 0);
+        }
     }
 
     // mv_gen is only called if tt_mv == None
