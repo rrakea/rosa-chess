@@ -226,6 +226,14 @@ fn negascout(
         return res;
     }
 
+    // Check for repetitions
+    // Null moves are added, so we can only check every second (same color)
+    for key in p.repetition.iter().rev().skip(1).step_by(2) {
+        if *key == p.key() {
+            return SearchRes::from_tt(tt_mv, 0);
+        }
+    }
+
     // mv_gen is only called if tt_mv == None
     // -> If tt mv produces a cutoff, we never do mv_gen
     let mut iter = get_mv_iter(p, tt_mv).into_iter();
