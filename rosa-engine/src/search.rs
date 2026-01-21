@@ -334,9 +334,7 @@ fn negascout(
 
         if alpha < score && score < beta {
             // Unstable Node -> Dont do LMR
-            if i <= LMR_MOVES {
-                lmr_stable = false;
-            }
+            lmr_stable = false;
             // Failed high -> Full re-search
             match negascout(p, depth - 1, -beta, -score, stats, stop) {
                 SearchRes::TimeOut => {
@@ -521,12 +519,16 @@ const LMR_MOVES: usize = 2;
 /// Very basic right now; subject to change
 #[inline(always)]
 fn late_move_reduction(depth: u8) -> u8 {
-    if depth < 6 { depth - 1 } else { depth / 3 }
+    if depth < 6 {
+        depth - 1
+    } else {
+        depth - (depth / 3)
+    }
 }
 
 #[inline(always)]
 fn do_lmr(do_lmr: bool, depth: u8, i: usize) -> bool {
-    do_lmr && depth > 2 && i > LMR_MOVES
+    do_lmr && depth > 2 && i >= LMR_MOVES
 }
 
 pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
