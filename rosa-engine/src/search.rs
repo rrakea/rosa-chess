@@ -81,6 +81,7 @@ use crate::eval;
 use crate::make;
 use crate::make::Legal;
 use crate::mv::mv_gen;
+use crate::quiscence::quiscence_search;
 use crate::thread_search::*;
 
 use rosa_lib::history;
@@ -205,7 +206,7 @@ fn negascout(
 ) -> SearchRes {
     stats.node();
     if depth == 0 {
-        return SearchRes::Leaf(eval::eval(p));
+        return SearchRes::Leaf(quiscence_search(p, alpha, beta));
     }
 
     let (replace_entry, tt_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
