@@ -13,16 +13,17 @@
 //! We use the current static eval as a "stand pat" - a lower bound.
 //! If a capture we check is worse than the stand pat value
 //! it obviously isnt a good move. (Once again based on the null move hypothesis)
-//!
 
 use rosa_lib::pos::Pos;
 
 use crate::{eval, make, mv::mv_gen};
 
-pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
-    let stand_pat = eval::eval(pos);
+const BEST_POSSIBLE_CAP: i32 = 1100;
+const SAFETY_MARGIN: i32 = 200;
 
-    let mut best = stand_pat;
+pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
+    let mut best = eval::eval(pos);
+
     // Even if we dont do anything we still fall out of the window
     if best >= beta {
         return best;
@@ -33,8 +34,20 @@ pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
         alpha = best;
     }
 
+    // Even our best possible cap couldnt raise alpha
+    if best + BEST_POSSIBLE_CAP < alpha {
+        return alpha;
+    }
+
     let iter = mv_gen::gen_mvs_stages(&pos, true);
     for mut mv in iter {
+        if mv.is_cap() {
+            let cap_val = mv.cap_victim().val() as i32;
+            // This move cant raise alpha
+            if best + cap_val + SAFETY_MARGIN < alpha {
+                continue;
+            }
+        }
         let (legal, guard) = make::make(pos, &mut mv, true);
         let score;
         match legal {
