@@ -2,7 +2,6 @@
 //! Spawns a separate thread to handle both stdin and timeouts
 
 use crate::config;
-use crate::eval;
 use crate::eval::eval;
 use crate::fen;
 use crate::make;
@@ -52,7 +51,6 @@ pub fn init() {
         tt::init_zobrist_keys();
         mv::magic_init::init_magics();
         search::TT.resize(config::TT_SIZE);
-        eval::init_eval();
     });
 }
 

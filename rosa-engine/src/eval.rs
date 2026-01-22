@@ -17,8 +17,8 @@ pub fn eval(p: &pos::Pos) -> i32 {
     for (sq, piece) in p.piece_iter().enumerate() {
         if let Some(piece) = piece {
             let index = piece.index();
-            middelgame += unsafe { MIDDLEGAME_TABLE[index][sq] };
-            endgame += unsafe { ENDGAME_TABLE[index][sq] };
+            middelgame += MG_TABLE[index][sq];
+            endgame += EG_TABLE[index][sq];
             phase -= PHASEARRAY[index];
         }
     }
@@ -27,45 +27,61 @@ pub fn eval(p: &pos::Pos) -> i32 {
     (((middelgame * (256 - phase)) + endgame * phase) / 256) * p.clr().as_sign() as i32
 }
 
-static mut MIDDLEGAME_TABLE: [[i32; 64]; 12] = [[0; 64]; 12];
-static mut ENDGAME_TABLE: [[i32; 64]; 12] = [[0; 64]; 12];
-
 const PHASEARRAY: [i32; 12] = [0, 1, 1, 2, 4, 0, 0, 1, 1, 2, 4, 0];
 const STARTPHASE: i32 = 24;
 
-pub fn init_eval() {
-    unsafe {
-        for sq in 0..64 {
-            let flip_sq = 63 - sq;
-            MIDDLEGAME_TABLE[0][sq] = PAWN_MG + MG_PAWN[sq];
-            MIDDLEGAME_TABLE[1][sq] = KNIGHT_MG + MG_KNIGHT[sq];
-            MIDDLEGAME_TABLE[2][sq] = BISHOP_MG + MG_BISHOP[sq];
-            MIDDLEGAME_TABLE[3][sq] = ROOK_MG + MG_ROOK[sq];
-            MIDDLEGAME_TABLE[4][sq] = QUEEN_MG + MG_QUEEN[sq];
-            MIDDLEGAME_TABLE[5][sq] = MG_KING[sq];
+const MG_TABLE: [[i32; 64]; 12] = init_mg();
+const EG_TABLE: [[i32; 64]; 12] = init_eg();
 
-            MIDDLEGAME_TABLE[6][sq] = -PAWN_MG - MG_PAWN[flip_sq];
-            MIDDLEGAME_TABLE[7][sq] = -KNIGHT_MG - MG_KNIGHT[flip_sq];
-            MIDDLEGAME_TABLE[8][sq] = -BISHOP_MG - MG_BISHOP[flip_sq];
-            MIDDLEGAME_TABLE[9][sq] = -ROOK_MG - MG_ROOK[flip_sq];
-            MIDDLEGAME_TABLE[10][sq] = -QUEEN_MG - MG_QUEEN[flip_sq];
-            MIDDLEGAME_TABLE[11][sq] = -MG_KING[flip_sq];
+const fn init_mg() -> [[i32; 64]; 12] {
+    let mut table = [[0; 64]; 12];
+    let mut sq = 0;
+    while sq < 64 {
+        table[0][sq] = PAWN_MG + MG_PAWN[sq];
+        table[1][sq] = KNIGHT_MG + MG_KNIGHT[sq];
+        table[2][sq] = BISHOP_MG + MG_BISHOP[sq];
+        table[3][sq] = ROOK_MG + MG_ROOK[sq];
+        table[4][sq] = QUEEN_MG + MG_QUEEN[sq];
+        table[5][sq] = MG_KING[sq];
 
-            ENDGAME_TABLE[0][sq] = PAWN_EG + EG_PAWN[sq];
-            ENDGAME_TABLE[1][sq] = KNIGHT_EG + EG_KNIGHT[sq];
-            ENDGAME_TABLE[2][sq] = BISHOP_EG + EG_BISHOP[sq];
-            ENDGAME_TABLE[3][sq] = ROOK_EG + EG_ROOK[sq];
-            ENDGAME_TABLE[4][sq] = QUEEN_EG + EG_QUEEN[sq];
-            ENDGAME_TABLE[5][sq] = EG_KING[sq];
+        let flip_sq = 63 - sq;
 
-            ENDGAME_TABLE[6][sq] = -PAWN_EG - EG_PAWN[flip_sq];
-            ENDGAME_TABLE[7][sq] = -KNIGHT_EG - EG_KNIGHT[flip_sq];
-            ENDGAME_TABLE[8][sq] = -BISHOP_EG - EG_BISHOP[flip_sq];
-            ENDGAME_TABLE[9][sq] = -ROOK_EG - EG_ROOK[flip_sq];
-            ENDGAME_TABLE[10][sq] = -QUEEN_EG - EG_QUEEN[flip_sq];
-            ENDGAME_TABLE[11][sq] = -EG_KING[flip_sq];
-        }
+        table[6][sq] = -PAWN_MG - MG_PAWN[flip_sq];
+        table[7][sq] = -KNIGHT_MG - MG_KNIGHT[flip_sq];
+        table[8][sq] = -BISHOP_MG - MG_BISHOP[flip_sq];
+        table[9][sq] = -ROOK_MG - MG_ROOK[flip_sq];
+        table[10][sq] = -QUEEN_MG - MG_QUEEN[flip_sq];
+        table[11][sq] = -MG_KING[flip_sq];
+
+        sq += 1;
     }
+
+    table
+}
+
+const fn init_eg() -> [[i32; 64]; 12] {
+    let mut table = [[0; 64]; 12];
+    let mut sq = 0;
+    while sq < 64 {
+        table[0][sq] = PAWN_EG + EG_PAWN[sq];
+        table[1][sq] = KNIGHT_EG + EG_KNIGHT[sq];
+        table[2][sq] = BISHOP_EG + EG_BISHOP[sq];
+        table[3][sq] = ROOK_EG + EG_ROOK[sq];
+        table[4][sq] = QUEEN_EG + EG_QUEEN[sq];
+        table[5][sq] = EG_KING[sq];
+
+        let flip_sq = 63 - sq;
+
+        table[6][sq] = -PAWN_EG - EG_PAWN[flip_sq];
+        table[7][sq] = -KNIGHT_EG - EG_KNIGHT[flip_sq];
+        table[8][sq] = -BISHOP_EG - EG_BISHOP[flip_sq];
+        table[9][sq] = -ROOK_EG - EG_ROOK[flip_sq];
+        table[10][sq] = -QUEEN_EG - EG_QUEEN[flip_sq];
+        table[11][sq] = -EG_KING[flip_sq];
+        sq += 1;
+    }
+
+    table
 }
 
 const PAWN_MG: i32 = 82;

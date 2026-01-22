@@ -206,6 +206,14 @@ fn negascout(
 ) -> SearchRes {
     stats.node();
     if depth == 0 {
+        // Check for repetitions
+        // Null moves are added, so we can only check every second (same color)
+        for key in p.repetition.iter().rev().skip(1).step_by(2) {
+            if *key == p.key() {
+                return SearchRes::Leaf(0);
+            }
+        }
+
         return SearchRes::Leaf(quiscence_search(p, alpha, beta));
     }
 
@@ -227,14 +235,6 @@ fn negascout(
         return res;
     }
 
-    // Check for repetitions
-    // Null moves are added, so we can only check every second (same color)
-    for key in p.repetition.iter().rev().skip(1).step_by(2) {
-        if *key == p.key() {
-            return SearchRes::from_tt(tt_mv, 0);
-        }
-    }
-
     // mv_gen is only called if tt_mv == None
     // -> If tt mv produces a cutoff, we never do mv_gen
     let mut iter = get_mv_iter(p, tt_mv).into_iter();
@@ -245,7 +245,7 @@ fn negascout(
 
     // Only the first move!
     loop {
-        let mut score;
+        let score;
         let mut pv = match iter.next() {
             Some(mv) => mv,
             None => return no_legal_moves(p),
@@ -340,7 +340,7 @@ fn negascout(
             // Unstable Node -> Dont do LMR
             lmr_stable = false;
             // Failed high -> Full re-search
-            match negascout(p, depth - 1, -beta, -score, stats, stop) {
+            match negascout(p, depth - 1, -beta, -alpha, stats, stop) {
                 SearchRes::TimeOut => {
                     make::unmake(p, m, make_guard);
                     return SearchRes::TimeOut;
@@ -468,17 +468,15 @@ fn parse_tt(
                 tt::EntryType::Exact => return (false, pv_move, Some(entry.score)),
                 tt::EntryType::Upper => {
                     if entry.score <= *alpha {
-                        return_val = Some(entry.score);
-                    } else {
-                        *beta = i32::min(entry.score, *beta);
+                        return_val = Some(*alpha);
                     }
+                    *beta = i32::min(entry.score, *beta);
                 }
                 tt::EntryType::Lower => {
                     if entry.score >= *beta {
-                        return_val = Some(entry.score);
-                    } else {
-                        *alpha = i32::max(entry.score, *alpha);
+                        return_val = Some(*beta);
                     }
+                    *alpha = i32::max(entry.score, *alpha);
                 }
             }
 
