@@ -209,13 +209,26 @@ fn negascout(
         return SearchRes::Leaf(quiscence_search(p, alpha, beta));
     }
 
-    let (replace_entry, tt_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
-
-    if let Some(_) = tt_mv {
-        stats.tt_hit();
-    }
-    if let Some(rv) = return_val {
-        return SearchRes::from_tt(tt_mv, rv);
+    let replace_entry;
+    let mut tt_mv = None;
+    match parse_tt(p.key(), depth, &mut alpha, &mut beta) {
+        TtRes::Miss(replace) => replace_entry = replace,
+        TtRes::MvHint(mv, replace) => {
+            stats.tt_hit();
+            replace_entry = replace;
+            tt_mv = Some(mv);
+        }
+        TtRes::Cutoff(score, mv) => {
+            stats.tt_hit();
+            // If we are in a pv node we dont want to cut on tt
+            if beta - alpha == 1 {
+                return SearchRes::NoPonderNode(mv, score);
+            } else {
+                // We are in PV
+                tt_mv = Some(mv);
+                replace_entry = false;
+            }
+        }
     }
 
     if depth < 5 && stop.is_done() {
@@ -424,57 +437,56 @@ fn do_null_move(
     return None;
 }
 
+enum TtRes {
+    Miss(bool),
+    Cutoff(i32, Mv),
+    MvHint(Mv, bool),
+}
+
 /// Reading from the transposition table.
 /// Split into its own function to decrease complexity of the negascout function
 #[inline(always)]
-fn parse_tt(
-    key: tt::Key,
-    depth: u8,
-    alpha: &mut i32,
-    beta: &mut i32,
-) -> (bool, Option<Mv>, Option<i32>) {
-    let entry = TT.get(key);
-    match entry {
-        None => {
-            return (true, None, None);
+fn parse_tt(key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32) -> TtRes {
+    let entry;
+    match TT.get(key) {
+        None => return TtRes::Miss(true),
+        Some(e) => entry = e,
+    }
+
+    if entry.key != key {
+        let replace = entry.depth < depth;
+        return TtRes::Miss(replace);
+    }
+
+    if entry.depth < depth {
+        // The Entry knows less than we want to known
+        // -> Still use PV move for move ordering
+        return TtRes::MvHint(entry.mv, true);
+    }
+
+    match entry.node_type {
+        // The Node is at a greater depth && exact -> Just use that value
+        tt::EntryType::Exact => return TtRes::Cutoff(entry.score, entry.mv),
+        tt::EntryType::Upper => {
+            if entry.score <= *alpha {
+                return TtRes::Cutoff(entry.score, entry.mv);
+            }
+            // We have a better upper bound
+            if entry.score < *beta {
+                *beta = entry.score;
+            }
+            return TtRes::MvHint(entry.mv, false);
         }
-        Some(entry) => {
-            if entry.key != key {
-                let replace = entry.depth < depth;
-                return (replace, None, None);
-            }
 
-            let pv_move = Some(entry.mv);
-            let mut return_val = None;
-            if entry.depth < depth {
-                // The Entry knows less than we want to known
-                // -> Still use PV move for move ordering
-                return (true, pv_move, return_val);
+        tt::EntryType::Lower => {
+            if entry.score >= *beta {
+                return TtRes::Cutoff(entry.score, entry.mv);
             }
-
-            match entry.node_type {
-                // The Node is at a greater depth && exact -> Just use that value
-                tt::EntryType::Exact => return (false, pv_move, Some(entry.score)),
-                tt::EntryType::Upper => {
-                    if entry.score <= *alpha {
-                        return_val = Some(entry.score);
-                    } else {
-                        *beta = i32::min(entry.score, *beta);
-                    }
-                }
-                tt::EntryType::Lower => {
-                    if entry.score >= *beta {
-                        return_val = Some(entry.score);
-                    } else {
-                        *alpha = i32::max(entry.score, *alpha);
-                    }
-                }
+            // We have a better lower bound
+            if entry.score > *alpha {
+                *alpha = entry.score;
             }
-
-            if alpha >= beta {
-                return_val = Some(entry.score);
-            }
-            (false, pv_move, return_val)
+            return TtRes::MvHint(entry.mv, false);
         }
     }
 }
