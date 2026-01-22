@@ -239,12 +239,13 @@ fn negascout(
     // -> If tt mv produces a cutoff, we never do mv_gen
     let mut iter = get_mv_iter(p, tt_mv).into_iter();
 
-    let mut score;
+    let mut best_score;
     let mut best_mvs: (Mv, Option<Mv>);
     let mut node_type = tt::EntryType::Upper;
 
     // Only the first move!
     loop {
+        let mut score;
         let mut pv = match iter.next() {
             Some(mv) => mv,
             None => return no_legal_moves(p),
@@ -271,24 +272,25 @@ fn negascout(
         }
         make::unmake(p, pv, pv_guard);
 
-        if score > alpha {
-            alpha = score;
-            node_type = tt::EntryType::Exact;
-        }
-
         if score >= beta {
             history::set(&pv, p.clr(), depth);
 
             if replace_entry {
                 TT.set(tt::Entry::new(
                     p.key(),
-                    alpha,
+                    score,
                     pv,
                     depth,
                     tt::EntryType::Lower,
                 ));
             }
-            return SearchRes::from_mvs(best_mvs, alpha);
+            return SearchRes::from_mvs(best_mvs, score);
+        }
+
+        best_score = score;
+        if score > alpha {
+            alpha = score;
+            node_type = tt::EntryType::Exact;
         }
 
         break;
@@ -297,6 +299,7 @@ fn negascout(
     // Check the rest of the moves using scout
     let mut lmr_stable = true;
     for (i, mut m) in iter.enumerate() {
+        let mut score;
         let (legal, make_guard) = make::make(p, &mut m, true);
         if legal == make::Legal::ILLEGAL {
             make::unmake(p, m, make_guard);
@@ -350,27 +353,35 @@ fn negascout(
             }
         }
 
-        if score > alpha {
-            alpha = score;
+        make::unmake(p, m, make_guard);
+
+        if score > best_score {
+            best_score = score;
             best_mvs = (m, response);
-            node_type = tt::EntryType::Exact;
+
+            if score > alpha {
+                alpha = score;
+                node_type = tt::EntryType::Exact;
+            }
         }
 
         if score >= beta {
-            // Cut Node
             node_type = tt::EntryType::Lower;
-            make::unmake(p, m, make_guard);
             history::set(&m, p.clr(), depth);
-            break; // Prune :)
+            break;
         }
-
-        make::unmake(p, m, make_guard);
     }
 
     if replace_entry {
-        TT.set(tt::Entry::new(p.key(), alpha, best_mvs.0, depth, node_type));
+        TT.set(tt::Entry::new(
+            p.key(),
+            best_score,
+            best_mvs.0,
+            depth,
+            node_type,
+        ));
     }
-    return SearchRes::from_mvs(best_mvs, alpha);
+    return SearchRes::from_mvs(best_mvs, best_score);
 }
 
 #[inline(always)]
