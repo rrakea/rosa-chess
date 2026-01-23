@@ -127,6 +127,21 @@ impl Pos {
         self.key.piece(sq, piece);
     }
 
+    pub fn repetitions(&self) -> u8 {
+        // Check for repetitions
+        // Null moves are added, so we can only check every second (same color)
+        let mut rep_count = 0;
+        for key in self.repetition.iter().rev().skip(1).step_by(2) {
+            if *key == self.key() {
+                if rep_count >= 2 {
+                    return 3;
+                }
+                rep_count += 1;
+            }
+        }
+        rep_count
+    }
+
     pub fn piece_iter(&self) -> impl Iterator<Item = ClrPieceOption> {
         self.sq.into_iter()
     }

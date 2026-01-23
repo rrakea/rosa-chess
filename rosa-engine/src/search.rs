@@ -205,6 +205,10 @@ fn negascout(
     stop: &Stop,
 ) -> SearchRes {
     stats.node();
+    if p.repetitions() > 0 {
+        return SearchRes::Leaf(0);
+    }
+
     if depth == 0 {
         return SearchRes::Leaf(quiscence_search(p, alpha, beta));
     }
@@ -225,14 +229,6 @@ fn negascout(
     let null_mv_return = do_null_move(p, depth, beta, tt_mv, stats, stop);
     if let Some(res) = null_mv_return {
         return res;
-    }
-
-    // Check for repetitions
-    // Null moves are added, so we can only check every second (same color)
-    for key in p.repetition.iter().rev().skip(1).step_by(2) {
-        if *key == p.key() {
-            return SearchRes::from_tt(tt_mv, 0);
-        }
     }
 
     // mv_gen is only called if tt_mv == None
