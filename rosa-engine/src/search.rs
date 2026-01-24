@@ -205,6 +205,10 @@ fn negascout(
     stop: &Stop,
 ) -> SearchRes {
     stats.node();
+    if p.repetitions() > 2 {
+        return SearchRes::Leaf(0);
+    }
+
     if depth == 0 {
         // Check for repetitions
         // Null moves are added, so we can only check every second (same color)

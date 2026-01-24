@@ -127,6 +127,22 @@ impl Pos {
         self.key.piece(sq, piece);
     }
 
+    pub fn repetitions(&self) -> u8 {
+        // Check for repetitions
+        // Null moves are added, so we can only check every second (same color)
+        let mut rep_count = 0;
+        // Start at the previous same-side position (current is last entry)
+        for key in self.repetition.iter().rev().skip(2).step_by(2) {
+            if *key == self.key() {
+                if rep_count >= 2 {
+                    return 3;
+                }
+                rep_count += 1;
+            }
+        }
+        rep_count
+    }
+
     pub fn piece_iter(&self) -> impl Iterator<Item = ClrPieceOption> {
         self.sq.into_iter()
     }
@@ -262,6 +278,7 @@ impl std::fmt::Display for Pos {
         board += format!("To move: {}\n", self.clr).as_str();
         board += format!("Castling right: {:?}\n", self.castle()).as_str();
         board += format!("En passant file: {:?}\n", self.ep()).as_str();
+        board += format!("Repetition draw: {}\n", self.repetitions()).as_str();
         write!(f, "{}", board)
     }
 }
