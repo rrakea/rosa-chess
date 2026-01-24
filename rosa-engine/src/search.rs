@@ -210,14 +210,6 @@ fn negascout(
     }
 
     if depth == 0 {
-        // Check for repetitions
-        // Null moves are added, so we can only check every second (same color)
-        for key in p.repetition.iter().rev().skip(1).step_by(2) {
-            if *key == p.key() {
-                return SearchRes::Leaf(0);
-            }
-        }
-
         return SearchRes::Leaf(quiscence_search(p, alpha, beta));
     }
 
