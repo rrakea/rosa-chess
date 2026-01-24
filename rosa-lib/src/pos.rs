@@ -131,7 +131,8 @@ impl Pos {
         // Check for repetitions
         // Null moves are added, so we can only check every second (same color)
         let mut rep_count = 0;
-        for key in self.repetition.iter().rev().skip(1).step_by(2) {
+        // Start at the previous same-side position (current is last entry)
+        for key in self.repetition.iter().rev().skip(2).step_by(2) {
             if *key == self.key() {
                 if rep_count >= 2 {
                     return 3;
@@ -277,6 +278,7 @@ impl std::fmt::Display for Pos {
         board += format!("To move: {}\n", self.clr).as_str();
         board += format!("Castling right: {:?}\n", self.castle()).as_str();
         board += format!("En passant file: {:?}\n", self.ep()).as_str();
+        board += format!("Repetition draw: {}\n", self.repetitions()).as_str();
         write!(f, "{}", board)
     }
 }

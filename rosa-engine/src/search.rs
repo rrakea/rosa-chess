@@ -205,7 +205,7 @@ fn negascout(
     stop: &Stop,
 ) -> SearchRes {
     stats.node();
-    if p.repetitions() > 0 {
+    if p.repetitions() > 2 {
         return SearchRes::Leaf(0);
     }
 
