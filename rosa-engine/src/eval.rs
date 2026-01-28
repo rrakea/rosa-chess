@@ -3,6 +3,7 @@
 //! ## Piece Values
 //! ## Texel Tuning
 
+use rosa_lib::piece::*;
 use rosa_lib::pos;
 
 pub const SAFE_MAX_SCORE: i32 = i32::MAX;
@@ -23,6 +24,40 @@ pub fn eval(p: &pos::Pos) -> i32 {
         }
     }
 
+    // The most possible material on board with a draw is N/B vs B&N / B&B
+    if phase >= STARTPHASE - 3 {
+        let mut pieces = Vec::with_capacity(3);
+        for piece in p.piece_iter().flatten() {
+            match piece.de_clr() {
+                Piece::Pawn | Piece::Queen | Piece::Rook => break,
+                Piece::King => (),
+                Piece::Knight | Piece::Bishop => {
+                    pieces.push(piece);
+                }
+            }
+        }
+
+        // If one side has both pieces && min 1 Bishop
+        if pieces.len() == 2
+            && pieces[0].clr() == pieces[1].clr()
+            && (pieces[0].de_clr() == Piece::Bishop || pieces[1].de_clr() == Piece::Bishop)
+        {
+            return 0;
+        }
+
+        let dominant_clr = if pieces.iter().filter(|p| p.clr().is_white()).count() >= 2 {
+            Clr::White
+        } else {
+            Clr::Black
+        };
+
+        for p in pieces {
+            // If the winning clr has at least 1 Bishop
+            if p == Piece::Bishop.clr(dominant_clr) {
+                return 0;
+            }
+        }
+    }
     phase = (phase * 256 + (STARTPHASE / 2)) / STARTPHASE;
     (((middelgame * (256 - phase)) + endgame * phase) / 256) * p.clr().as_sign() as i32
 }
