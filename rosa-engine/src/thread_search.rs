@@ -5,7 +5,7 @@
 //! Rest search
 
 use crate::make;
-use crate::search;
+use crate::search_helper;
 
 use crossbeam::channel;
 use rosa_lib::mv::Mv;
@@ -38,7 +38,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Option<Mv>>, stop: Stop) {
         let thread_sender = sender.clone();
         let stop_clone = stop.clone();
         thread::spawn(move || {
-            search::search(pclone, thread_sender, stop_clone);
+            search_helper::search(pclone, thread_sender, stop_clone);
         });
     }
     // So we properly end the while loop
@@ -153,6 +153,7 @@ pub struct SearchStats {
     pub depth: u8,
     nodes: u64,
     tt_hits: u64,
+    timeout_nodes: u64,
 }
 
 impl SearchStats {
@@ -160,12 +161,22 @@ impl SearchStats {
         SearchStats {
             depth,
             nodes: 0,
+            timeout_nodes: 0,
             tt_hits: 0,
         }
     }
 
     pub fn node(&mut self) {
         self.nodes += 1;
+        self.timeout_nodes += 1;
+    }
+
+    pub fn check_for_timeout(&mut self) -> bool {
+        if self.timeout_nodes >= 4098 {
+            self.timeout_nodes = 0;
+            return true;
+        }
+        false
     }
 
     pub fn tt_hit(&mut self) {

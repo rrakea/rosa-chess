@@ -3,7 +3,7 @@
 use rosa_engine::make;
 use rosa_engine::make::Legal;
 use rosa_engine::mv;
-use rosa_engine::search::TT;
+use rosa_engine::search_helper::TT;
 
 use rosa_lib::mv::Mv;
 use rosa_lib::pos;

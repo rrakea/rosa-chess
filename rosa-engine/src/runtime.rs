@@ -8,7 +8,7 @@ use crate::fen;
 use crate::make;
 use crate::make::MakeGuard;
 use crate::mv;
-use crate::search;
+use crate::search_helper;
 use crate::thread_search;
 use crate::time;
 use crate::time::StartSearch;
@@ -51,7 +51,7 @@ pub fn init() {
         rosa_lib::lib_init();
         tt::init_zobrist_keys();
         mv::magic_init::init_magics();
-        search::TT.resize(config::TT_SIZE);
+        search_helper::TT.resize(config::TT_SIZE);
         eval::init_eval();
     });
 }
@@ -290,7 +290,7 @@ pub fn start() {
             "div" => {
                 let mut pos = state.get_pos().clone();
                 let depth = cmd_parts[1].parse().unwrap();
-                search::debug_division_search(&mut pos, depth);
+                search_helper::debug_division_search(&mut pos, depth);
             }
 
             "print" | "p" | "d" => {
