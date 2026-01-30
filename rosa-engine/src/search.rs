@@ -197,11 +197,7 @@ impl SearchRes {
 
 /// Main search functions; uses the optimizations described above
 fn negascout(
-    p: &mut pos::Pos,
-    depth: u8,
-    mut alpha: i32,
-    mut beta: i32,
-    stats: &mut SearchStats,
+    p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut SearchStats,
     stop: &Stop,
 ) -> SearchRes {
     stats.node();
@@ -383,12 +379,7 @@ fn no_legal_moves(p: &pos::Pos) -> SearchRes {
 
 #[inline(always)]
 fn do_null_move(
-    p: &mut pos::Pos,
-    depth: u8,
-    beta: i32,
-    tt_mv: Option<Mv>,
-    stats: &mut SearchStats,
-    stop: &Stop,
+    p: &mut pos::Pos, depth: u8, beta: i32, tt_mv: Option<Mv>, stats: &mut SearchStats, stop: &Stop,
 ) -> Option<SearchRes> {
     if depth < 4 {
         return None;
@@ -424,10 +415,7 @@ fn do_null_move(
 /// Split into its own function to decrease complexity of the negascout function
 #[inline(always)]
 fn parse_tt(
-    key: tt::Key,
-    depth: u8,
-    alpha: &mut i32,
-    beta: &mut i32,
+    key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32,
 ) -> (bool, Option<Mv>, Option<i32>) {
     let entry = TT.get(key);
     match entry {
