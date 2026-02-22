@@ -128,10 +128,9 @@ impl Pos {
     }
 
     pub fn repetitions(&self) -> u8 {
-        // Check for repetitions
         // Null moves are added, so we can only check every second (same color)
-        let mut rep_count = 0;
-        // Start at the previous same-side position (current is last entry)
+        // Start off at 1, since the starting position also counts
+        let mut rep_count = 1;
         for key in self.repetition.iter().rev().skip(2).step_by(2) {
             if *key == self.key() {
                 if rep_count >= 2 {
