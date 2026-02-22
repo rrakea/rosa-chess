@@ -1,8 +1,8 @@
 use crate::thread_search::Stop;
 use crate::{make, make::Legal, quiscence::quiscence_search};
-use rosa_lib::{history, mv::Mv, pos, pos::Pos, tt};
+use rosa_lib::{history, mv::Mv, pos, tt};
 
-enum Res {
+enum SearchRes {
     TimeOut,
     Leaf(i32),
     NoPonderNode(Mv, i32),
@@ -17,14 +17,12 @@ pub struct Data {
     stop: Stop,
 }
 
-pub static TT: tt::TT = tt::TT::new();
-
-pub fn search(p: &mut Pos, depth: u8, mut alpha: i32, mut beta: i32, data: &mut Data) -> Res {
-    data.node();
-    if data.timeout() {
-        return Res::TimeOut;
-    }
-
+/// Main search functions; uses the optimizations described above
+fn negascout(
+    p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut SearchStats,
+    stop: &Stop,
+) -> SearchRes {
+    stats.node();
     if p.repetitions() > 2 {
         return Res::Leaf(0);
     }
@@ -199,13 +197,8 @@ fn no_legal_moves(p: &pos::Pos) -> Res {
 
 #[inline(always)]
 fn do_null_move(
-    p: &mut pos::Pos,
-    depth: u8,
-    beta: i32,
-    tt_mv: Option<Mv>,
-    stats: &mut SearchStats,
-    stop: &Stop,
-) -> Option<Res> {
+    p: &mut pos::Pos, depth: u8, beta: i32, tt_mv: Option<Mv>, stats: &mut SearchStats, stop: &Stop,
+) -> Option<SearchRes> {
     if depth < 4 {
         return None;
     }
@@ -240,10 +233,7 @@ fn do_null_move(
 /// Split into its own function to decrease complexity of the negascout function
 #[inline(always)]
 fn parse_tt(
-    key: tt::Key,
-    depth: u8,
-    alpha: &mut i32,
-    beta: &mut i32,
+    key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32,
 ) -> (bool, Option<Mv>, Option<i32>) {
     let entry = TT.get(key);
     match entry {
