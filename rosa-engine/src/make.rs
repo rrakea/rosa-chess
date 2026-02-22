@@ -139,6 +139,8 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard
     p.set_castling(castle);
     p.set_ep(ep);
 
+    p.repetition.push(p.key());
+
     // If the king of the moving player is not attacked, the
     // position afterwards is legal
     if check_legality {
@@ -176,6 +178,7 @@ pub fn unmake(p: &mut Pos, mv: Mv, guard: MakeGuard) {
 
     p.flip_color();
     p.piece_toggle(piece, end);
+    p.repetition.pop();
 
     match mv.flag() {
         Flag::Quiet | Flag::Cap | Flag::Double => {}
@@ -230,6 +233,7 @@ pub fn make_null(p: &mut Pos) -> (Legal, Option<u8>, MakeGuard) {
     let was_ep = p.ep();
     p.set_ep(None);
     p.flip_color();
+    p.repetition.push(p.key());
 
     let legal = if square_attacked(p, color, king_pos) {
         Legal::ILLEGAL
@@ -247,6 +251,7 @@ pub fn unmake_null(p: &mut Pos, was_ep: Option<u8>, guard: MakeGuard) {
     }
     p.flip_color();
     p.set_ep(was_ep);
+    p.repetition.pop();
 }
 
 /// Basically we pretend there is every possible piece on the square

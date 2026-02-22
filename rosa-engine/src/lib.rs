@@ -14,3 +14,4 @@ pub mod runtime;
 pub mod search;
 pub mod thread_search;
 pub mod time;
+pub mod quiscence;

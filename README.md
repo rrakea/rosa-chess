@@ -25,6 +25,9 @@ For docs run "cargo docs --open --workspace --document-private-items"
 - Optimize time checking to only happen every n nodes
 - Add 50 move clock & 3 fold repetition
 - Put position compare in test
+- Return 0 on 2 kings
+- Delta pruning
+- check tt during quies
 
 ### Long Term
 

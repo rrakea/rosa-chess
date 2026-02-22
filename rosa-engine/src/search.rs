@@ -81,6 +81,7 @@ use crate::eval;
 use crate::make;
 use crate::make::Legal;
 use crate::mv::mv_gen;
+use crate::quiscence::quiscence_search;
 use crate::thread_search::*;
 
 use rosa_lib::history;
@@ -196,16 +197,16 @@ impl SearchRes {
 
 /// Main search functions; uses the optimizations described above
 fn negascout(
-    p: &mut pos::Pos,
-    depth: u8,
-    mut alpha: i32,
-    mut beta: i32,
-    stats: &mut SearchStats,
+    p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut SearchStats,
     stop: &Stop,
 ) -> SearchRes {
     stats.node();
+    if p.repetitions() > 2 {
+        return SearchRes::Leaf(0);
+    }
+
     if depth == 0 {
-        return SearchRes::Leaf(eval::eval(p));
+        return SearchRes::Leaf(quiscence_search(p, alpha, beta));
     }
 
     let (replace_entry, tt_mv, return_val) = parse_tt(p.key(), depth, &mut alpha, &mut beta);
@@ -326,9 +327,7 @@ fn negascout(
 
         if alpha < score && score < beta {
             // Unstable Node -> Dont do LMR
-            if i <= LMR_MOVES {
-                lmr_stable = false;
-            }
+            lmr_stable = false;
             // Failed high -> Full re-search
             match negascout(p, depth - 1, -beta, -score, stats, stop) {
                 SearchRes::TimeOut => {
@@ -380,12 +379,7 @@ fn no_legal_moves(p: &pos::Pos) -> SearchRes {
 
 #[inline(always)]
 fn do_null_move(
-    p: &mut pos::Pos,
-    depth: u8,
-    beta: i32,
-    tt_mv: Option<Mv>,
-    stats: &mut SearchStats,
-    stop: &Stop,
+    p: &mut pos::Pos, depth: u8, beta: i32, tt_mv: Option<Mv>, stats: &mut SearchStats, stop: &Stop,
 ) -> Option<SearchRes> {
     if depth < 4 {
         return None;
@@ -421,10 +415,7 @@ fn do_null_move(
 /// Split into its own function to decrease complexity of the negascout function
 #[inline(always)]
 fn parse_tt(
-    key: tt::Key,
-    depth: u8,
-    alpha: &mut i32,
-    beta: &mut i32,
+    key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32,
 ) -> (bool, Option<Mv>, Option<i32>) {
     let entry = TT.get(key);
     match entry {
@@ -513,12 +504,16 @@ const LMR_MOVES: usize = 2;
 /// Very basic right now; subject to change
 #[inline(always)]
 fn late_move_reduction(depth: u8) -> u8 {
-    if depth < 6 { depth - 1 } else { depth / 3 }
+    if depth < 6 {
+        depth - 1
+    } else {
+        depth - (depth / 3)
+    }
 }
 
 #[inline(always)]
 fn do_lmr(do_lmr: bool, depth: u8, i: usize) -> bool {
-    do_lmr && depth > 2 && i > LMR_MOVES
+    do_lmr && depth > 2 && i >= LMR_MOVES
 }
 
 pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
