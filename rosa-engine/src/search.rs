@@ -187,12 +187,6 @@ impl SearchRes {
             None => SearchRes::NoPonderNode(mv.0, score),
         }
     }
-    fn from_tt(mv: Option<Mv>, score: i32) -> SearchRes {
-        match mv {
-            Some(m) => SearchRes::NoPonderNode(m, score),
-            None => SearchRes::Leaf(score),
-        }
-    }
 }
 
 /// Main search functions; uses the optimizations described above
@@ -223,11 +217,10 @@ fn negascout(
             // If we are in a pv node we dont want to cut on tt
             if beta - alpha == 1 {
                 return SearchRes::NoPonderNode(mv, score);
-            } else {
-                // We are in PV
-                tt_mv = Some(mv);
-                replace_entry = false;
             }
+            // We are in PV
+            tt_mv = Some(mv);
+            replace_entry = false;
         }
     }
 
@@ -419,7 +412,10 @@ fn do_null_move(
     // Even if we dont make a move we are still outside of the window
     make::unmake_null(p, was_ep, null_guard);
     if null_score >= beta {
-        return Some(SearchRes::from_tt(tt_mv, beta));
+        match tt_mv {
+            Some(m) => return Some(SearchRes::NoPonderNode(m, beta)),
+            None => return Some(SearchRes::Leaf(beta)),
+        }
     }
     return None;
 }

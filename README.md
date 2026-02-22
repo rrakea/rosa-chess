@@ -13,12 +13,12 @@ For docs run "cargo docs --open --workspace --document-private-items"
 
 ### Known Bugs
 
-Forcing 3 Fold Repetitions in winning positions
--> Mostly in endgames, but not exclusivly
--> Mostly in endgames with big advantage but long range plan  
-Pondering input crashes
--> Pondering cli has not really been test
-Likes to move king early
+Forcing 3 Fold Repetitions in winning positions  
+-> Mostly in endgames, but not exclusivly  
+-> Mostly in endgames with big advantage but long range plans  
+Pondering input crashes  
+-> Pondering cli has not really been test  
+Likes to move king early  
 
 ### Short Term
 
