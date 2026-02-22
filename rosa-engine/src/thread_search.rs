@@ -71,7 +71,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Option<Mv>>, stop: Stop) {
 
             print_info(
                 best_pv,
-                best_score * p.clr().as_sign() as i32,
+                best_score,
                 depth as u8,
                 total_nodes,
                 tt_hits,
@@ -107,12 +107,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Option<Mv>>, stop: Stop) {
 }
 
 fn print_info(
-    pv: Mv,
-    score: i32,
-    depth: u8,
-    nodes: u64,
-    tt_hits: u64,
-    start_time: std::time::Instant,
+    pv: Mv, score: i32, depth: u8, nodes: u64, tt_hits: u64, start_time: std::time::Instant,
 ) {
     let finish_time = std::time::Instant::now();
     println!(
