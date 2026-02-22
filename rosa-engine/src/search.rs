@@ -434,11 +434,10 @@ enum TtRes {
 /// Split into its own function to decrease complexity of the negascout function
 #[inline(always)]
 fn parse_tt(key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32) -> TtRes {
-    let entry;
-    match TT.get(key) {
+    let entry = match TT.get(key) {
         None => return TtRes::Miss(true),
-        Some(e) => entry = e,
-    }
+        Some(e) => e,
+    };
 
     if entry.key != key {
         let replace = entry.depth < depth;
