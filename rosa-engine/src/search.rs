@@ -173,7 +173,7 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
     }
 }
 
-enum SearchRes {
+pub enum SearchRes {
     TimeOut,
     Leaf(i32),
     NoPonderNode(Mv, i32),
@@ -190,7 +190,7 @@ impl SearchRes {
 }
 
 /// Main search functions; uses the optimizations described above
-fn negascout(
+pub fn negascout(
     p: &mut pos::Pos, depth: u8, mut alpha: i32, mut beta: i32, stats: &mut SearchStats,
     stop: &Stop,
 ) -> SearchRes {

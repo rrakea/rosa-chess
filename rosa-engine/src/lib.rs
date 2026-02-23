@@ -9,9 +9,11 @@ pub mod config;
 pub mod eval;
 pub mod fen;
 pub mod make;
-pub mod mv;
 pub mod runtime;
 pub mod search;
 pub mod thread_search;
 pub mod time;
 pub mod quiscence;
+
+pub mod mv;
+pub mod puzzles;
