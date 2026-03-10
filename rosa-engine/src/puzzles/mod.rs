@@ -1,1 +1,1 @@
-mod puzzles;
+pub mod puzzles;

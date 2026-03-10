@@ -8,6 +8,7 @@ use crate::fen;
 use crate::make;
 use crate::make::MakeGuard;
 use crate::mv;
+use crate::puzzles;
 use crate::search;
 use crate::thread_search;
 use crate::time;
@@ -303,6 +304,10 @@ pub fn start() {
 
             "magics" => {
                 mv::gen_magics::gen_magics();
+            }
+
+            "puzzle" => {
+                puzzles::puzzles::puzzle();
             }
 
             "eval" => {

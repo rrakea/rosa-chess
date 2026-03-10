@@ -12,7 +12,7 @@ use std::{
 
 use crossbeam::channel;
 
-const PUZZLE_PATH: &str = "";
+const PUZZLE_PATH: &str = "lichess_db_puzzle.csv";
 
 // Puzzles from: https://database.lichess.org/#puzzles
 // Format: PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags
@@ -29,7 +29,6 @@ pub fn puzzle() {
         let recv = recv.clone();
         thread::spawn(|| puzzle_thread(recv));
     }
-    drop(recv);
 
     for line in reader.lines() {
         let line = line.unwrap();
@@ -37,15 +36,12 @@ pub fn puzzle() {
 
         let fen = split[1];
         let moves: Vec<&str> = split[2].split_ascii_whitespace().collect();
-        let rating = split[3];
+        let _rating = split[3];
 
         let mut pos = fen::fen(fen.split_ascii_whitespace().collect(), Vec::new());
+        let mut mvs = parse_moves(&pos, moves);
 
-        let mut mvs = Vec::new();
-        for m in moves {
-            mvs.push(mv::Mv::new_from_str(m, &pos));
-        }
-        mvs.reverse();
+        // The first move is always before the actual puzzle for some reason
         let mut first_mv = mvs.pop().unwrap();
         let (_legal, guard) = make::make(&mut pos, &mut first_mv, false);
         unsafe {
@@ -56,19 +52,55 @@ pub fn puzzle() {
     }
 }
 
-/// How many depths in a row does the solve get the correct solution
-const MIN_CORRECT_MVS: usize = 3;
-fn puzzle_thread(recv: channel::Receiver<(Pos, Vec<mv::Mv>)>) {
-    for (pos, mvs) in recv.recv() {
-        solve_puzzle(pos, mvs);
+fn parse_moves(p: &Pos, mv_string: Vec<&str>) -> Vec<mv::Mv> {
+    let mut p = p.clone();
+    let mut mvs = Vec::new();
+    let mut guards = Vec::new();
+    for m in mv_string {
+        let mut mv = mv::Mv::new_from_str(m, &p);
+        let (_legla, g) = make::make(&mut p, &mut mv, false);
+        mvs.push(mv);
+        guards.push(g);
     }
+    for g in guards {
+        unsafe {
+            g.verified_drop();
+        }
+    }
+    mvs.reverse();
+    mvs
 }
 
-fn solve_puzzle(mut pos: Pos, mut mvs: Vec<mv::Mv>) {
+fn puzzle_thread(recv: channel::Receiver<(Pos, Vec<mv::Mv>)>) {
+    let mut solved_count = 0;
+    let mut unsolved_count = 0;
+
+    let mut counter = 0;
+    while let Ok((pos, mvs)) = recv.recv() {
+        let solve = solve_puzzle(pos, mvs);
+        if solve {
+            solved_count += 1;
+        } else {
+            unsolved_count += 1;
+        }
+        counter += 1;
+        if counter >= 10 {
+            println!("Thread Partial Result:\nSolved: {solved_count}, Unsolved: {unsolved_count}");
+            counter = 0;
+        }
+    }
+    println!("Thread Result:\nSolved: {solved_count}, Unsolved: {unsolved_count}");
+}
+
+/// How many depths in a row does the solve get the correct solution
+const MIN_CORRECT_MVS: usize = 3;
+const MAX_DEPTH: u8 = 12;
+
+fn solve_puzzle(mut pos: Pos, mut mvs: Vec<mv::Mv>) -> bool {
     let stop = Stop::new();
     let mut depth = 1;
     let mut correct_mvs = 0;
-    loop {
+    while depth <= MAX_DEPTH {
         match search::negascout(
             &mut pos,
             depth,
@@ -80,7 +112,7 @@ fn solve_puzzle(mut pos: Pos, mut mvs: Vec<mv::Mv>) {
             search::SearchRes::TimeOut => panic!("Timeout"),
             search::SearchRes::Leaf(..) => continue,
             search::SearchRes::NoPonderNode(mv, ..) | search::SearchRes::Node(mv, ..) => {
-                if mv == *mvs.last().unwrap() {
+                if mv.loose_eq(mvs.last().unwrap()) {
                     correct_mvs += 1;
                 }
             }
@@ -89,13 +121,17 @@ fn solve_puzzle(mut pos: Pos, mut mvs: Vec<mv::Mv>) {
         if correct_mvs >= MIN_CORRECT_MVS {
             let mut correct = mvs.pop().unwrap();
             if mvs.len() == 0 {
-                return;
+                return true;
             }
             let (_legal, guard) = make::make(&mut pos, &mut correct, false);
             unsafe {
                 guard.verified_drop();
             }
+            depth = 1;
+            continue;
         }
+
         depth += 1;
     }
+    false
 }

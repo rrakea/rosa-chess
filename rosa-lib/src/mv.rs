@@ -181,7 +181,9 @@ impl Mv {
             _ => None,
         };
 
-        let piece = p.piece_at_sq(start).unwrap();
+        let piece = p
+            .piece_at_sq(start)
+            .expect(format!("String: \"{mv_str}\", Pos:\n{p}").as_str());
         let op_piece = p.piece_at_sq(end);
 
         let mut mv: Mv;
@@ -351,6 +353,14 @@ impl Mv {
     pub fn set_old_ep_file(&mut self, file: u8) {
         self.0 &= !OLD_EP_FILE;
         self.0 |= (file as u32) << OLD_EP_FILE_OFFSET
+    }
+
+    pub fn loose_eq(&self, other: &Mv) -> bool {
+        let tmp = self.sq() == other.sq() && self.flag() == other.flag();
+        if tmp && self.is_prom() {
+            return self.prom_piece() == other.prom_piece();
+        }
+        tmp
     }
 }
 
