@@ -22,7 +22,6 @@ Likes to move king early
 
 ### Short Term
 
-- Promotion mv gen separate + mv ordering?
 - Optimize TT entry size
 - Make magic init run at comptime
 - Make eval init run at comptime
@@ -33,6 +32,7 @@ Likes to move king early
 - Better Draw checks in eval
 - Delta pruning
 - Check tt during quies
+- Check if mv == mv is used somewhere, where mv.fuzzy_compare should be used
 
 ### Long Term
 
