@@ -22,8 +22,9 @@ use std::collections::BinaryHeap;
 
 pub fn gen_mvs(p: &Pos) -> BinaryHeap<Mv> {
     let mut heap = gen_mvs_stages(p, MvGenStage::Quite);
-    heap.append(&mut gen_mvs_stages(p, MvGenStage::Quite));
+    heap.append(&mut gen_mvs_stages(p, MvGenStage::Cap));
     heap.append(&mut gen_mvs_stages(p, MvGenStage::Prom));
+    heap.append(&mut gen_mvs_stages(p, MvGenStage::PromCap));
     heap
 }
 
@@ -35,8 +36,9 @@ pub enum MvGenStage {
 }
 
 pub fn gen_mvs_iter(p: &Pos) -> Box<dyn Iterator<Item = Mv>> {
-    let iter = gen_mvs_stages(p, MvGenStage::Prom)
+    let iter = gen_mvs_stages(p, MvGenStage::PromCap)
         .into_iter()
+        .chain(gen_mvs_stages(p, MvGenStage::Prom))
         .chain(gen_mvs_stages(p, MvGenStage::Cap))
         .chain(gen_mvs_stages(p, MvGenStage::Quite));
     Box::new(iter)
@@ -46,8 +48,9 @@ pub fn pv_gen_mvs_iter(p: &Pos, pv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>> 
     match pv {
         None => gen_mvs_iter(p),
         Some(pv_move) => {
-            let iter = gen_mvs_stages(p, MvGenStage::Prom)
+            let iter = gen_mvs_stages(p, MvGenStage::PromCap)
                 .into_iter()
+                .chain(gen_mvs_stages(p, MvGenStage::Prom))
                 .chain(gen_mvs_stages(p, MvGenStage::Cap))
                 .chain(gen_mvs_stages(p, MvGenStage::Quite))
                 .filter(move |mv| mv != &pv_move);
