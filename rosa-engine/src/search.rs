@@ -232,7 +232,8 @@ fn negascout(
 
     // mv_gen is only called if tt_mv == None
     // -> If tt mv produces a cutoff, we never do mv_gen
-    let mut iter = get_mv_iter(p, tt_mv).into_iter();
+    // This excludes the pv move from move generation to not calculate it twice
+    let mut iter = mv_gen::pv_gen_mvs_iter(p, tt_mv);
 
     let mut score;
     let mut best_mvs: (Mv, Option<Mv>);
@@ -467,40 +468,6 @@ fn parse_tt(key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32) -> TtRes {
             }
             return TtRes::MvHint(entry.mv, false);
         }
-    }
-}
-
-/// Get the move iter depending on the move we got from the transposition table
-/// -> We have to exclude it if tt lookup was succesful
-#[inline(always)]
-fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>> {
-    // Generating the move iter
-    match best_mv {
-        None => Box::new(
-            mv_gen::gen_mvs_stages(p, true)
-                .into_iter()
-                .chain(mv_gen::gen_mvs_stages(p, false)),
-        ),
-        // Since we dont need to check the non cap mvs if pv is a cap
-        Some(pv) => match pv.is_cap() {
-            true => Box::new(
-                std::iter::once(pv).chain(
-                    mv_gen::gen_mvs_stages(p, true)
-                        .into_iter()
-                        .filter(move |m| m != &pv)
-                        .chain(mv_gen::gen_mvs_stages(p, false)),
-                ),
-            ),
-            false => Box::new(
-                std::iter::once(pv).chain(
-                    mv_gen::gen_mvs_stages(p, true).into_iter().chain(
-                        mv_gen::gen_mvs_stages(p, false)
-                            .into_iter()
-                            .filter(move |m| m != &pv),
-                    ),
-                ),
-            ),
-        },
     }
 }
 

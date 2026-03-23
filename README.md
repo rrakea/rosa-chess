@@ -33,6 +33,7 @@ Likes to move king early
 - Better Draw checks in eval
 - Delta pruning
 - Check tt during quies
+- Check if mv == mv is used somewhere, where mv.fuzzy_compare should be used
 
 ### Long Term
 

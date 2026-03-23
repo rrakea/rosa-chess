@@ -21,25 +21,69 @@ use rosa_lib::util;
 use std::collections::BinaryHeap;
 
 pub fn gen_mvs(p: &Pos) -> BinaryHeap<Mv> {
-    let mut heap = gen_mvs_stages(p, false);
-    heap.append(&mut gen_mvs_stages(p, true));
+    let mut heap = gen_mvs_stages(p, MvGenStage::Quite);
+    heap.append(&mut gen_mvs_stages(p, MvGenStage::Quite));
+    heap.append(&mut gen_mvs_stages(p, MvGenStage::Prom));
     heap
 }
 
-pub fn gen_mvs_stages(p: &Pos, cap: bool) -> BinaryHeap<Mv> {
+pub enum MvGenStage {
+    PromCap,
+    Prom,
+    Cap,
+    Quite,
+}
+
+pub fn gen_mvs_iter(p: &Pos) -> Box<dyn Iterator<Item = Mv>> {
+    let iter = gen_mvs_stages(p, MvGenStage::Prom)
+        .into_iter()
+        .chain(gen_mvs_stages(p, MvGenStage::Cap))
+        .chain(gen_mvs_stages(p, MvGenStage::Quite));
+    Box::new(iter)
+}
+
+pub fn pv_gen_mvs_iter(p: &Pos, pv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>> {
+    match pv {
+        None => gen_mvs_iter(p),
+        Some(pv_move) => {
+            let iter = gen_mvs_stages(p, MvGenStage::Prom)
+                .into_iter()
+                .chain(gen_mvs_stages(p, MvGenStage::Cap))
+                .chain(gen_mvs_stages(p, MvGenStage::Quite))
+                .filter(move |mv| mv != &pv_move);
+            Box::new(iter)
+        }
+    }
+}
+
+pub fn gen_mvs_stages(p: &Pos, stage: MvGenStage) -> BinaryHeap<Mv> {
     let mut mvs = BinaryHeap::with_capacity(8);
-    gen_mv_from_piece(p, &mut mvs, Piece::Knight, cap);
-    gen_mv_from_piece(p, &mut mvs, Piece::Bishop, cap);
-    gen_mv_from_piece(p, &mut mvs, Piece::Rook, cap);
-    gen_mv_from_piece(p, &mut mvs, Piece::Queen, cap);
-    gen_mv_from_piece(p, &mut mvs, Piece::King, cap);
-    gen_mv_from_piece(p, &mut mvs, Piece::Pawn, cap);
-    gen_prom(p, &mut mvs, cap);
-    if cap {
-        gen_ep(p, &mut mvs);
-    } else {
-        gen_castle(p, &mut mvs);
-        gen_pawn_double(p, &mut mvs);
+    match stage {
+        MvGenStage::PromCap => {
+            gen_prom(p, &mut mvs, true);
+        }
+        MvGenStage::Prom => {
+            gen_prom(p, &mut mvs, false);
+        }
+        MvGenStage::Cap => {
+            gen_ep(p, &mut mvs);
+            gen_mv_from_piece(p, &mut mvs, Piece::Knight, true);
+            gen_mv_from_piece(p, &mut mvs, Piece::Bishop, true);
+            gen_mv_from_piece(p, &mut mvs, Piece::Rook, true);
+            gen_mv_from_piece(p, &mut mvs, Piece::Queen, true);
+            gen_mv_from_piece(p, &mut mvs, Piece::King, true);
+            gen_mv_from_piece(p, &mut mvs, Piece::Pawn, true);
+        }
+        MvGenStage::Quite => {
+            gen_pawn_double(p, &mut mvs);
+            gen_mv_from_piece(p, &mut mvs, Piece::Knight, false);
+            gen_mv_from_piece(p, &mut mvs, Piece::Bishop, false);
+            gen_mv_from_piece(p, &mut mvs, Piece::Rook, false);
+            gen_mv_from_piece(p, &mut mvs, Piece::Queen, false);
+            gen_mv_from_piece(p, &mut mvs, Piece::King, false);
+            gen_mv_from_piece(p, &mut mvs, Piece::Pawn, false);
+            gen_castle(p, &mut mvs);
+        }
     }
     mvs
 }
