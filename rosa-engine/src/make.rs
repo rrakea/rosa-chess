@@ -25,7 +25,36 @@ pub enum Legal {
     ILLEGAL,
 }
 
-pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard) {
+pub fn make(p: &mut Pos, mv: &mut Mv) -> (Legal, MakeGuard) {
+    let color = p.clr();
+    let (start, end) = mv.sq();
+
+    unchecked_make(p, mv);
+    let guard = MakeGuard {};
+
+    // If the king of the moving player is not attacked, the
+    // position afterwards is legal
+    let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
+    if square_attacked(p, color, king_pos) {
+        return (Legal::ILLEGAL, guard);
+    }
+
+    if mv.is_castle() {
+        if square_attacked(p, color, start) {
+            return (Legal::ILLEGAL, guard);
+        }
+
+        // Cant be uneven
+        let square_after_king = (start as i8 + end as i8) >> 1;
+        if square_attacked(p, color, square_after_king as u8) {
+            return (Legal::ILLEGAL, guard);
+        }
+    }
+
+    return (Legal::LEGAL, guard);
+}
+
+pub fn unchecked_make(p: &mut Pos, mv: &mut Mv) {
     let color = p.clr();
     let op_color = color.flip();
     let mut castle = p.castle();
@@ -131,35 +160,10 @@ pub fn make(p: &mut Pos, mv: &mut Mv, check_legality: bool) -> (Legal, MakeGuard
     p.set_ep(ep);
 
     p.repetition.push(p.key());
-
-    // If the king of the moving player is not attacked, the
-    // position afterwards is legal
-    if check_legality {
-        let king_pos = p.piece(Piece::King.clr(color)).get_ones_single();
-        if square_attacked(p, color, king_pos) {
-            return (Legal::ILLEGAL, MakeGuard {});
-        }
-
-        if mv.is_castle() {
-            if square_attacked(p, color, start) {
-                return (Legal::ILLEGAL, MakeGuard {});
-            }
-
-            // Cant be uneven
-            let square_after_king = (start as i8 + end as i8) >> 1;
-            if square_attacked(p, color, square_after_king as u8) {
-                return (Legal::ILLEGAL, MakeGuard {});
-            }
-        }
-    }
-    (Legal::LEGAL, MakeGuard {})
 }
 
 pub fn unmake(p: &mut Pos, mv: Mv, guard: MakeGuard) {
-    // SAFETY: Currently in unmake
-    unsafe {
-        guard.verified_drop();
-    }
+    guard.verified_drop();
     let color = p.clr().flip();
     let op_color = p.clr();
 
@@ -236,10 +240,7 @@ pub fn make_null(p: &mut Pos) -> (Legal, Option<u8>, MakeGuard) {
 }
 
 pub fn unmake_null(p: &mut Pos, was_ep: Option<u8>, guard: MakeGuard) {
-    // SAFETY: Currently in unmake
-    unsafe {
-        guard.verified_drop();
-    }
+    guard.verified_drop();
     p.flip_color();
     p.set_ep(was_ep);
     p.repetition.pop();
@@ -298,10 +299,19 @@ pub fn square_attacked(p: &Pos, victim_clr: Clr, sq: u8) -> bool {
     false
 }
 
+impl std::convert::From<bool> for Legal {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Legal::LEGAL,
+            false => Legal::ILLEGAL,
+        }
+    }
+}
+
 pub struct MakeGuard {}
 
 impl MakeGuard {
-    pub unsafe fn verified_drop(self) {
+    fn verified_drop(self) {
         std::mem::forget(self);
     }
 }

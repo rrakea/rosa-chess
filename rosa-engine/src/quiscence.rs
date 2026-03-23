@@ -35,7 +35,7 @@ pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
 
     let iter = mv_gen::gen_mvs_stages(&pos, true);
     for mut mv in iter {
-        let (legal, guard) = make::make(pos, &mut mv, true);
+        let (legal, guard) = make::make(pos, &mut mv);
         let score;
         match legal {
             make::Legal::ILLEGAL => {

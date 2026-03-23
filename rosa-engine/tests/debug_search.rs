@@ -66,7 +66,7 @@ fn not_so_thorough_search(p: &mut pos::Pos, depth: u8) -> u64 {
 
     for mut mv in iter {
         let prev_key = p.key();
-        let (legal, guard) = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv);
         if legal == make::Legal::ILLEGAL {
             make::unmake(p, mv, guard);
             if p.key() != prev_key {
@@ -127,9 +127,7 @@ fn thorough_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) -> u
         let prev_key = p.key();
         let prev_pos = p.clone();
         // Ugly, but the only way to keep a list of made moves
-        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            make::make(p, &mut mv, true)
-        }));
+        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| make::make(p, &mut mv)));
         let guard;
         match err {
             Ok((legal, ok_guard)) => {

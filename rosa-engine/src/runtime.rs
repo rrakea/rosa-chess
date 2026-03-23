@@ -63,12 +63,9 @@ impl State {
             State::UnInit => {
                 init();
                 let pos = fen::starting_pos(Vec::new());
-                return State::Init(pos);
+                State::Init(pos)
             }
-            _ => {
-                //println!("Init while already initialized");
-                return self;
-            }
+            _ => self,
         }
     }
 
@@ -77,10 +74,9 @@ impl State {
         match self {
             State::UnInit => {
                 self = self.init();
-                return self.start_search(state);
+                self.start_search(state)
             }
             State::Init(p) => {
-                if matches!(state, StartSearch::Ponder(..)) {}
                 let search_state = match state {
                     StartSearch::Ponder(_dur) => {
                         panic!("Pondering without having searched first")
@@ -89,23 +85,25 @@ impl State {
                     StartSearch::Untimed => SearchState::Untimed,
                 };
                 let (rec, stop) = thread_search::start_thread_search(&p);
-                return State::Search(p, search_state, rec, stop);
+                State::Search(p, search_state, rec, stop)
             }
             State::Pause(mut p, mut ponder) => {
                 let (rec, stop) = thread_search::start_thread_search(&p);
                 let search_state = match state {
                     StartSearch::Ponder(dur) => {
-                        let (_legal, guard) = make::make(&mut p, &mut ponder, false);
+                        // If search is paused we wait for a ponder move
+                        // -> Save ponder move in
+                        let (_legal, guard) = make::make(&mut p, &mut ponder);
                         SearchState::Ponder(dur, ponder, guard)
                     }
                     StartSearch::Timed(dur) => SearchState::Timed(Instant::now(), dur),
                     StartSearch::Untimed => SearchState::Untimed,
                 };
-                return State::Search(p, search_state, rec, stop);
+                State::Search(p, search_state, rec, stop)
             }
             State::Search(..) => {
                 self = self.pause_search();
-                return self.start_search(state);
+                self.start_search(state)
             }
             State::NoLegalMovesPause(..) => {
                 panic!("No legal moves in this position")
@@ -116,8 +114,11 @@ impl State {
     #[must_use]
     fn pause_search(self) -> Self {
         match self {
-            State::Search(p, _, rec, mut stop) => {
+            State::Search(mut p, search_state, rec, mut stop) => {
                 stop.stop_search();
+                if let SearchState::Ponder(_, mv, guard) = search_state {
+                    make::unmake(&mut p, mv, guard);
+                }
                 let ponder = rec.recv().unwrap();
                 match ponder {
                     Some(pon) => {
@@ -128,24 +129,18 @@ impl State {
                     }
                 }
             }
-            _ => {
-                println!("Pause while not searching");
-                return self;
-            }
+            _ => self,
         }
     }
 
     #[must_use]
     fn ponder_hit(self) -> Self {
-        if let State::Search(p, SearchState::Ponder(dur, _, guard), rec, stop) = self {
-            // SAFETY: The move has been played -> we no longer need to unmake it
-            unsafe {
-                guard.verified_drop();
-            }
+        if let State::Search(mut p, SearchState::Ponder(dur, mut mv, guard), rec, stop) = self {
+            make::unmake(&mut p, mv, guard);
+            make::unchecked_make(&mut p, &mut mv);
             return State::Search(p, SearchState::Timed(Instant::now(), dur), rec, stop);
-        } else {
-            panic!("Ponder hit while not pondering")
         }
+        panic!("Ponder hit while not pondering")
     }
 
     fn get_timeout(&self) -> Duration {
@@ -157,7 +152,7 @@ impl State {
                 return *dur - elapsed;
             }
         }
-        return Duration::from_millis(u64::MAX);
+        Duration::from_millis(u64::MAX)
     }
 
     fn get_pos(&self) -> &Pos {
@@ -165,7 +160,7 @@ impl State {
             State::Init(p)
             | State::Pause(p, _)
             | State::NoLegalMovesPause(p)
-            | State::Search(p, _, _, _) => return p,
+            | State::Search(p, _, _, _) => p,
             State::UnInit => panic!("Command used before initialized (isready)"),
         }
     }
@@ -276,11 +271,7 @@ pub fn start() {
                 let mut mv = Mv::new_from_str(mv, &pos);
                 println!("{:?}", mv);
 
-                let (_, guard) = make::make(&mut pos, &mut mv, false);
-                // SAFETY: The user wants to actually make these moves
-                unsafe {
-                    guard.verified_drop();
-                }
+                make::make(&mut pos, &mut mv);
 
                 state = state.set_pos(pos);
             }

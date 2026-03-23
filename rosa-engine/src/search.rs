@@ -134,10 +134,7 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
         // Only sende no ponder move is there really is no legal move
         if ponder.is_none() {
             let mut p = p.clone();
-            let (_, guard) = make::make(&mut p, &mut best_mv, false);
-            unsafe {
-                guard.verified_drop();
-            }
+            make::unchecked_make(&mut p, &mut best_mv);
             // Ponder is in TT
             if let Some(entry) = TT.get(p.key())
                 && entry.key == p.key()
@@ -248,7 +245,7 @@ fn negascout(
             None => return no_legal_moves(p),
         };
         // Process PV move
-        let (legal, pv_guard) = make::make(p, &mut pv, true);
+        let (legal, pv_guard) = make::make(p, &mut pv);
         if legal == Legal::ILLEGAL {
             make::unmake(p, pv, pv_guard);
             continue;
@@ -295,7 +292,7 @@ fn negascout(
     // Check the rest of the moves using scout
     let mut lmr_stable = true;
     for (i, mut m) in iter.enumerate() {
-        let (legal, make_guard) = make::make(p, &mut m, true);
+        let (legal, make_guard) = make::make(p, &mut m);
         if legal == make::Legal::ILLEGAL {
             make::unmake(p, m, make_guard);
             continue;
@@ -531,7 +528,7 @@ pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
     let mut moves = Vec::new();
 
     for mut mv in mv_gen::gen_mvs(p) {
-        let (legal, guard) = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv);
         make::unmake(p, mv, guard);
         if legal == make::Legal::ILLEGAL {
             continue;
@@ -550,13 +547,13 @@ pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
 }
 
 fn div_search_helper(p: &mut pos::Pos, depth: u8) -> u64 {
-    if depth <= 0 {
+    if depth == 0 {
         return 1;
     }
 
     let mut total = 0;
     for mut mv in mv_gen::gen_mvs(p) {
-        let (legal, guard) = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv);
         make::unmake(p, mv, guard);
         if legal == make::Legal::ILLEGAL {
             continue;
