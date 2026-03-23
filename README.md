@@ -22,7 +22,6 @@ Likes to move king early
 
 ### Short Term
 
-- Promotion mv gen separate + mv ordering?
 - Optimize TT entry size
 - Make magic init run at comptime
 - Make eval init run at comptime
