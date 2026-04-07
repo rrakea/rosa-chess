@@ -95,11 +95,7 @@ fn thread_handler(p: pos::Pos, tx: channel::Sender<Option<Mv>>, stop: Stop) {
             // b) We have just played a checkmating move
             // -> The resulting position has no legal moves
             let mut p_after_move = p.clone();
-            let (_, guard) = make::make(&mut p_after_move, &mut pv, false);
-            // SAFETY: Debug code working on a clone
-            unsafe {
-                guard.verified_drop();
-            }
+            make::make(&mut p_after_move, &mut pv);
             println!("bestmove {}", pv);
             tx.send(None).unwrap();
         }

@@ -3,6 +3,8 @@
 use rosa_engine::make;
 use rosa_engine::make::Legal;
 use rosa_engine::mv;
+use rosa_engine::mv::mv_gen;
+use rosa_engine::mv::mv_gen::MvGenStage;
 use rosa_engine::search::TT;
 
 use rosa_lib::mv::Mv;
@@ -55,18 +57,9 @@ fn not_so_thorough_search(p: &mut pos::Pos, depth: u8) -> u64 {
 
     let mut count: u64 = 0;
 
-    let iter = mv::mv_gen::gen_mvs_stages(p, true)
-        .into_iter()
-        .inspect(|m| assert!(m.is_cap()))
-        .chain(
-            mv::mv_gen::gen_mvs_stages(p, false)
-                .into_iter()
-                .inspect(|m| assert!(!m.is_cap())),
-        );
-
-    for mut mv in iter {
+    for mut mv in mv_gen::gen_mvs_iter(p) {
         let prev_key = p.key();
-        let (legal, guard) = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv);
         if legal == make::Legal::ILLEGAL {
             make::unmake(p, mv, guard);
             if p.key() != prev_key {
@@ -127,9 +120,7 @@ fn thorough_search(p: &mut pos::Pos, depth: u8, previous_mvs: &mut Vec<Mv>) -> u
         let prev_key = p.key();
         let prev_pos = p.clone();
         // Ugly, but the only way to keep a list of made moves
-        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            make::make(p, &mut mv, true)
-        }));
+        let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| make::make(p, &mut mv)));
         let guard;
         match err {
             Ok((legal, ok_guard)) => {

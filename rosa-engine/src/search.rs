@@ -134,10 +134,7 @@ pub fn search(mut p: pos::Pos, sender: mpsc::Sender<ThreadReport>, stop: Stop) {
         // Only sende no ponder move is there really is no legal move
         if ponder.is_none() {
             let mut p = p.clone();
-            let (_, guard) = make::make(&mut p, &mut best_mv, false);
-            unsafe {
-                guard.verified_drop();
-            }
+            make::unchecked_make(&mut p, &mut best_mv);
             // Ponder is in TT
             if let Some(entry) = TT.get(p.key())
                 && entry.key == p.key()
@@ -235,7 +232,8 @@ fn negascout(
 
     // mv_gen is only called if tt_mv == None
     // -> If tt mv produces a cutoff, we never do mv_gen
-    let mut iter = get_mv_iter(p, tt_mv).into_iter();
+    // This excludes the pv move from move generation to not calculate it twice
+    let mut iter = mv_gen::pv_gen_mvs_iter(p, tt_mv);
 
     let mut score;
     let mut best_mvs: (Mv, Option<Mv>);
@@ -248,7 +246,7 @@ fn negascout(
             None => return no_legal_moves(p),
         };
         // Process PV move
-        let (legal, pv_guard) = make::make(p, &mut pv, true);
+        let (legal, pv_guard) = make::make(p, &mut pv);
         if legal == Legal::ILLEGAL {
             make::unmake(p, pv, pv_guard);
             continue;
@@ -295,7 +293,7 @@ fn negascout(
     // Check the rest of the moves using scout
     let mut lmr_stable = true;
     for (i, mut m) in iter.enumerate() {
-        let (legal, make_guard) = make::make(p, &mut m, true);
+        let (legal, make_guard) = make::make(p, &mut m);
         if legal == make::Legal::ILLEGAL {
             make::unmake(p, m, make_guard);
             continue;
@@ -473,40 +471,6 @@ fn parse_tt(key: tt::Key, depth: u8, alpha: &mut i32, beta: &mut i32) -> TtRes {
     }
 }
 
-/// Get the move iter depending on the move we got from the transposition table
-/// -> We have to exclude it if tt lookup was succesful
-#[inline(always)]
-fn get_mv_iter(p: &pos::Pos, best_mv: Option<Mv>) -> Box<dyn Iterator<Item = Mv>> {
-    // Generating the move iter
-    match best_mv {
-        None => Box::new(
-            mv_gen::gen_mvs_stages(p, true)
-                .into_iter()
-                .chain(mv_gen::gen_mvs_stages(p, false)),
-        ),
-        // Since we dont need to check the non cap mvs if pv is a cap
-        Some(pv) => match pv.is_cap() {
-            true => Box::new(
-                std::iter::once(pv).chain(
-                    mv_gen::gen_mvs_stages(p, true)
-                        .into_iter()
-                        .filter(move |m| m != &pv)
-                        .chain(mv_gen::gen_mvs_stages(p, false)),
-                ),
-            ),
-            false => Box::new(
-                std::iter::once(pv).chain(
-                    mv_gen::gen_mvs_stages(p, true).into_iter().chain(
-                        mv_gen::gen_mvs_stages(p, false)
-                            .into_iter()
-                            .filter(move |m| m != &pv),
-                    ),
-                ),
-            ),
-        },
-    }
-}
-
 /// How many moves to do before starting late move reductions
 const LMR_MOVES: usize = 2;
 
@@ -531,7 +495,7 @@ pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
     let mut moves = Vec::new();
 
     for mut mv in mv_gen::gen_mvs(p) {
-        let (legal, guard) = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv);
         make::unmake(p, mv, guard);
         if legal == make::Legal::ILLEGAL {
             continue;
@@ -550,13 +514,13 @@ pub fn debug_division_search(p: &mut pos::Pos, depth: u8) {
 }
 
 fn div_search_helper(p: &mut pos::Pos, depth: u8) -> u64 {
-    if depth <= 0 {
+    if depth == 0 {
         return 1;
     }
 
     let mut total = 0;
     for mut mv in mv_gen::gen_mvs(p) {
-        let (legal, guard) = make::make(p, &mut mv, true);
+        let (legal, guard) = make::make(p, &mut mv);
         make::unmake(p, mv, guard);
         if legal == make::Legal::ILLEGAL {
             continue;

@@ -17,7 +17,7 @@
 
 use rosa_lib::pos::Pos;
 
-use crate::{eval, make, mv::mv_gen};
+use crate::{eval, make, mv::mv_gen, mv::mv_gen::MvGenStage};
 
 pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
     let stand_pat = eval::eval(pos);
@@ -33,9 +33,12 @@ pub fn quiscence_search(pos: &mut Pos, mut alpha: i32, beta: i32) -> i32 {
         alpha = best;
     }
 
-    let iter = mv_gen::gen_mvs_stages(&pos, true);
+    // We dont do quite moves during quiscence (except non capture promotions)
+    let mut iter = mv_gen::gen_mvs_stages(pos, MvGenStage::Cap);
+    iter.append(&mut mv_gen::gen_mvs_stages(pos, MvGenStage::Prom));
+
     for mut mv in iter {
-        let (legal, guard) = make::make(pos, &mut mv, true);
+        let (legal, guard) = make::make(pos, &mut mv);
         let score;
         match legal {
             make::Legal::ILLEGAL => {
