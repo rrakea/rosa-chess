@@ -161,7 +161,7 @@ fn init_movemasks(piece: Piece) {
             unsafe {
                 // Safe the blockers for later so we dont have to calc this twice
                 // The arrays will be partially empty, we check for that and break early
-                if piece == Piece::Rook{
+                if piece == Piece::Rook {
                     ROOK_BLOCKERS[sq][blocker_index as usize] = blocker;
                 } else {
                     BISHOP_BLOCKERS[sq][blocker_index as usize] = blocker;
@@ -169,7 +169,7 @@ fn init_movemasks(piece: Piece) {
             };
 
             // Calculate all the possible moves
-            let directions = if piece == Piece::Rook{
+            let directions = if piece == Piece::Rook {
                 constants::ROOK_OFFSETS
             } else {
                 constants::BISHOP_OFFSETS
@@ -179,7 +179,7 @@ fn init_movemasks(piece: Piece) {
             let move_mask = magic_init::gen_move_mask(sq, &directions, 8, blocker, false);
 
             unsafe {
-                if piece == Piece::Rook{
+                if piece == Piece::Rook {
                     ROOK_MOVE_WITH_BLOCKERS[sq][blocker_index as usize] = move_mask;
                 } else {
                     BISHOP_MOVE_WITH_BLOCKERS[sq][blocker_index as usize] = move_mask;
