@@ -1,3 +1,4 @@
+**Migrated to https://codeberg.org/rrakea/rosa-chess Not mirrored**
 # Rosa Chess
 
 Chess engine written in rust  
